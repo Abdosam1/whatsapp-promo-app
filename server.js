@@ -1,3 +1,6 @@
+// أضف هذا السطر في البداية جداً ليتم تحميل المتغيرات من ملف .env
+require('dotenv').config(); 
+
 // ================================================================= //
 // ==================== 1. الإعدادات والمكتبات ===================== //
 // ================================================================= //
@@ -19,26 +22,30 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, { cors: { origin: '*' } });
-const PORT   = 3001; // <--- PORT معدل لـ VPS
+// استخدام متغير البيئة أو القيمة الافتراضية
+const PORT   = process.env.PORT || 3001; 
 
 // secrets & configs
-const JWT_SECRET          = 'YOUR_VERY_SECRET_KEY';
-const ADMIN_SECRET_KEY    = 'MySuperAdminSecretForActivation_2025_xyz789';
-const ADMIN_EMAIL         = 'abdo140693@gmail.com';
+const JWT_SECRET          = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
+const ADMIN_SECRET_KEY    = process.env.ADMIN_SECRET_KEY || 'MySuperAdminSecretForActivation_2025_xyz789';
+const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; // الإيميل الذي يستقبل الإشعارات
+const SENDER_EMAIL        = process.env.SENDER_EMAIL || 'contact@autosendpro.net'; // الإيميل الذي يرسل منه
 const usersDbPath         = path.join(__dirname, 'users.json');
 
-// nodemailer transporter
+// nodemailer transporter (باستخدام إعدادات SMTP للدومين)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.SMTP_HOST || "mail.autosendpro.net", 
+  port: process.env.SMTP_PORT || 465,                     
+  secure: (process.env.SMTP_PORT || 465) == 465,         
   auth: {
-    user: ADMIN_EMAIL,
-    pass: 'sggc rkdz pqth cetm'
+    user: SENDER_EMAIL,
+    pass: process.env.SENDER_PASS || 'YOUR_DEFAULT_SMTP_PASSWORD' 
   }
 });
 
 // ================================================================= //
 // ===================== 2. إعداد قاعدة SQLite ===================== //
-// ================================================================= //
+// ... (باقي كود Section 2)
 const dbFile = path.join(__dirname, "main_data.db");
 const db     = new sqlite3.Database(dbFile);
 db.serialize(() => {
@@ -65,20 +72,18 @@ db.serialize(() => {
 
 // ================================================================= //
 // ========================= 3. Middlewares ========================= //
-// ================================================================= //
+// ... (باقي كود Section 3)
 app.use(cors());
 app.use(express.json());
 
 const authMiddleware       = require('./middleware/auth');
-const checkSubscription    = require('./middleware/checkSubscription'); // هذا للمسارات الـ API (JSON 403)
+const checkSubscription    = require('./middleware/checkSubscription'); 
 
-// إنشاء مجلد promos إذا لم يكن موجود
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 if (!fs.existsSync(promosUploadFolder)) {
   fs.mkdirSync(promosUploadFolder, { recursive: true });
 }
 
-// multer للصور و CSV
 const uploadPromoImage = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, promosUploadFolder),
@@ -89,7 +94,7 @@ const uploadCSV = multer({ dest: "uploads/" });
 
 // ================================================================= //
 // ======================= 4. دوال مساعدة =========================== //
-// ================================================================= //
+// ... (باقي الدوال)
 function generateActivationCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -383,7 +388,7 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
   writeUsersToFile(users);
 
   const mailOptions = {
-    from: ADMIN_EMAIL,
+    from: SENDER_EMAIL, // <--- تم التعديل لاستخدام إيميل الإرسال
     to: ADMIN_EMAIL,
     subject: `طلب اشتراك جديد: ${durationName}`,
     html: `
@@ -464,233 +469,12 @@ app.get("/api/check-status", authMiddleware, (req, res) => {
 
 // ================================================================= //
 // ================== 8. مسارات الـ CRUD و الـ API ==================== //
-// ================================================================= //
-
-// --- مسار لإضافة عرض جديد (POST /addPromo) ---
-app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
-    const userId = req.userData.userId;
-    const text   = req.body.text;
-    const image  = req.file ? req.file.filename : null; // اسم الملف من multer
-
-    if (!text || !image) {
-        return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
-    }
-
-    try {
-        const promos = readPromos(userId);
-        const newPromo = {
-            id: Date.now(),
-            text,
-            image,
-            createdAt: new Date().toISOString()
-        };
-        promos.push(newPromo);
-        writePromos(userId, promos);
-
-        res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
-    } catch (error) {
-        res.status(500).json({ message: "خطأ في السيرفر أثناء إضافة العرض." });
-    }
-});
-
-// --- مسار للحصول على العروض (GET /promos) ---
-app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
-    try {
-        const promos = readPromos(req.userData.userId);
-        // التعديل: التأكد من إرجاع Array حتى لو كانت فارغة
-        res.status(200).json(promos || []); 
-    } catch (error) {
-        res.status(500).json({ message: "خطأ في السيرفر أثناء جلب العروض." });
-    }
-});
-
-// --- مسار لحذف عرض (DELETE /deletePromo/:id) ---
-app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-    const userId = req.userData.userId;
-    const promoId = parseInt(req.params.id, 10);
-    try {
-        const promos = readPromos(userId);
-        const promoIndex = promos.findIndex(p => p.id === promoId);
-
-        if (promoIndex === -1) {
-            return res.status(404).json({ message: "العرض غير موجود." });
-        }
-
-        // حذف الصورة من القرص
-        const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
-
-        promos.splice(promoIndex, 1);
-        writePromos(userId, promos);
-        res.status(200).json({ message: "تم حذف العرض بنجاح." });
-    } catch (error) {
-        res.status(500).json({ message: "خطأ في السيرفر أثناء حذف العرض." });
-    }
-});
-
-// --- مسار جلب العملاء الأساسيين (GET /contacts) ---
-app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
-    const ownerId = req.userData.userId;
-    db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        }
-        res.status(200).json(rows || []);
-    });
-});
-
-// --- مسار جلب العملاء المستوردين (GET /imported-contacts) ---
-app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
-    const ownerId = req.userData.userId;
-    db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        }
-        res.status(200).json(rows || []);
-    });
-});
-
-// --- مسار لحذف عميل (DELETE /delete/:table/:id) ---
-app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) => {
-    const userId = req.userData.userId;
-    const table = req.params.table;
-    const id = parseInt(req.params.id, 10);
-
-    if (table !== 'clients' && table !== 'imported_clients') {
-        return res.status(400).json({ message: "جدول غير صالح." });
-    }
-
-    db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء الحذف." });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ message: "لم يتم العثور على العميل." });
-        }
-        res.status(200).json({ message: "تم حذف العميل بنجاح." });
-    });
-});
-
-// --- مسار لحذف جميع العملاء المستوردين (DELETE /deleteAll/imported_clients) ---
-app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (req, res) => {
-    const userId = req.userData.userId;
-    db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء حذف الكل." });
-        }
-        res.status(200).json({ message: `تم حذف ${this.changes} عميل مستورد.` });
-    });
-});
-
-// --- مسار استيراد ملف CSV (POST /import-csv) ---
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
-    const userId = req.userData.userId;
-    const filePath = req.file.path;
-    const results = [];
-    let importedCount = 0;
-
-    fs.createReadStream(filePath)
-        .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
-        .on('data', (data) => {
-            const phone = String(data.phone).replace(/\D/g, ""); // إزالة أي شيء غير رقم
-            if (phone.length >= 8) { // تحقق من طول رقم الهاتف
-                results.push(phone);
-            }
-        })
-        .on('end', () => {
-            fs.unlinkSync(filePath); // حذف الملف المؤقت
-
-            if (results.length === 0) {
-                return res.status(400).json({ message: "لا يوجد أرقام هواتف صالحة للاستيراد." });
-            }
-
-            db.serialize(() => {
-                const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
-                results.forEach(phone => {
-                    stmt.run(phone, userId, function(err) {
-                        if (!err && this.changes > 0) {
-                            importedCount++;
-                        }
-                    });
-                });
-                stmt.finalize(() => {
-                    res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
-                });
-            });
-        })
-        .on('error', (err) => {
-            fs.unlinkSync(filePath);
-            res.status(500).json({ message: "خطأ أثناء معالجة ملف CSV." });
-        });
-});
-
-
-// --- مسار لحذف جلسة واتساب (WhatsApp Logout) ---
-app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
-    const userId = req.userData.userId;
-    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
-    
-    try {
-        // حذف مجلد الجلسة بالكامل
-        if (fs.existsSync(sessionPath)) {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log(`[WhatsApp Logout] Session deleted for user ${userId}`);
-        }
-        res.status(200).json({ message: "WhatsApp session deleted." });
-    } catch (error) {
-        console.error(`Error deleting WhatsApp session for ${userId}:`, error);
-        res.status(500).json({ message: "Failed to delete WhatsApp session." });
-    }
-});
-
-
+// ... (باقي كود Section 8)
+// ...
 // ================================================================= //
 // ========= 9. صفحات الويب: Activate & Dashboard + Static ========== //
-// ================================================================= //
-
-// صفحة الداشبورد (for browser)
-app.get('/dashboard', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId);
-  
-  if (!user) return res.redirect('/activate'); 
-  
-  // التحقق: إذا لم يكن لديه اشتراك مدفوع فعال، حوله للتفعيل
-  if (!isSubscriptionActive(user)) {
-    return res.redirect('/activate');
-  }
-  
-  // إذا كان لديه اشتراك مدفوع، يظهر له الداشبورد
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
-// صفحة التفعيل (for browser)
-app.get('/activate', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId);
-  
-  if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
-
-  // التحقق: إذا كان لديه اشتراك مدفوع فعال، حوله للداشبورد
-  if (isSubscriptionActive(user)) {
-    return res.redirect('/dashboard');
-  }
-  
-  // إذا لم يكن لديه اشتراك مدفوع، يظهر له صفحة التفعيل (حتى لو كان في فترة تجريبية)
-  res.sendFile(path.join(__dirname, 'public', 'activate.html'));
-});
-
-
-// ملفات الواجهة الستاتيكية (CSS, JS, صور…)
-app.use(express.static(path.join(__dirname, 'public')));
-
-// SPA catch-all: أي GET غير معروف يرجع index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+// ... (باقي كود Section 9)
+// ...
 // ================================================================= //
 // ========================= 10. تشغيل التطبيق ======================= //
 // ================================================================= //
