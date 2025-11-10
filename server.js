@@ -453,8 +453,12 @@ app.post("/api/activate-with-code", authMiddleware, (req, res) => {
 app.get("/api/check-status", authMiddleware, (req, res) => {
   // هذا المسار لا يحتاج لـ checkSubscription لأنه هو من يقوم بالتحقق
   const users = readUsersFromFile();
-  const user  = users.find(u => user.id === req.userData.userId); 
-  let isActive = isSubscriptionActive(user) || isTrialActive(user); // هنا يجب أن تشمل الـ Trial
+  // التصحيح هنا
+  const user  = users.find(u => u.id === req.userData.userId); 
+  
+  if (!user) return res.status(404).json({ active: false, message: "User data not found" }); // إضافة Fallback
+
+  let isActive = isSubscriptionActive(user) || isTrialActive(user); 
   res.status(200).json({ active: isActive });
 });
 
