@@ -465,7 +465,7 @@ app.post("/api/activate-with-code", authMiddleware, (req, res) => {
 app.get("/api/check-status", authMiddleware, (req, res) => {
   // هذا المسار لا يحتاج لـ checkSubscription لأنه هو من يقوم بالتحقق
   const users = readUsersFromFile();
-  const user  = users.find(u => user.id === req.userData.userId); // Fix: user.id
+  const user  = users.find(u => u.id === req.userData.userId); // Fix: user.id
   let isActive = isSubscriptionActive(user) || isTrialActive(user); // هنا يجب أن تشمل الـ Trial
   res.status(200).json({ active: isActive });
 });
@@ -497,7 +497,6 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
 
         res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
     } catch (error) {
-        console.error("Error adding promo:", error);
         res.status(500).json({ message: "خطأ في السيرفر أثناء إضافة العرض." });
     }
 });
@@ -509,7 +508,6 @@ app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
         // التعديل: التأكد من إرجاع Array حتى لو كانت فارغة
         res.status(200).json(promos || []); 
     } catch (error) {
-        console.error("Error fetching promos:", error);
         res.status(500).json({ message: "خطأ في السيرفر أثناء جلب العروض." });
     }
 });
@@ -536,7 +534,6 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
         writePromos(userId, promos);
         res.status(200).json({ message: "تم حذف العرض بنجاح." });
     } catch (error) {
-        console.error("Error deleting promo:", error);
         res.status(500).json({ message: "خطأ في السيرفر أثناء حذف العرض." });
     }
 });
@@ -546,7 +543,6 @@ app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     const ownerId = req.userData.userId;
     db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
         if (err) {
-            console.error("Error fetching contacts:", err);
             return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         }
         res.status(200).json(rows || []);
@@ -558,7 +554,6 @@ app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
     const ownerId = req.userData.userId;
     db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
         if (err) {
-            console.error("Error fetching imported contacts:", err);
             return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         }
         res.status(200).json(rows || []);
@@ -577,7 +572,6 @@ app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) =
 
     db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
         if (err) {
-            console.error(`Error deleting from ${table}:`, err);
             return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء الحذف." });
         }
         if (this.changes === 0) {
@@ -592,7 +586,6 @@ app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (re
     const userId = req.userData.userId;
     db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
         if (err) {
-            console.error("Error deleting all imported clients:", err);
             return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء حذف الكل." });
         }
         res.status(200).json({ message: `تم حذف ${this.changes} عميل مستورد.` });
@@ -637,7 +630,6 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
         })
         .on('error', (err) => {
             fs.unlinkSync(filePath);
-            console.error("CSV Parsing Error:", err);
             res.status(500).json({ message: "خطأ أثناء معالجة ملف CSV." });
         });
 });
