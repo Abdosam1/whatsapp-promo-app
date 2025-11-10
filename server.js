@@ -19,7 +19,7 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, { cors: { origin: '*' } });
-const PORT   = 3001;
+const PORT   = 3001; // <--- PORT معدل لـ VPS
 
 // secrets & configs
 const JWT_SECRET          = 'YOUR_VERY_SECRET_KEY';
@@ -163,7 +163,6 @@ async function updateClientsFromWhatsApp(whatsappClient, database, ownerId) {
     // بدأ عملية Transaction لضمان السلامة
     database.serialize(() => {
         // 1. حذف جميع العملاء الحاليين لهذا المستخدم (Clients Table)
-        // ملاحظة: هذا الإجراء أصبح fallback حيث يتم الحذف في مسار /api/auth/login
         database.run(`DELETE FROM clients WHERE ownerId = ?`, [ownerId], (err) => {
              if(err) console.error(`Error deleting old clients for ${ownerId}:`, err);
         });
@@ -466,7 +465,7 @@ app.post("/api/activate-with-code", authMiddleware, (req, res) => {
 app.get("/api/check-status", authMiddleware, (req, res) => {
   // هذا المسار لا يحتاج لـ checkSubscription لأنه هو من يقوم بالتحقق
   const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId);
+  const user  = users.find(u => user.id === req.userData.userId); // Fix: user.id
   let isActive = isSubscriptionActive(user) || isTrialActive(user); // هنا يجب أن تشمل الـ Trial
   res.status(200).json({ active: isActive });
 });
