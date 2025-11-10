@@ -19,7 +19,7 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, { cors: { origin: '*' } });
-const PORT   = 3000;
+const PORT   = 3001;
 
 // secrets & configs
 const JWT_SECRET          = 'YOUR_VERY_SECRET_KEY';
