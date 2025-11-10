@@ -1,0 +1,94 @@
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  direction: rtl;
+}
+
+#clientsList, #importedClientsList {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+#promosList {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 0;
+  max-height: 150px;
+}
+
+.promo {
+  min-width: 120px;
+  max-width: 120px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 5px;
+  text-align: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.promo:hover {
+  transform: scale(1.1);
+}
+
+.promo img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+
+.promo p {
+  font-size: 14px;
+  min-height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 5px 0;
+}
+
+.promo button {
+  width: 100%;
+  padding: 5px 0;
+  font-size: 14px;
+  border-radius: 5px;
+  border: none;
+  background-color: #25d366;
+  color: white;
+  cursor: pointer;
+}
+
+.promo button:hover {
+  background-color: #128c7e;
+}
+
+button {
+  background-color: #25d366;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #128c7e;
+}
+
+.promo p {
+  display: -webkit-box;        /* Safari, Chrome */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;       /* يحدد عدد الأسطر */
+  overflow: hidden;
+  margin: 8px 0 4px;
+  font-size: 0.9em;
+  line-height: 1.2em;
+}

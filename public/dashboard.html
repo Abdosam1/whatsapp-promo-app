@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم - نظام إرسال WhatsApp</title>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <style>
+    /* --- Google Font & Theme Variables --- */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    :root {
+      --primary-color: #25D366;
+      --secondary-color: #128C7E;
+      --dark-color: #075E54;
+      --background-color: #f0f2f5;
+      --card-background: #ffffff;
+      --text-color: #333;
+      --light-gray: #e9e9e9;
+      --danger-color: #e74c3c;
+      --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      --border-radius: 8px;
+    }
+
+    /* --- General Styles --- */
+    body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; padding: 20px; direction: rtl; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { position: relative; text-align: center; margin-bottom: 30px; }
+    header h1 { color: var(--dark-color); font-size: 2.5em; }
+    header h1 i { color: var(--primary-color); }
+    header p { color: #666; font-size: 1.1em; }
+
+    /* --- Layout & Cards --- */
+    .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .card { background: var(--card-background); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 20px; transition: transform 0.2s ease-in-out; }
+    .card:hover { transform: translateY(-5px); }
+    .card.full-width { grid-column: 1 / -1; }
+    .card h2 { font-size: 1.5em; color: var(--secondary-color); margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid var(--light-gray); padding-bottom: 10px; }
+    .card h2 i { margin-left: 10px; }
+
+    /* --- Buttons & Forms --- */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: none; border-radius: var(--border-radius); font-family: 'Cairo', sans-serif; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+    .btn-primary { background-color: var(--primary-color); color: white; }
+    .btn-danger { background-color: var(--danger-color); color: white; }
+    .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; }
+    input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--light-gray); border-radius: var(--border-radius); box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+    textarea { resize: vertical; }
+
+    /* --- Specific Component Styles --- */
+    .list-box { background-color: #f9f9f9; border: 1px solid var(--light-gray); border-radius: var(--border-radius); padding: 15px; min-height: 150px; max-height: 250px; overflow-y: auto; }
+    .logs-box { font-family: monospace; font-size: 0.9em; color: #555; }
+    .promos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+    .promo { display: flex; flex-direction: column; align-items: center; border: 2px solid transparent; border-radius: var(--border-radius); padding: 10px; background-color: #fff; text-align: center; transition: all 0.2s ease; box-shadow: var(--shadow); }
+    .promo:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+    .promo img { width: 90px; height: 90px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
+    .promo p { font-size: 0.9em; color: #555; margin: 0 0 10px 0; flex-grow: 1; min-height: 40px; }
+    .promo .promo-buttons { display: flex; gap: 5px; width: 100%; }
+    .promo .promo-buttons button { flex-grow: 1; padding: 5px 8px; font-size: 0.8em; border: none; color: white; cursor: pointer; border-radius: 5px; }
+    .promo .promo-buttons .btn-select { background-color: var(--secondary-color); }
+    .promo .promo-buttons .btn-delete { background-color: var(--danger-color); }
+    .promo.selected { border-color: var(--primary-color); box-shadow: 0 0 10px rgba(37, 211, 102, 0.5); }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================= -->
+  <!-- ================ المحتوى الرئيسي للصفحة ================= -->
+  <!-- التعديل هنا: إضافة style="display:none;" لإخفاء كل المحتوى في البداية -->
+  <div class="container" style="display:none;">
+    <header>
+      <h1><i class="fab fa-whatsapp"></i> لوحة تحكم إرسال العروض</h1>
+      <p>من هنا يمكنك إدارة حملاتك التسويقية بسهولة</p>
+      <button id="logoutBtn" class="btn btn-danger" style="position: absolute; top: 10px; left: 10px;">
+          <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+      </button>
+    </header>
+
+    <!-- ========= قسم حالة الاتصال بواتساب =========== -->
+    <!-- سنعتمد على JavaScript لإظهارها لاحقاً -->
+    <div class="card full-width" id="whatsapp-status-card" style="transition: all 0.5s ease;">
+        <h2><i class="fas fa-sync-alt"></i> حالة الاتصال بـ WhatsApp</h2>
+        <div id="whatsapp-status" style="text-align: center; padding: 20px;">
+            <p id="status-message" style="font-size: 1.2em; font-weight: 600;">في انتظار الاتصال...</p>
+            <canvas id="qrcode-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- ======== المحتوى الرئيسي للتطبيق (مخفي في البداية) ========= -->
+    <div id="main-content" style="display:none;">
+      <div class="main-grid">
+        <!-- ====== قسم العملاء ====== -->
+        <div class="card">
+          <h2><i class="fas fa-users"></i> العملاء الأساسيون</h2>
+          <div class="button-group">
+              <button type="button" class="btn btn-primary" onclick="sendPromoToClients()"><i class="fas fa-paper-plane"></i> إرسال جماعي</button>
+              <button type="button" class="btn btn-secondary" onclick="sendPromoSequentially(clients, false)"><i class="fas fa-tasks"></i> إرسال متتابع</button>
+          </div>
+          <div id="clientsList" class="list-box"></div>
+        </div>
+
+        <div class="card">
+          <h2><i class="fas fa-file-import"></i> العملاء المستوردون</h2>
+          <div class="input-group" style="margin-bottom: 15px;">
+              <input type="file" id="csvFileInput" accept=".csv" />
+              <button type="button" class="btn btn-secondary" onclick="importCSV()"><i class="fas fa-upload"></i> استيراد</button>
+          </div>
+          <div class="button-group">
+              <button type="button" class="btn btn-primary" onclick="sendPromoToImported()"><i class="fas fa-paper-plane"></i> إرسال جماعي</button>
+              <button type="button" class="btn btn-secondary" onclick="sendPromoSequentially(importedClients, true)"><i class="fas fa-tasks"></i> إرسال متتابع</button>
+              <button type="button" class="btn btn-danger" onclick="deleteAllImportedClients()"><i class="fas fa-trash-alt"></i> حذف الكل</button>
+          </div>
+          <div id="importedClientsList" class="list-box"></div>
+        </div>
+
+        <!-- ====== قسم العروض ====== -->
+        <div class="card full-width">
+          <h2><i class="fas fa-tags"></i> العروض المتاحة</h2>
+          <div id="promosList" class="promos-grid"></div>
+        </div>
+        
+        <div class="card">
+          <h2><i class="fas fa-plus-circle"></i> إضافة عرض جديد</h2>
+          <div class="form-group">
+            <label for="newPromoText">نص العرض:</label>
+            <textarea id="newPromoText" rows="3" placeholder="..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="newPromoImage">صورة العرض:</label>
+            <input type="file" id="newPromoImage" accept="image/*" />
+          </div>
+          <button type="button" class="btn btn-primary full-width" onclick="addNewPromo()"><i class="fas fa-plus"></i> إضافة العرض</button>
+        </div>
+        
+        <div class="card">
+          <h2><i class="fas fa-bullseye"></i> إرسال محدد</h2>
+          <div class="form-group">
+            <label for="phoneInput">رقم الهاتف:</label>
+            <input type="text" id="phoneInput" placeholder="+2126xxxxxxxx" />
+          </div>
+          <button type="button" class="btn btn-primary full-width" onclick="sendSelectedPromo()"><i class="fas fa-paper-plane"></i> إرسال</button>
+          <button type="button" class="btn" onclick="testMessage()" style="width:100%; margin-top:10px; background: linear-gradient(45deg, #6a82fb, #fc5c7d); color:white;">🧪 رسالة تجريبية</button>
+        </div>
+
+        <!-- ====== قسم السجل ====== -->
+        <div class="card full-width">
+          <h2><i class="fas fa-history"></i> السجل (Logs)</h2>
+          <div id="logs" class="list-box logs-box"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== استدعاء المكتبات وملف JavaScript الرئيسي ======== -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

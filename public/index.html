@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة إرسال واتساب الاحترافية</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        /* --- Google Font & Theme Variables --- */
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        :root {
+            --primary-color: #25D366;
+            --secondary-color: #128C7E;
+            --dark-color: #075E54;
+            --background-color: #f0f2f5;
+            --card-background: #ffffff;
+            --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+
+        /* --- General Body Styles --- */
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            background-color: var(--background-color);
+            text-align: center;
+            direction: rtl;
+        }
+
+        /* --- Hero Section (Top Banner) --- */
+        .hero {
+            background: var(--dark-color);
+            background: linear-gradient(135deg, var(--dark-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 80px 20px;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+            margin-bottom: -50px;
+        }
+        .hero h1 {
+            font-size: 3.2em;
+            font-weight: 900;
+            margin: 0 0 10px;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .hero p {
+            font-size: 1.3em;
+            max-width: 600px;
+            margin: 10px auto 30px;
+            opacity: 0.9;
+        }
+
+        /* --- Call-to-Action Buttons --- */
+        .cta-buttons a {
+            text-decoration: none;
+            color: white;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 700;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .btn-main {
+            background-color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+        .btn-main:hover {
+            background-color: #20c35b;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+        .btn-secondary {
+            background-color: transparent;
+            border: 2px solid white;
+        }
+        .btn-secondary:hover {
+            background-color: white;
+            color: var(--dark-color);
+        }
+
+        /* --- Features Section --- */
+        .features {
+            padding: 100px 20px 50px;
+            max-width: 1200px;
+            margin: auto;
+        }
+        .features h2 {
+            font-size: 2.8em;
+            color: var(--dark-color);
+            margin-bottom: 50px;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        /* --- Feature Card --- */
+        .feature-card {
+            background-color: var(--card-background);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+        .feature-card .icon {
+            font-size: 3em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        .feature-card h3 {
+            font-size: 1.5em;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+        .feature-card p {
+            color: #555;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ======================= Hero Section ======================= -->
+    <div class="hero">
+        <h1><i class="fab fa-whatsapp"></i> أداة إرسال واتساب الاحترافية</h1>
+        <p>أتمتة حملاتك التسويقية والوصول لآلاف العملاء بضغطة زر. سهل، سريع، وآمن.</p>
+        <div class="cta-buttons">
+            <a href="signup.html" class="btn-main">🚀 ابدأ تجربتك المجانية (24 ساعة)</a>
+            <a href="login.html" class="btn-secondary">تسجيل الدخول</a>
+        </div>
+    </div>
+
+    <!-- ======================= Features Section ======================= -->
+    <div class="features">
+        <h2>لماذا تختار أداتنا؟</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-rocket"></i></div>
+                <h3>إرسال فوري</h3>
+                <p>إرسال جماعي أو متسلسل لآلاف الأرقام بسرعة وكفاءة عالية، مع إمكانية إرفاق الصور.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-file-import"></i></div>
+                <h3>استيراد سهل</h3>
+                <p>استيراد قوائم عملائك بسهولة من ملفات CSV دون الحاجة لإدخال الأرقام يدوياً.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-shield-alt"></i></div>
+                <h3>تجربة آمنة</h3>
+                <p>نظام تأخير ذكي بين الرسائل لتقليل خطر الحظر، مع لوحة تحكم آمنة ومحمية بكلمة مرور.</p>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "text": "عرض مستورد 1",
+    "image": "imported_promo1.jpg"
+  },
+  {
+    "id": 2,
+    "text": "عرض مستورد 2",
+    "image": "imported_promo2.jpg"
+  }
+]
