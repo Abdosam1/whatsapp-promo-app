@@ -128,30 +128,23 @@ const writeUsersToFile = (users) => {
   fs.writeFileSync(usersDbPath, JSON.stringify(users, null, 2));
 };
 
-// ----------------------------------------------------
-// *** دالة مساعدة جديدة لتحويل db.run إلى Promise (لحل مشكل التزامن) ***
-// ----------------------------------------------------
 function dbRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.run(sql, params, function(err) {
             if (err) {
                 reject(err);
             } else {
-                // this.changes هو عدد الصفوف المتأثرة
                 resolve(this.changes); 
             }
         });
     });
 }
 
-// ----------------------------------------------------
-// *** دالة التزامن (Synchronization) الجديدة (DELETE & INSERT) ***
-// ----------------------------------------------------
 async function updateClientsFromWhatsApp(whatsappClient, database, ownerId) {
   try {
     const chats = await whatsappClient.getChats();
     const privateContacts = chats
-        .filter(c => !c.isGroup && c.id.user && !c.isSupport) // تصفية الدردشات الخاصة وغير الدعم
+        .filter(c => !c.isGroup && c.id.user && !c.isSupport)
         .map(chat => {
             const phone = chat.id.user;
             const name = chat.name || chat.contact?.pushname || "Unknown";
@@ -160,14 +153,11 @@ async function updateClientsFromWhatsApp(whatsappClient, database, ownerId) {
 
     console.log(`[Clients Sync] Found ${privateContacts.length} contacts on WhatsApp for user ${ownerId}.`);
 
-    // بدأ عملية Transaction لضمان السلامة
     database.serialize(() => {
-        // 1. حذف جميع العملاء الحاليين لهذا المستخدم (Clients Table)
         database.run(`DELETE FROM clients WHERE ownerId = ?`, [ownerId], (err) => {
              if(err) console.error(`Error deleting old clients for ${ownerId}:`, err);
         });
 
-        // 2. إدراج العملاء المحدثين (Clients Table)
         const stmt = database.prepare(`INSERT INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
         privateContacts.forEach(contact => {
             stmt.run(contact.name, contact.phone, ownerId);
@@ -182,14 +172,12 @@ async function updateClientsFromWhatsApp(whatsappClient, database, ownerId) {
   }
 }
 
-// دالة مساعدة للتحقق من حالة الاشتراك (True فقط للاشتراك المدفوع)
 function isSubscriptionActive(user) {
   const now = new Date();
   const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null;
   return subscriptionEnds && subscriptionEnds > now; 
 }
 
-// دالة مساعدة للتحقق من حالة الفترة التجريبية 
 function isTrialActive(user) {
   const now = new Date();
   const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null;
@@ -213,17 +201,24 @@ io.on('connection', (socket) => {
       connectedUserId = decoded.userId;
       client = new Client({
         authStrategy: new LocalAuth({ clientId: `user-${connectedUserId}` }),
-        // التعديل لحل مشاكل Puppeteer/Chromium و إضافة Arguments
+        // ----------------------------------------------------
+        // *** التعديل لحل مشكل Puppeteer الأقصى ***
+        // ----------------------------------------------------
         puppeteer:    { 
             headless: true, 
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage', // حل مشكل الذاكرة المؤقتة (VPS)
+                '--single-process' // حل مشكل الـ Process (VPS)
+            ] 
         }
+        // ----------------------------------------------------
       });
 
       client.on("ready", async () => {
         isInitializing = false;
         socket.emit('status', { message: "WhatsApp متصل!", ready: true });
-        // تحديث العملاء عند كل Initialisation ناجحة
         await updateClientsFromWhatsApp(client, db, connectedUserId); 
       });
 
@@ -240,14 +235,7 @@ io.on('connection', (socket) => {
         isInitializing = false;
       });
       
-      // *** إضافة هذا اللوجيك لحالة الـ Client اللي ديجا متصل (Synchronization) ***
-      setTimeout(async () => {
-          if (client && (await client.getState()) === 'CONNECTED') {
-              console.log(`[WhatsApp Sync] Re-syncing for existing connected client ${connectedUserId}`);
-              socket.emit('status', { message: "WhatsApp متصل!", ready: true }); 
-              await updateClientsFromWhatsApp(client, db, connectedUserId);
-          }
-      }, 5000); // 5 ثواني بعد محاولة الـ Initialize
+      // حذف الـ Logic ديال setTimeout لي كان كايسبب TypeError
 
     } catch {
       isInitializing = false;
@@ -465,7 +453,7 @@ app.post("/api/activate-with-code", authMiddleware, (req, res) => {
 app.get("/api/check-status", authMiddleware, (req, res) => {
   // هذا المسار لا يحتاج لـ checkSubscription لأنه هو من يقوم بالتحقق
   const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId); // Fix: user.id
+  const user  = users.find(u => user.id === req.userData.userId); 
   let isActive = isSubscriptionActive(user) || isTrialActive(user); // هنا يجب أن تشمل الـ Trial
   res.status(200).json({ active: isActive });
 });
