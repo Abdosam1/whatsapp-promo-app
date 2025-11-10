@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تأكيد الإيميل</title>
+    <!-- رابط مكتبة الأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <style>
+        /* --- Google Font --- */
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
+        /* --- متغيرات الألوان من التصميم الرئيسي --- */
+        :root {
+            --primary-color: #25D366;
+            --secondary-color: #128C7E;
+            --dark-color: #075E54;
+            --background-color: #f0f2f5;
+            --card-background: #ffffff;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--background-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            direction: rtl;
+        }
+
+        .confirmation-card {
+            background: var(--card-background);
+            padding: 40px 50px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+
+        .confirmation-card h1 {
+            font-size: 2em;
+            color: var(--dark-color);
+            margin-bottom: 20px;
+        }
+        
+        .confirmation-card i.fas {
+            font-size: 4em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .confirmation-card p {
+            color: #444;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .confirmation-card a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            border: 1px solid var(--secondary-color);
+            border-radius: var(--border-radius);
+            transition: background-color 0.3s;
+        }
+
+        .confirmation-card a:hover {
+            background-color: #e0f0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="confirmation-card">
+            <i class="fas fa-envelope-open-text"></i>
+            <h1>تم إرسال رابط التفعيل</h1>
+            <p>
+                تم إرسال رابط تفعيل حسابك إلى بريدك الإلكتروني.
+                يرجى فتح صندوق الوارد (أو مجلد Spam) والنقر على الرابط لإكمال عملية التسجيل.
+            </p>
+            <a href="login.html">العودة لصفحة تسجيل الدخول</a>
+        </div>
+    </div>
+</body>
+</html>
