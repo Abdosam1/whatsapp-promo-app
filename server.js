@@ -27,23 +27,26 @@ const PORT   = process.env.PORT || 3001;
 // secrets & configs
 const JWT_SECRET          = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 const ADMIN_SECRET_KEY    = process.env.ADMIN_SECRET_KEY || 'MySuperAdminSecretForActivation_2025_xyz789';
+
+// ----------------------------------------------------
+// *** التعديل هنا: توحيد الإيميل المرسل والـ Admin لـ Gmail ***
+// ----------------------------------------------------
 const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
 const SENDER_EMAIL        = ADMIN_EMAIL; // استخدام نفس الإيميل كمرسل (Gmail)
 const usersDbPath         = path.join(__dirname, 'users.json');
 
-// ----------------------------------------------------
 // *** الإضافة الضرورية: تخزين مؤقت لبيانات التسجيل (Email Verification) ***
-// ----------------------------------------------------
 const pendingRegistrations = {}; 
 
-// nodemailer transporter (الاعتماد على Gmail Service و App Password)
+// nodemailer transporter (العودة لـ Gmail Service)
 const transporter = nodemailer.createTransport({
-  service: 'gmail', 
+  service: 'gmail', // <--- العودة لـ Gmail
   auth: {
     user: ADMIN_EMAIL,
     pass: process.env.GMAIL_APP_PASS || 'YOUR_GMAIL_APP_PASSWORD' // ⚠️ يجب استخدام App Password
   }
 });
+// ----------------------------------------------------
 
 // ================================================================= //
 // ===================== 2. إعداد قاعدة SQLite ===================== //
@@ -419,7 +422,6 @@ app.post("/api/auth/login", async (req, res) => {
 
 // ================================================================= //
 // ================= 7. مسارات التفعيل والاشتراك ===================== //
-// ... (باقي كود Section 7)
 app.post("/api/request-code", authMiddleware, async (req, res) => {
   const { durationName, durationDays } = req.body;
   const userId = req.userData.userId;
@@ -468,64 +470,247 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
 });
 
 app.post("/api/activate-with-code", authMiddleware, (req, res) => {
-  // ...
+  const { activationCode } = req.body;
+  const userId = req.userData.userId;
+  if (!activationCode) {
+    return res.status(400).json({ message: "Activation code is required" });
+  }
+
+  try {
+    const users = readUsersFromFile();
+    const idx   = users.findIndex(u => u.id === userId);
+    if (idx === -1) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = users[idx];
+    if (!user.activationCode || user.activationCode !== activationCode) {
+      return res.status(400).json({ message: "Invalid or expired activation code" });
+    }
+
+    const durationDays = user.activationDurationDays || 30;
+    const endsAt = new Date();
+    endsAt.setDate(endsAt.getDate() + durationDays);
+
+    users[idx].subscriptionEndsAt      = endsAt.toISOString();
+    users[idx].trialEndsAt             = null;
+    users[idx].activationCode         = null;
+    users[idx].activationDurationDays = null;
+    writeUsersToFile(users);
+
+    res.status(200).json({ message: 'Subscription activated successfully!' });
+  } catch (err) {
+    console.error("Activation Error:", err);
+    res.status(500).json({ message: 'Server error during activation' });
+  }
 });
 
 app.get("/api/check-status", authMiddleware, (req, res) => {
-  // ...
+  const users = readUsersFromFile();
+  const user  = users.find(u => u.id === req.userData.userId); 
+  
+  if (!user) return res.status(404).json({ active: false, message: "User data not found" }); 
+
+  let isActive = isSubscriptionActive(user) || isTrialActive(user); 
+  res.status(200).json({ active: isActive });
 });
 
 // ================================================================= //
 // ================== 8. مسارات الـ CRUD و الـ API ==================== //
-// ... (باقي كود Section 8)
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    const text   = req.body.text;
+    const image  = req.file ? req.file.filename : null; 
+
+    if (!text || !image) {
+        return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
+    }
+
+    try {
+        const promos = readPromos(userId);
+        const newPromo = {
+            id: Date.now(),
+            text,
+            image,
+            createdAt: new Date().toISOString()
+        };
+        promos.push(newPromo);
+        writePromos(userId, promos);
+
+        res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر أثناء إضافة العرض." });
+    }
 });
 
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    try {
+        const promos = readPromos(req.userData.userId);
+        res.status(200).json(promos || []); 
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر أثناء جلب العروض." });
+    }
 });
 
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    const promoId = parseInt(req.params.id, 10);
+    try {
+        const promos = readPromos(userId);
+        const promoIndex = promos.findIndex(p => p.id === promoId);
+
+        if (promoIndex === -1) {
+            return res.status(404).json({ message: "العرض غير موجود." });
+        }
+
+        const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
+        if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+        }
+
+        promos.splice(promoIndex, 1);
+        writePromos(userId, promos);
+        res.status(200).json({ message: "تم حذف العرض بنجاح." });
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر أثناء حذف العرض." });
+    }
 });
 
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    const ownerId = req.userData.userId;
+    db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        }
+        res.status(200).json(rows || []);
+    });
 });
 
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    const ownerId = req.userData.userId;
+    db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        }
+        res.status(200).json(rows || []);
+    });
 });
 
 app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    const table = req.params.table;
+    const id = parseInt(req.params.id, 10);
+
+    if (table !== 'clients' && table !== 'imported_clients') {
+        return res.status(400).json({ message: "جدول غير صالح." });
+    }
+
+    db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
+        if (err) {
+            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء الحذف." });
+        }
+        if (this.changes === 0) {
+            return res.status(404).json({ message: "لم يتم العثور على العميل." });
+        }
+        res.status(200).json({ message: "تم حذف العميل بنجاح." });
+    });
 });
 
 app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
+        if (err) {
+            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء حذف الكل." });
+        }
+        res.status(200).json({ message: `تم حذف ${this.changes} عميل مستورد.` });
+    });
 });
 
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    const filePath = req.file.path;
+    const results = [];
+    let importedCount = 0;
+
+    fs.createReadStream(filePath)
+        .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+        .on('data', (data) => {
+            const phone = String(data.phone).replace(/\D/g, "");
+            if (phone.length >= 8) {
+                results.push(phone);
+            }
+        })
+        .on('end', () => {
+            fs.unlinkSync(filePath); 
+
+            if (results.length === 0) {
+                return res.status(400).json({ message: "لا يوجد أرقام هواتف صالحة للاستيراد." });
+            }
+
+            db.serialize(() => {
+                const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+                results.forEach(phone => {
+                    stmt.run(phone, userId, function(err) {
+                        if (!err && this.changes > 0) {
+                            importedCount++;
+                        }
+                    });
+                });
+                stmt.finalize(() => {
+                    res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
+                });
+            });
+        })
+        .on('error', (err) => {
+            fs.unlinkSync(filePath);
+            res.status(500).json({ message: "خطأ أثناء معالجة ملف CSV." });
+        });
 });
 
 
 // --- مسار لحذف جلسة واتساب (WhatsApp Logout) ---
 app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
-    // ...
+    const userId = req.userData.userId;
+    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
+    
+    try {
+        if (fs.existsSync(sessionPath)) {
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+            console.log(`[WhatsApp Logout] Session deleted for user ${userId}`);
+        }
+        res.status(200).json({ message: "WhatsApp session deleted." });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to delete WhatsApp session." });
+    }
 });
 
 
 // ================================================================= //
 // ========= 9. صفحات الويب: Activate & Dashboard + Static ========== //
-// ... (باقي كود Section 9)
 app.get('/dashboard', authMiddleware, (req, res) => {
-  // ...
+  const users = readUsersFromFile();
+  const user  = users.find(u => u.id === req.userData.userId);
+  
+  if (!user) return res.redirect('/activate'); 
+  
+  if (!isSubscriptionActive(user)) {
+    return res.redirect('/activate');
+  }
+  
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/activate', authMiddleware, (req, res) => {
-  // ...
+  const users = readUsersFromFile();
+  const user  = users.find(u => u.id === req.userData.userId);
+  
+  if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+
+  if (isSubscriptionActive(user)) {
+    return res.redirect('/dashboard');
+  }
+  
+  res.sendFile(path.join(__dirname, 'public', 'activate.html'));
 });
 
 
