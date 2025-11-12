@@ -1,3 +1,6 @@
+// ================================================================= //
+// ========================== A. SERVER.JS =========================== //
+// ================================================================= //
 // أضف هذا السطر في البداية جداً ليتم تحميل المتغيرات من ملف .env
 require('dotenv').config(); 
 
@@ -21,17 +24,15 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, { cors: { origin: '*' } });
-// استخدام متغير البيئة أو القيمة الافتراضية
 const PORT   = process.env.PORT || 3001; 
 
 // secrets & configs
 const JWT_SECRET          = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 const ADMIN_SECRET_KEY    = process.env.ADMIN_SECRET_KEY || 'MySuperAdminSecretForActivation_2025_xyz789';
 const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
-const SENDER_EMAIL        = ADMIN_EMAIL; // استخدام نفس الإيميل كمرسل (Gmail)
+const SENDER_EMAIL        = ADMIN_EMAIL; 
 const usersDbPath         = path.join(__dirname, 'users.json');
 
-// *** الإضافة الضرورية: تخزين مؤقت لبيانات التسجيل (Email Verification) ***
 const pendingRegistrations = {}; 
 
 // nodemailer transporter (العودة لـ Gmail Service)
@@ -39,11 +40,10 @@ const transporter = nodemailer.createTransport({
   service: 'gmail', 
   auth: {
     user: ADMIN_EMAIL,
-    pass: process.env.GMAIL_APP_PASS || 'YOUR_GMAIL_APP_PASSWORD' // ⚠️ يجب استخدام App Password
+    pass: process.env.GMAIL_APP_PASS || 'YOUR_GMAIL_APP_PASSWORD' 
   }
 });
 
-// ================================================================= //
 // ===================== 2. إعداد قاعدة SQLite ===================== //
 const dbFile = path.join(__dirname, "main_data.db");
 const db     = new sqlite3.Database(dbFile);
@@ -69,15 +69,13 @@ db.serialize(() => {
   `);
 });
 
-// ================================================================= //
 // ========================= 3. Middlewares ========================= //
 app.use(cors());
 app.use(express.json());
 
 const authMiddleware       = require('./middleware/auth');
-const checkSubscription    = require('./middleware/checkSubscription'); // هذا للمسارات الـ API (JSON 403)
+const checkSubscription    = require('./middleware/checkSubscription'); 
 
-// إنشاء مجلد promos إذا لم يكن موجود
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 if (!fs.existsSync(promosUploadFolder)) {
   fs.mkdirSync(promosUploadFolder, { recursive: true });
@@ -91,7 +89,6 @@ const uploadPromoImage = multer({
 });
 const uploadCSV = multer({ dest: "uploads/" });
 
-// ================================================================= //
 // ======================= 4. دوال مساعدة =========================== //
 function generateActivationCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -187,7 +184,6 @@ function isTrialActive(user) {
   return trialEnds && trialEnds > now;
 }
 
-// ================================================================= //
 // ================= منطق Socket.IO & WhatsApp ==================== //
 io.on('connection', (socket) => {
   let client = null;
@@ -281,7 +277,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// ================================================================= //
 // =============== 6. مسارات المصادقة (Auth Routes) ================ //
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -416,7 +411,6 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// ================================================================= //
 // ================= 7. مسارات التفعيل والاشتراك ===================== //
 app.post("/api/request-code", authMiddleware, async (req, res) => {
   const { durationName, durationDays } = req.body;
@@ -511,7 +505,6 @@ app.get("/api/check-status", authMiddleware, (req, res) => {
   res.status(200).json({ active: isActive });
 });
 
-// ================================================================= //
 // ================== 8. مسارات الـ CRUD و الـ API ==================== //
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
     const userId = req.userData.userId;
