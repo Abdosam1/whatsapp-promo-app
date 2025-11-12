@@ -17,6 +17,7 @@ if (signupForm) {
         const fullNameInput = signupForm.querySelector('#full_name');
         const confirmPasswordInput = signupForm.querySelector('#confirm_password');
 
+        // قراءة القيم (التأكد من أن الحقول موجودة في HTML)
         const fullName = fullNameInput ? fullNameInput.value.trim() : '';
         const email = signupForm.email.value.trim();
         const password = signupForm.password.value;
