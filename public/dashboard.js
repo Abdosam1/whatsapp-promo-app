@@ -4,7 +4,7 @@
 const token = localStorage.getItem('authToken');
 if (!token) {
     // التعديل: توجيه المستخدم مباشرة إلى صفحة تسجيل الدخول/Landing Page
-    window.location.href = 'index.html'; 
+    window.location.replace('index.html'); // <--- استخدام replace للتأكيد
 }
 
 // ================================================================= //
@@ -23,12 +23,11 @@ let socket = null;
 document.addEventListener('DOMContentLoaded', async () => {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => { // <--- إضافة async هنا
+        logoutBtn.addEventListener('click', async () => { 
             // 1. تسجيل الخروج من واتساب (Backend) - حذف الجلسة
             try {
-                // استدعاء المسار الجديد لحذف جلسة WhatsApp
                 await apiFetch('/api/whatsapp/logout', { method: 'POST' });
-                if (socket) socket.disconnect(); // قطع اتصال Socket.IO
+                if (socket) socket.disconnect(); 
             } catch (e) {
                 console.warn("Failed to delete WhatsApp session on server, proceeding with local logout.", e);
             }
@@ -36,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 2. تسجيل الخروج من التطبيق (Frontend)
             localStorage.removeItem('authToken'); 
             alert('تم تسجيل الخروج'); 
-            window.location.href = 'index.html'; 
+            window.location.replace('index.html'); // <--- استخدام replace
         });
     }
     
@@ -83,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // في حالة فشل التحقق من التوكن (401)
         if (error.message !== 'Subscription has expired' && error.message !== 'Authentication failed') {
             localStorage.removeItem('authToken'); 
-            window.location.href = 'index.html';
+            window.location.replace('index.html'); // <--- استخدام replace
         }
     }
 });
@@ -145,11 +144,16 @@ async function apiFetch(url, options = {}) {
     // 403 هو خطأ انتهاء الاشتراك
     if (response.status === 403) { 
         // التعديل هنا: تحويل المستخدم لصفحة التفعيل بدلا من إظهار Overlay
-        window.location.href = 'activate.html'; 
+        window.location.replace('activate.html'); // <--- استخدام replace
         throw new Error('Subscription has expired'); 
     } 
     // 401 هو خطأ التوكن
-    if (response.status === 401) { localStorage.removeItem('authToken'); alert("انتهت صلاحية الجلسة"); window.location.href = 'index.html'; throw new Error('Authentication failed'); }
+    if (response.status === 401) { 
+        localStorage.removeItem('authToken'); 
+        alert("انتهت صلاحية الجلسة"); 
+        window.location.replace('index.html'); // <--- استخدام replace
+        throw new Error('Authentication failed'); 
+    }
     if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `HTTP Error: ${response.statusText}` })); throw new Error(errorData.message || 'حدث خطأ غير معروف'); }
     
     const contentType = response.headers.get("content-type");
@@ -158,7 +162,7 @@ async function apiFetch(url, options = {}) {
 
 // ================================================================= //
 // ====================== 5. وظائف تحميل البيانات =================== //
-// ================================================================= //
+// ... (باقي كود Section 5)
 function loadInitialData() {
     loadClients();
     loadImportedClients();
@@ -197,7 +201,7 @@ function loadPromos() {
 
 // ================================================================= //
 // ======================== 6. وظائف العرض والتفاعل ======================== //
-// ================================================================= //
+// ... (باقي كود Section 6)
 function displayClients(containerId, list) {
     const cn = document.getElementById(containerId);
     cn.innerHTML = "";
@@ -270,7 +274,7 @@ function deletePromo(id) {
 
 // ================================================================= //
 // ========================= 7. وظائف الإرسال ======================= //
-// ================================================================= //
+// ... (باقي كود Section 7)
 function clientReady() {
     const mainContent = document.getElementById('main-content'); 
     if (mainContent.style.display !== 'block') { alert('❌ يرجى الانتظار حتى يتم الاتصال بواتساب بنجاح!'); return false; }
@@ -320,7 +324,7 @@ function sendPromoToImported() {
 
 // ================================================================= //
 // ========================== 8. سجل ودعم (معدل) ========================== //
-// ================================================================= //
+// ... (باقي كود Section 8)
 function log(msg, color = "black") {
     const logsContainer = document.getElementById("logs");
     const entry = document.createElement("div");
