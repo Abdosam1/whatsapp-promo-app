@@ -27,10 +27,6 @@ const PORT   = process.env.PORT || 3001;
 // secrets & configs
 const JWT_SECRET          = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 const ADMIN_SECRET_KEY    = process.env.ADMIN_SECRET_KEY || 'MySuperAdminSecretForActivation_2025_xyz789';
-
-// ----------------------------------------------------
-// *** التعديل هنا: توحيد الإيميل المرسل والـ Admin لـ Gmail ***
-// ----------------------------------------------------
 const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
 const SENDER_EMAIL        = ADMIN_EMAIL; // استخدام نفس الإيميل كمرسل (Gmail)
 const usersDbPath         = path.join(__dirname, 'users.json');
@@ -40,13 +36,12 @@ const pendingRegistrations = {};
 
 // nodemailer transporter (العودة لـ Gmail Service)
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // <--- العودة لـ Gmail
+  service: 'gmail', 
   auth: {
     user: ADMIN_EMAIL,
     pass: process.env.GMAIL_APP_PASS || 'YOUR_GMAIL_APP_PASSWORD' // ⚠️ يجب استخدام App Password
   }
 });
-// ----------------------------------------------------
 
 // ================================================================= //
 // ===================== 2. إعداد قاعدة SQLite ===================== //
@@ -80,8 +75,9 @@ app.use(cors());
 app.use(express.json());
 
 const authMiddleware       = require('./middleware/auth');
-const checkSubscription    = require('./middleware/checkSubscription'); 
+const checkSubscription    = require('./middleware/checkSubscription'); // هذا للمسارات الـ API (JSON 403)
 
+// إنشاء مجلد promos إذا لم يكن موجود
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 if (!fs.existsSync(promosUploadFolder)) {
   fs.mkdirSync(promosUploadFolder, { recursive: true });
