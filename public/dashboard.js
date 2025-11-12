@@ -4,7 +4,7 @@
 const token = localStorage.getItem('authToken');
 if (!token) {
     // التعديل: توجيه المستخدم مباشرة إلى صفحة تسجيل الدخول/Landing Page
-    window.location.replace('index.html'); // <--- استخدام replace للتأكيد
+    window.location.replace('index.html'); 
 }
 
 // ================================================================= //
@@ -144,14 +144,14 @@ async function apiFetch(url, options = {}) {
     // 403 هو خطأ انتهاء الاشتراك
     if (response.status === 403) { 
         // التعديل هنا: تحويل المستخدم لصفحة التفعيل بدلا من إظهار Overlay
-        window.location.replace('activate.html'); // <--- استخدام replace
+        window.location.replace('activate.html'); 
         throw new Error('Subscription has expired'); 
     } 
     // 401 هو خطأ التوكن
     if (response.status === 401) { 
         localStorage.removeItem('authToken'); 
         alert("انتهت صلاحية الجلسة"); 
-        window.location.replace('index.html'); // <--- استخدام replace
+        window.location.replace('index.html'); 
         throw new Error('Authentication failed'); 
     }
     if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `HTTP Error: ${response.statusText}` })); throw new Error(errorData.message || 'حدث خطأ غير معروف'); }
