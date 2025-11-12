@@ -12,7 +12,7 @@ if (signupForm) {
         errorMessageDiv.textContent = '';
         
         // ------------------------------------------------------------------
-        // *** التعديل: إضافة حقول الاسم الكامل وتأكيد كلمة المرور ***
+        // *** استقبال الحقول الجديدة ***
         // ------------------------------------------------------------------
         const fullNameInput = signupForm.querySelector('#full_name');
         const confirmPasswordInput = signupForm.querySelector('#confirm_password');
@@ -36,7 +36,7 @@ if (signupForm) {
             const response = await fetch(`${API_BASE_URL}/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // إرسال الاسم الكامل
+                // إرسال الاسم الكامل (واجب أن يكون الاسم name في البايباكند)
                 body: JSON.stringify({ name: fullName, email, password })
             });
 
@@ -48,6 +48,7 @@ if (signupForm) {
             // ** بعد النجاح: التوجيه لصفحة تأكيد الإيميل **
             // ------------------------------------------------------------------
             alert('تم إرسال رابط التفعيل إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.');
+            // استخدام replace لتنظيف الـ History
             window.location.replace('email-confirmation.html'); 
 
         } catch (error) {
