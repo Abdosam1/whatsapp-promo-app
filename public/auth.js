@@ -14,17 +14,23 @@ if (signupForm) {
         // ------------------------------------------------------------------
         // *** التعديل: إضافة حقول الاسم الكامل وتأكيد كلمة المرور ***
         // ------------------------------------------------------------------
-        const fullName = signupForm.full_name.value.trim();
+        // التأكد من أن الحقول موجودة قبل محاولة قراءة قيمتها
+        const fullNameInput = signupForm.querySelector('#full_name');
+        const confirmPasswordInput = signupForm.querySelector('#confirm_password');
+
+        // قراءة القيم (استخدام optional chaining أو التحقق)
+        const fullName = fullNameInput ? fullNameInput.value.trim() : '';
         const email = signupForm.email.value.trim();
         const password = signupForm.password.value;
-        const confirmPassword = signupForm.confirm_password.value;
+        const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : '';
+        // ------------------------------------------------------------------
 
         if (password !== confirmPassword) {
             errorMessageDiv.textContent = 'كلمتا المرور غير متطابقتان.';
             return;
         }
         
-        if (!fullName || !email || !password) {
+        if (!fullName || !email || !password || !confirmPassword) {
             errorMessageDiv.textContent = 'جميع الحقول مطلوبة.';
             return;
         }
@@ -33,7 +39,7 @@ if (signupForm) {
             const response = await fetch(`${API_BASE_URL}/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // إرسال الاسم الكامل
+                // إرسال الاسم الكامل (واجب أن يكون الاسم name في البايباكند)
                 body: JSON.stringify({ name: fullName, email, password })
             });
 
@@ -45,8 +51,8 @@ if (signupForm) {
             // ** بعد النجاح: التوجيه لصفحة تأكيد الإيميل **
             // ------------------------------------------------------------------
             alert('تم إرسال رابط التفعيل إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.');
-            // يجب أن يكون لديك ملف email-confirmation.html أو رسالة بسيطة
-            window.location.href = 'email-confirmation.html'; 
+            // استخدام replace للتأكد من حذف الـ History
+            window.location.replace('email-confirmation.html'); 
 
         } catch (error) {
             errorMessageDiv.textContent = error.message;
@@ -74,8 +80,9 @@ if (loginForm) {
             
             // ------------------------------------------------------------------
             // ** التوجيه الصحيح: لـ /dashboard ليتم التحقق من الاشتراك **
+            // استخدام replace لتنظيف الـ History
             // ------------------------------------------------------------------
-            window.location.href = '/dashboard'; 
+            window.location.replace('/dashboard'); 
             
         } catch (error) {
             errorMessageDiv.textContent = error.message;
