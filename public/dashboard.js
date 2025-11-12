@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         logoutBtn.addEventListener('click', async () => { // <--- إضافة async هنا
             // 1. تسجيل الخروج من واتساب (Backend) - حذف الجلسة
             try {
-                // استدعاء المسار الجديد لحذف جلسة WhatsApp
                 await apiFetch('/api/whatsapp/logout', { method: 'POST' });
                 if (socket) socket.disconnect(); // قطع اتصال Socket.IO
             } catch (e) {
