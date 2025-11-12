@@ -14,16 +14,13 @@ if (signupForm) {
         // ------------------------------------------------------------------
         // *** التعديل: إضافة حقول الاسم الكامل وتأكيد كلمة المرور ***
         // ------------------------------------------------------------------
-        // التأكد من أن الحقول موجودة قبل محاولة قراءة قيمتها
         const fullNameInput = signupForm.querySelector('#full_name');
         const confirmPasswordInput = signupForm.querySelector('#confirm_password');
 
-        // قراءة القيم (استخدام optional chaining أو التحقق)
         const fullName = fullNameInput ? fullNameInput.value.trim() : '';
         const email = signupForm.email.value.trim();
         const password = signupForm.password.value;
         const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : '';
-        // ------------------------------------------------------------------
 
         if (password !== confirmPassword) {
             errorMessageDiv.textContent = 'كلمتا المرور غير متطابقتان.';
@@ -39,7 +36,7 @@ if (signupForm) {
             const response = await fetch(`${API_BASE_URL}/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // إرسال الاسم الكامل (واجب أن يكون الاسم name في البايباكند)
+                // إرسال الاسم الكامل
                 body: JSON.stringify({ name: fullName, email, password })
             });
 
@@ -51,7 +48,6 @@ if (signupForm) {
             // ** بعد النجاح: التوجيه لصفحة تأكيد الإيميل **
             // ------------------------------------------------------------------
             alert('تم إرسال رابط التفعيل إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.');
-            // استخدام replace للتأكد من حذف الـ History
             window.location.replace('email-confirmation.html'); 
 
         } catch (error) {
@@ -80,7 +76,6 @@ if (loginForm) {
             
             // ------------------------------------------------------------------
             // ** التوجيه الصحيح: لـ /dashboard ليتم التحقق من الاشتراك **
-            // استخدام replace لتنظيف الـ History
             // ------------------------------------------------------------------
             window.location.replace('/dashboard'); 
             
