@@ -4,7 +4,7 @@
 const token = localStorage.getItem('authToken');
 if (!token) {
     // التعديل: توجيه المستخدم مباشرة إلى صفحة تسجيل الدخول/Landing Page
-    window.location.replace('index.html'); 
+    window.location.replace('index.html'); // <--- استخدام replace
 }
 
 // ================================================================= //
@@ -23,11 +23,12 @@ let socket = null;
 document.addEventListener('DOMContentLoaded', async () => {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => { 
+        logoutBtn.addEventListener('click', async () => { // <--- إضافة async هنا
             // 1. تسجيل الخروج من واتساب (Backend) - حذف الجلسة
             try {
+                // استدعاء المسار الجديد لحذف جلسة WhatsApp
                 await apiFetch('/api/whatsapp/logout', { method: 'POST' });
-                if (socket) socket.disconnect(); 
+                if (socket) socket.disconnect(); // قطع اتصال Socket.IO
             } catch (e) {
                 console.warn("Failed to delete WhatsApp session on server, proceeding with local logout.", e);
             }
@@ -162,7 +163,6 @@ async function apiFetch(url, options = {}) {
 
 // ================================================================= //
 // ====================== 5. وظائف تحميل البيانات =================== //
-// ... (باقي كود Section 5)
 function loadInitialData() {
     loadClients();
     loadImportedClients();
@@ -201,7 +201,6 @@ function loadPromos() {
 
 // ================================================================= //
 // ======================== 6. وظائف العرض والتفاعل ======================== //
-// ... (باقي كود Section 6)
 function displayClients(containerId, list) {
     const cn = document.getElementById(containerId);
     cn.innerHTML = "";
@@ -274,7 +273,6 @@ function deletePromo(id) {
 
 // ================================================================= //
 // ========================= 7. وظائف الإرسال ======================= //
-// ... (باقي كود Section 7)
 function clientReady() {
     const mainContent = document.getElementById('main-content'); 
     if (mainContent.style.display !== 'block') { alert('❌ يرجى الانتظار حتى يتم الاتصال بواتساب بنجاح!'); return false; }
@@ -324,7 +322,6 @@ function sendPromoToImported() {
 
 // ================================================================= //
 // ========================== 8. سجل ودعم (معدل) ========================== //
-// ... (باقي كود Section 8)
 function log(msg, color = "black") {
     const logsContainer = document.getElementById("logs");
     const entry = document.createElement("div");
