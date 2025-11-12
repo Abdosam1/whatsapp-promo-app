@@ -31,6 +31,11 @@ const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; /
 const SENDER_EMAIL        = process.env.SENDER_EMAIL || 'contact@autosendpro.net'; // الإيميل الذي يرسل منه
 const usersDbPath         = path.join(__dirname, 'users.json');
 
+// ----------------------------------------------------
+// *** الإضافة الضرورية: تخزين مؤقت لبيانات التسجيل (Email Verification) ***
+// ----------------------------------------------------
+const pendingRegistrations = {}; 
+
 // nodemailer transporter (باستخدام إعدادات SMTP للدومين)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "mail.autosendpro.net", 
@@ -244,8 +249,6 @@ io.on('connection', (socket) => {
         isInitializing = false;
       });
       
-      // حذف الـ Logic ديال setTimeout لي كان كايسبب TypeError
-
     } catch {
       isInitializing = false;
     }
@@ -692,10 +695,8 @@ app.get('/activate', authMiddleware, (req, res) => {
 });
 
 
-// ملفات الواجهة الستاتيكية (CSS, JS, صور…)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// SPA catch-all: أي GET غير معروف يرجع index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
