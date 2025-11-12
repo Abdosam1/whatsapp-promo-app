@@ -2,30 +2,36 @@
 
 const jwt = require('jsonwebtoken');
 
+// ------------------------------------------------------------------
+// *** الحل: قراءة الـ Secret Key من المتغيرات (يجب أن يكون مطابقاً لـ server.js) ***
+// ------------------------------------------------------------------
+// استخدام نفس الـ Logic ديال Fallback لي كاين في server.js
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY'; 
+// ------------------------------------------------------------------
+
+
 // هذا الوسيط (Middleware) هو "حارس المصادقة"
 // دوره هو التحقق من أن الطلب قادم من مستخدم مسجل الدخول ولديه توكن صالح
 
 module.exports = (req, res, next) => {
     try {
         // 1. محاولة استخراج التوكن من هيدر 'Authorization'
-        // الهيدر عادة ما يكون بهذا الشكل: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-        const token = req.headers.authorization.split(" ")[1];
+        const authHeader = req.headers.authorization;
         
-        if (!token) {
-            // هذه الحالة تحدث إذا لم يتم إرسال الهيدر 'Authorization' أصلاً
-            throw new Error('Authentication failed!');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            // هذه الحالة تحدث إذا لم يتم إرسال الهيدر 'Authorization' أصلاً أو كان خاطئاً
+            throw new Error('Authentication failed: No token provided or malformed header.');
         }
 
-        // 2. التحقق من صحة التوكن
-        // تستخدم jwt.verify نفس المفتاح السري المستخدم عند إنشاء التوكن
-        // إذا كان التوكن غير صالح أو منتهي الصلاحية، سيتم إطلاق خطأ (error)
-        const decodedToken = jwt.verify(token, 'YOUR_VERY_SECRET_KEY'); // مهم جداً: تأكد أن هذا المفتاح مطابق للموجود في server.js
+        const token = authHeader.split(" ")[1];
+        
+        // 2. التحقق من صحة التوكن (باستخدام الـ Secret Key الصحيح)
+        const decodedToken = jwt.verify(token, JWT_SECRET); 
         
         // 3. إضافة بيانات المستخدم (ID) إلى كائن الطلب (req)
-        // هذا يسمح للمسارات (routes) التي تأتي بعد هذا الوسيط بمعرفة من هو المستخدم الذي قام بالطلب
         req.userData = { userId: decodedToken.userId };
         
-        // 4. السماح للطلب بالمرور إلى الخطوة التالية في سلسلة الوسائط
+        // 4. السماح للطلب بالمرور
         next();
 
     } catch (error) {
