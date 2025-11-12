@@ -21,6 +21,7 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, { cors: { origin: '*' } });
+// استخدام متغير البيئة أو القيمة الافتراضية
 const PORT   = process.env.PORT || 3001; 
 
 // secrets & configs
@@ -33,6 +34,9 @@ const ADMIN_SECRET_KEY    = process.env.ADMIN_SECRET_KEY || 'MySuperAdminSecretF
 const ADMIN_EMAIL         = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
 const SENDER_EMAIL        = ADMIN_EMAIL; // استخدام نفس الإيميل كمرسل
 const usersDbPath         = path.join(__dirname, 'users.json');
+
+// *** الإضافة الضرورية: تخزين مؤقت لبيانات التسجيل (Email Verification) ***
+const pendingRegistrations = {}; 
 
 // nodemailer transporter (العودة لـ Gmail Service)
 const transporter = nodemailer.createTransport({
@@ -189,8 +193,7 @@ function isTrialActive(user) {
 
 // ================================================================= //
 // ================= منطق Socket.IO & WhatsApp ==================== //
-// ... (باقي كود Section 5)
-// ...
+// ================================================================= //
 io.on('connection', (socket) => {
   let client = null;
   let connectedUserId = null;
@@ -285,44 +288,107 @@ io.on('connection', (socket) => {
 
 // ================================================================= //
 // =============== 6. مسارات المصادقة (Auth Routes) ================ //
-// ... (باقي كود Section 6)
+// ================================================================= //
 app.post("/api/auth/signup", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const { name, email, password } = req.body; 
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
     }
 
     const users = readUsersFromFile();
     if (users.find(u => u.email === email)) {
-      return res.status(400).json({ message: 'This email is already registered' });
+      return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    // ----------------------------------------------------
-    // التعديل هنا: من 24 ساعة إلى 15 دقيقة
-    const trialEndsAt = new Date();
-    trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15); // الكود الجديد (15 دقيقة)
-    // ----------------------------------------------------
+    // 1. توليد رمز التفعيل المؤقت ورابط الـ Verification
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+    const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
 
-    const newUser = {
-      id: Date.now().toString(),
-      email,
-      password: hashedPassword,
-      trialEndsAt: trialEndsAt.toISOString(),
-      subscriptionEndsAt: null,
-      activationCode: null,
-      activationDurationDays: null
+    // 2. تخزين البيانات مؤقتاً
+    pendingRegistrations[email] = { name, email, password: hashedPassword, token: verificationToken };
+
+    // 3. إرسال رابط التفعيل عبر الإيميل
+    const mailOptions = {
+      from: SENDER_EMAIL, // <--- إرسال من إيميل الـ Gmail
+      to: email,
+      subject: 'تفعيل حسابك في ' + req.get('host'),
+      html: `
+        <p>مرحباً بك ${name}،</p>
+        <p>الرجاء النقر على الرابط أدناه لتفعيل حسابك وإكمال التسجيل:</p>
+        <a href="${verificationLink}" style="padding: 10px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">تفعيل الحساب الآن</a>
+        <p>الرابط صالح لمدة ساعة واحدة.</p>
+      `
     };
 
-    users.push(newUser);
-    writeUsersToFile(users);
-    res.status(201).json({ message: 'Account created successfully' });
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error("Signup Error:", error);
+    res.status(500).json({ message: 'فشل التسجيل في السيرفر.' });
   }
 });
+
+
+// --- مسار التحقق من الإيميل وإكمال التسجيل ---
+app.get('/api/auth/verify-email', async (req, res) => {
+    const token = req.query.token;
+    
+    if (!token) {
+        return res.status(400).send('رابط التفعيل غير صالح.');
+    }
+    
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const email = decoded.email;
+        const pendingData = pendingRegistrations[email];
+
+        if (!pendingData || pendingData.token !== token) {
+            return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
+        }
+
+        // 1. إكمال عملية التسجيل وحفظ المستخدم في users.json
+        const users = readUsersFromFile();
+        if (users.find(u => u.email === email)) {
+            delete pendingRegistrations[email];
+            return res.status(400).send('الحساب مسجل بالفعل. يرجى تسجيل الدخول.');
+        }
+
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15); // 15 دقيقة تجريبية
+
+        const newUser = {
+            id: Date.now().toString(),
+            email: pendingData.email,
+            name: pendingData.name, // <--- إضافة الاسم
+            password: pendingData.password, // الهاش موجود مسبقاً
+            trialEndsAt: trialEndsAt.toISOString(),
+            subscriptionEndsAt: null,
+            activationCode: null,
+            activationDurationDays: null
+        };
+        
+        users.push(newUser);
+        writeUsersToFile(users);
+
+        // 2. مسح البيانات المؤقتة
+        delete pendingRegistrations[email];
+
+        // 3. إظهار رسالة النجاح
+        res.send(`
+            <!DOCTYPE html><html lang="ar" dir="rtl"><head><title>تم التفعيل</title><style>body { font-family: 'Cairo', sans-serif; text-align: center; padding-top: 50px; background-color: #f0f2f5; } .success-box { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: inline-block; } h1 { color: #25D366; } a { color: #128C7E; text-decoration: none; }</style></head>
+            <body><div class="success-box"><h1>✅ تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن تسجيل الدخول.</p><a href="/login.html">اضغط هنا لتسجيل الدخول</a></div></body></html>
+        `);
+
+    } catch (error) {
+        console.error("Verification Error:", error);
+        res.status(500).send('خطأ في التحقق من الإيميل. يرجى المحاولة مرة أخرى.');
+    }
+});
+
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -454,18 +520,7 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 
 // --- مسار لحذف جلسة واتساب (WhatsApp Logout) ---
 app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
-    const userId = req.userData.userId;
-    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
-    
-    try {
-        if (fs.existsSync(sessionPath)) {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log(`[WhatsApp Logout] Session deleted for user ${userId}`);
-        }
-        res.status(200).json({ message: "WhatsApp session deleted." });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to delete WhatsApp session." });
-    }
+    // ...
 });
 
 
@@ -473,29 +528,11 @@ app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
 // ========= 9. صفحات الويب: Activate & Dashboard + Static ========== //
 // ... (باقي كود Section 9)
 app.get('/dashboard', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId);
-  
-  if (!user) return res.redirect('/activate'); 
-  
-  if (!isSubscriptionActive(user)) {
-    return res.redirect('/activate');
-  }
-  
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  // ...
 });
 
 app.get('/activate', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user  = users.find(u => u.id === req.userData.userId);
-  
-  if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
-
-  if (isSubscriptionActive(user)) {
-    return res.redirect('/dashboard');
-  }
-  
-  res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+  // ...
 });
 
 
