@@ -1,33 +1,36 @@
+// middleware/auth.js
+
 const jwt = require('jsonwebtoken');
 
-// قراءة الـ Secret Key من ملف .env (نفس القيمة في server.js)
-const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
+// هذا الوسيط (Middleware) هو "حارس المصادقة"
+// دوره هو التحقق من أن الطلب قادم من مستخدم مسجل الدخول ولديه توكن صالح
 
-// Middleware للتحقق من التوكن وصلاحية المستخدم
 module.exports = (req, res, next) => {
     try {
-        // استخراج هيدر Authorization
-        const authHeader = req.headers.authorization;
-
-        // التحقق من وجود الهيدر وبداية القيمة بـ "Bearer "
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new Error('Authentication failed: No token provided or malformed header.');
+        // 1. محاولة استخراج التوكن من هيدر 'Authorization'
+        // الهيدر عادة ما يكون بهذا الشكل: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+        const token = req.headers.authorization.split(" ")[1];
+        
+        if (!token) {
+            // هذه الحالة تحدث إذا لم يتم إرسال الهيدر 'Authorization' أصلاً
+            throw new Error('Authentication failed!');
         }
 
-        // استخراج التوكن من الهيدر
-        const token = authHeader.split(" ")[1];
-
-        // التحقق من صحة التوكن
-        const decodedToken = jwt.verify(token, JWT_SECRET);
-
-        // إضافة بيانات المستخدم (userId) إلى الطلب
+        // 2. التحقق من صحة التوكن
+        // تستخدم jwt.verify نفس المفتاح السري المستخدم عند إنشاء التوكن
+        // إذا كان التوكن غير صالح أو منتهي الصلاحية، سيتم إطلاق خطأ (error)
+        const decodedToken = jwt.verify(token, 'YOUR_VERY_SECRET_KEY'); // مهم جداً: تأكد أن هذا المفتاح مطابق للموجود في server.js
+        
+        // 3. إضافة بيانات المستخدم (ID) إلى كائن الطلب (req)
+        // هذا يسمح للمسارات (routes) التي تأتي بعد هذا الوسيط بمعرفة من هو المستخدم الذي قام بالطلب
         req.userData = { userId: decodedToken.userId };
-
-        // السماح للطلب بالمرور
+        
+        // 4. السماح للطلب بالمرور إلى الخطوة التالية في سلسلة الوسائط
         next();
 
     } catch (error) {
-        // في حالة الخطأ، إرجاع 401 Unauthorized
+        // إذا حدث أي خطأ في كتلة 'try' (مثلاً: التوكن غير موجود، التوكن غير صالح)
+        // يتم إرجاع خطأ 401 Unauthorized، مما يمنع الوصول إلى المسار المحمي
         res.status(401).json({ message: 'Authentication failed! Please log in again.' });
     }
 };
