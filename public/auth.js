@@ -26,16 +26,14 @@ const usersDbPath         = path.join(__dirname, 'users.json');
 
 const pendingRegistrations = {};
 
-// إعداد nodemailer مع Gmail SMTP
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: SENDER_EMAIL,
-    pass: process.env.GMAIL_APP_PASS // لازم يكون App Password صحيح
+    pass: process.env.GMAIL_APP_PASS
   }
 });
 
-// إعداد قاعدة SQLite
 const dbFile = path.join(__dirname, "main_data.db");
 const db     = new sqlite3.Database(dbFile);
 db.serialize(() => {
