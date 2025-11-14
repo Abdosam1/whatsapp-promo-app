@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
         // إنشاء Token
         const token = jwt.sign(
             { userId: user.id, email: user.email },
-            'YOUR_VERY_SECRET_KEY_SHOULD_BE_LONG_AND_RANDOM', // بدل هادي
+            'ThisIsMySuperSecretKeyForJWT-789-!@#', // بدل هادي
             { expiresIn: '1h' }
         );
 
