@@ -8,12 +8,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     
     <style>
-        /* ... (احتفاظ بكامل كود الـ CSS السابق) ... */
+        /* --- Google Font --- */
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
+        /* --- متغيرات الألوان --- */
         :root {
             --primary-color: #25D366;
             --secondary-color: #128C7E;
             --dark-color: #075E54;
+            --success-color: #28a745; /* لون جديد للنجاح */
             --background-color: #f0f2f5;
             --card-background: #ffffff;
             --danger-color: #e74c3c;
@@ -27,7 +30,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             direction: rtl;
         }
@@ -68,8 +71,9 @@
 
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
+            color: #333;
         }
 
         input {
@@ -79,6 +83,13 @@
             border-radius: var(--border-radius);
             box-sizing: border-box;
             font-family: 'Cairo', sans-serif;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.2);
         }
 
         .btn {
@@ -98,15 +109,59 @@
             background-color: var(--secondary-color);
         }
 
-        .error {
-            color: var(--danger-color);
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn-google:hover {
+            background-color: #357ae8;
+        }
+
+        .btn-google i {
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+        
+        .separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #999;
+            margin: 25px 0;
+        }
+        .separator::before, .separator::after {
+            content: ''; flex: 1; border-bottom: 1px solid #ddd;
+        }
+        .separator:not(:empty)::before { margin-left: 1em; }
+        .separator:not(:empty)::after { margin-right: 1em; }
+
+        .message {
             margin-top: 15px;
             font-weight: 600;
             min-height: 20px;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            display: none; /* مخفي بشكل افتراضي */
         }
+        .error { color: var(--danger-color); background-color: rgba(231, 76, 60, 0.1); }
+        .success { color: var(--success-color); background-color: rgba(40, 167, 69, 0.1); }
 
         .switch-link {
-            margin-top: 20px;
+            margin-top: 25px;
             font-size: 0.9em;
         }
 
@@ -124,8 +179,8 @@
             <p>مرحباً بك! أدخل بياناتك للبدء.</p>
             <form id="signup-form">
                 <div class="form-group">
-                    <label for="full_name">الاسم الكامل:</label>
-                    <input type="text" id="full_name" name="full_name" required>
+                    <label for="name">الاسم الكامل:</label>
+                    <input type="text" id="name" name="name" required>
                 </div>
                 <div class="form-group">
                     <label for="email">البريد الإلكتروني:</label>
@@ -135,16 +190,30 @@
                     <label for="password">كلمة المرور:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
+                <!-- يمكنك حذف تأكيد كلمة المرور إذا كان الـ JavaScript يقوم بالتحقق منه
                 <div class="form-group">
                     <label for="confirm_password">تأكيد كلمة المرور:</label>
                     <input type="password" id="confirm_password" name="confirm_password" required>
                 </div>
+                -->
                 <button type="submit" class="btn">إنشاء الحساب</button>
             </form>
-            <div id="error-message" class="error"></div>
+
+            <!-- حاوية الرسائل (خطأ أو نجاح) -->
+            <div id="message-container" class="message"></div>
+            
+            <div class="separator">أو</div>
+            
+            <a href="/api/auth/google" class="btn-google">
+                <i class="fab fa-google"></i>
+                <span>التسجيل بواسطة جوجل</span>
+            </a>
+
             <p class="switch-link">لديك حساب بالفعل؟ <a href="login.html">سجل الدخول</a></p>
         </div>
     </div>
+    
+    <!-- تأكد من أن ملف auth.js يتعامل مع عملية إنشاء الحساب -->
     <script src="auth.js"></script>
 </body>
 </html>
