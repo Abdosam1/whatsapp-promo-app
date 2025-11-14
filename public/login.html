@@ -29,7 +29,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             direction: rtl;
         }
@@ -70,8 +70,9 @@
 
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
+            color: #333;
         }
 
         input {
@@ -81,7 +82,15 @@
             border-radius: var(--border-radius);
             box-sizing: border-box;
             font-family: 'Cairo', sans-serif;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.2);
+        }
+
 
         .btn {
             width: 100%;
@@ -100,6 +109,56 @@
             background-color: var(--secondary-color);
         }
 
+        /* --- NEW: Google Button --- */
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background-color: #4285F4; /* Google Blue */
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn-google:hover {
+            background-color: #357ae8;
+        }
+
+        .btn-google i {
+            font-size: 1.2em;
+            margin-left: 10px; /* لتباعد الأيقونة عن النص */
+        }
+        
+        /* --- NEW: Separator --- */
+        .separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #999;
+            margin: 25px 0;
+        }
+
+        .separator::before,
+        .separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #ddd;
+        }
+        .separator:not(:empty)::before {
+            margin-left: 1em;
+        }
+        .separator:not(:empty)::after {
+            margin-right: 1em;
+        }
+
         .error {
             color: var(--danger-color);
             margin-top: 15px;
@@ -108,7 +167,7 @@
         }
 
         .switch-link {
-            margin-top: 20px;
+            margin-top: 25px;
             font-size: 0.9em;
         }
 
@@ -135,10 +194,24 @@
                 </div>
                 <button type="submit" class="btn">دخول</button>
             </form>
+
+            <!-- رسالة الخطأ -->
             <div id="error-message" class="error"></div>
+            
+            <!-- NEW: Separator -->
+            <div class="separator">أو</div>
+            
+            <!-- NEW: Google Login Button -->
+            <a href="/api/auth/google" class="btn-google">
+                <i class="fab fa-google"></i>
+                <span>المتابعة بواسطة جوجل</span>
+            </a>
+
             <p class="switch-link">ليس لديك حساب؟ <a href="signup.html">أنشئ واحداً</a></p>
         </div>
     </div>
+
+    <!-- تأكد من أن ملف auth.js يتعامل مع عملية تسجيل الدخول العادية -->
     <script src="auth.js"></script>
 </body>
 </html>
