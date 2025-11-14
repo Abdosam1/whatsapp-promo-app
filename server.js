@@ -43,6 +43,8 @@ const SENDER_EMAIL = ADMIN_EMAIL;
 const usersDbPath = path.join(__dirname, 'users.json');
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
+const uploadsFolder = path.join(__dirname, 'uploads');
+
 
 // --- كائنات لإدارة الحالة (State Management) ---
 const pendingRegistrations = {};
@@ -56,7 +58,7 @@ const whatsappClients = {}; // **مهم جداً**: كائن لإدارة اتص
 const db = new sqlite3.Database(dbFile, (err) => {
   if (err) {
     console.error("Fatal Error: Could not connect to database.", err);
-    process.exit(1); // إيقاف التطبيق إذا لم يتمكن من الاتصال بقاعدة البيانات
+    process.exit(1);
   }
   console.log("✅ Database connected successfully.");
 });
@@ -70,14 +72,14 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: ADMIN_EMAIL,
-    pass: process.env.GMAIL_APP_PASS // تأكد من استخدام كلمة مرور التطبيقات
+    pass: process.env.GMAIL_APP_PASS
   }
 });
 
-// --- التأكد من وجود مجلد العروض الترويجية ---
-if (!fs.existsSync(promosUploadFolder)) {
-  fs.mkdirSync(promosUploadFolder, { recursive: true });
-}
+// --- التأكد من وجود مجلدات الرفع ---
+if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
+if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
+
 
 // ================================================================= //
 // ==================== 4. إعدادات Express Middleware =================== //
@@ -85,7 +87,7 @@ if (!fs.existsSync(promosUploadFolder)) {
 app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
-app.use('/promos', express.static(promosUploadFolder)); // **مهم**: للسماح بعرض صور العروض
+app.use('/promos', express.static(promosUploadFolder)); // للسماح بعرض صور العروض
 
 // --- استدعاء الـ Middlewares المخصصة ---
 const authMiddleware = require('./middleware/auth');
@@ -99,7 +101,7 @@ const readUsersFromFile = () => {
   try {
     if (!fs.existsSync(usersDbPath)) return [];
     const data = fs.readFileSync(usersDbPath, 'utf-8');
-    return JSON.parse(data);
+    return data ? JSON.parse(data) : [];
   } catch (e) { console.error("Error reading users file:", e); return []; }
 };
 
@@ -109,7 +111,6 @@ const writeUsersToFile = (users) => {
   } catch(e) { console.error("Error writing to users file:", e); }
 };
 
-// ... (باقي الدوال المساعدة مثل generateActivationCode, readPromos, etc. تبقى كما هي)
 function generateActivationCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = '';
     for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; }
@@ -134,7 +135,6 @@ io.on('connection', (socket) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       const userId = decoded.userId;
 
-      // **المنطق الجديد والمحسّن لإدارة اتصالات واتساب**
       if (whatsappClients[userId] && await whatsappClients[userId].getState() === 'CONNECTED') {
         console.log(`♻️ Reusing existing WhatsApp connection for user ${userId}`);
         socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
@@ -152,23 +152,17 @@ io.on('connection', (socket) => {
         }
       });
 
-      whatsappClients[userId] = client; // تخزين الاتصال
+      whatsappClients[userId] = client;
 
-      client.on("qr", qr => {
-        console.log(`QR code received for user ${userId}`);
-        socket.emit('qr', qr);
-      });
-
+      client.on("qr", qr => { socket.emit('qr', qr); });
       client.on("ready", async () => {
         console.log(`✅ WhatsApp client is ready for user ${userId}!`);
         socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
-        // يمكنك إضافة تحديث جهات الاتصال هنا
       });
-
       client.on("disconnected", (reason) => {
         console.log(`❌ WhatsApp client for user ${userId} disconnected. Reason: ${reason}`);
         socket.emit('status', { message: `تم قطع الاتصال`, ready: false, error: true });
-        client.destroy();
+        client.destroy().catch(()=>{});
         delete whatsappClients[userId];
       });
 
@@ -217,9 +211,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log(`🔌 Socket disconnected: ${socket.id}`);
-  });
+  socket.on('disconnect', () => { console.log(`🔌 Socket disconnected: ${socket.id}`); });
 });
 
 // ================================================================= //
@@ -229,29 +221,32 @@ passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: "/api/auth/google/callback",
-    scope: ['profile', 'email']
   },
   (accessToken, refreshToken, profile, done) => {
-    const email = profile.emails[0].value;
-    const users = readUsersFromFile();
-    let user = users.find(u => u.email === email);
+    try {
+        const email = profile.emails[0].value;
+        const users = readUsersFromFile();
+        let user = users.find(u => u.email === email);
 
-    if (user) return done(null, user);
-    
-    const trialEndsAt = new Date();
-    trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
-    const newUser = {
-        id: Date.now().toString(),
-        googleId: profile.id,
-        email: email,
-        name: profile.displayName,
-        password: null,
-        trialEndsAt: trialEndsAt.toISOString(),
-        subscriptionEndsAt: null,
-    };
-    users.push(newUser);
-    writeUsersToFile(users);
-    return done(null, newUser);
+        if (user) return done(null, user);
+        
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
+        const newUser = {
+            id: Date.now().toString(),
+            googleId: profile.id,
+            email: email,
+            name: profile.displayName,
+            password: null,
+            trialEndsAt: trialEndsAt.toISOString(),
+            subscriptionEndsAt: null,
+        };
+        users.push(newUser);
+        writeUsersToFile(users);
+        return done(null, newUser);
+    } catch(e) {
+        return done(e, null);
+    }
   }
 ));
 
@@ -260,16 +255,100 @@ passport.use(new GoogleStrategy({
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
+// --- إعدادات Multer لرفع الملفات ---
+const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }) });
+const uploadCSV = multer({ dest: uploadsFolder });
+
 // --- مسارات المصادقة (Authentication) ---
-app.get('/api/auth/google', passport.authenticate('google'));
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(`/dashboard.html?token=${token}`);
 });
 
-app.post("/api/auth/signup", async (req, res) => { /* ... كود التسجيل لم يتغير ... */ });
-app.get('/api/auth/verify-email', async (req, res) => { /* ... كود التحقق لم يتغير ... */ });
-app.post("/api/auth/login", async (req, res) => { /* ... كود تسجيل الدخول لم يتغير ... */ });
+app.post("/api/auth/signup", async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
+        
+        const users = readUsersFromFile();
+        if (users.find(u => u.email === email) || pendingRegistrations[email]) {
+            return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+        const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
+        
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
+        pendingRegistrations[email] = { name, email, password: hashedPassword, token: verificationToken, trialEndsAt: trialEndsAt.toISOString() };
+
+        const mailOptions = {
+            from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك',
+            html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>`
+        };
+        
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
+    } catch (error) {
+        console.error("Signup Error:", error);
+        res.status(500).json({ message: 'فشل التسجيل في السيرفر.', error: error.message });
+    }
+});
+
+app.get('/api/auth/verify-email', (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const { email } = decoded;
+        const pendingData = pendingRegistrations[email];
+
+        if (!pendingData || pendingData.token !== token) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
+        
+        const users = readUsersFromFile();
+        if (users.find(u => u.email === email)) {
+            delete pendingRegistrations[email];
+            return res.status(400).send('الحساب مسجل بالفعل. يرجى تسجيل الدخول.');
+        }
+
+        const newUser = {
+            id: Date.now().toString(),
+            email: pendingData.email,
+            name: pendingData.name,
+            password: pendingData.password,
+            trialEndsAt: pendingData.trialEndsAt,
+            subscriptionEndsAt: null,
+        };
+        users.push(newUser);
+        writeUsersToFile(users);
+        delete pendingRegistrations[email];
+        res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
+    } catch (error) {
+        console.error("Verification Error:", error);
+        res.status(500).send('خطأ في التحقق من الإيميل.');
+    }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const users = readUsersFromFile();
+        const user = users.find(u => u.email === email);
+        if (!user) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
+        if (user.googleId && !user.password) return res.status(401).json({ message: 'هذا الحساب مسجل عبر جوجل.' });
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
+
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
+        res.status(200).json({ token });
+    } catch(e) {
+        console.error("Login error:", e);
+        res.status(500).json({ message: 'خطأ في السيرفر' });
+    }
+});
 
 // --- مسارات محمية (Protected Routes) ---
 app.get("/api/check-status", authMiddleware, (req, res) => {
@@ -285,14 +364,11 @@ app.post("/api/whatsapp/logout", authMiddleware, async (req, res) => {
     const client = whatsappClients[userId];
     try {
         if (client) {
-            await client.logout(); // تسجيل الخروج من واتساب
+            await client.logout();
             delete whatsappClients[userId];
         }
-        // حذف ملفات الجلسة المحلية لضمان نظافة الخروج
         const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
-        if (fs.existsSync(sessionPath)) {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-        }
+        if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
         res.status(200).json({ message: "تم تسجيل الخروج بنجاح." });
     } catch (error) {
         console.error(`Logout error for user ${userId}:`, error);
@@ -300,19 +376,95 @@ app.post("/api/whatsapp/logout", authMiddleware, async (req, res) => {
     }
 });
 
+app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
+    const { userId } = req.userData;
+    const { text } = req.body;
+    const image = req.file ? req.file.filename : null;
+    if (!text || !image) return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
+    try {
+        const promos = readPromos(userId);
+        const newPromo = { id: Date.now(), text, image, createdAt: new Date().toISOString() };
+        promos.push(newPromo);
+        writePromos(userId, promos);
+        res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر." });
+    }
+});
 
-// ... (باقي مسارات الـ API مثل /promos, /contacts, etc. تبقى كما هي وتستخدم Middlewares)
-const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }) });
-const uploadCSV = multer({ dest: "uploads/" });
-app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => { /* ... الكود ... */ });
-app.get("/promos", authMiddleware, checkSubscription, (req, res) => { /* ... الكود ... */ });
-// ... etc.
+app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
+    try {
+        res.status(200).json(readPromos(req.userData.userId));
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر." });
+    }
+});
+
+app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+    const { userId } = req.userData;
+    const promoId = parseInt(req.params.id, 10);
+    try {
+        const promos = readPromos(userId);
+        const promoIndex = promos.findIndex(p => p.id === promoId);
+        if (promoIndex === -1) return res.status(404).json({ message: "العرض غير موجود." });
+        
+        const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+        
+        promos.splice(promoIndex, 1);
+        writePromos(userId, promos);
+        res.status(200).json({ message: "تم حذف العرض بنجاح." });
+    } catch (error) {
+        res.status(500).json({ message: "خطأ في السيرفر." });
+    }
+});
+
+app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
+    db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        res.status(200).json(rows || []);
+    });
+});
+
+app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
+    db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        res.status(200).json(rows || []);
+    });
+});
+
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+    const { userId } = req.userData;
+    const filePath = req.file.path;
+    const results = [];
+    fs.createReadStream(filePath)
+      .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+      .on('data', (data) => {
+        const phone = String(data.phone).replace(/\D/g, "");
+        if (phone.length >= 8) results.push(phone);
+      })
+      .on('end', () => {
+        fs.unlinkSync(filePath);
+        if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
+        
+        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+        let importedCount = 0;
+        db.serialize(() => {
+            results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
+            stmt.finalize(() => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount }));
+        });
+      })
+      .on('error', (err) => {
+        fs.unlinkSync(filePath);
+        res.status(500).json({ message: "خطأ في معالجة الملف." });
+      });
+});
 
 // ================================================================= //
 // ===================== 9. خدمة الملفات الثابتة والمسارات النهائية =================== //
 // ================================================================= //
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/dashboard', authMiddleware, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'dashboard.html')) });
+app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'dashboard.html')) });
 app.get('/activate', authMiddleware, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'activate.html')) });
 
 // --- مسار Catch-all (يجب أن يكون في النهاية) ---
