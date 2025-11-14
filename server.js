@@ -291,18 +291,15 @@ app.post("/api/auth/signup", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    // 1. توليد رمز التفعيل المؤقت ورابط الـ Verification
     const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
     const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
 
-    // 2. تخزين البيانات مؤقتاً
     const trialEndsAt = new Date();
     trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15); // 15 دقيقة تجريبية
     pendingRegistrations[email] = { name, email, password: hashedPassword, token: verificationToken, trialEndsAt: trialEndsAt.toISOString() };
 
-    // 3. إرسال رابط التفعيل عبر الإيميل
     const mailOptions = {
-      from: SENDER_EMAIL, // abdo140693@gmail.com
+      from: SENDER_EMAIL,
       to: email,
       subject: 'تفعيل حسابك في ' + req.get('host'),
       html: `
@@ -322,14 +319,9 @@ app.post("/api/auth/signup", async (req, res) => {
   }
 });
 
-
-// --- مسار التحقق من الإيميل وإكمال التسجيل ---
 app.get('/api/auth/verify-email', async (req, res) => {
     const token = req.query.token;
-    
-    if (!token) {
-        return res.status(400).send('رابط التفعيل غير صالح.');
-    }
+    if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
     
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -340,7 +332,6 @@ app.get('/api/auth/verify-email', async (req, res) => {
             return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
         }
 
-        // 1. إكمال عملية التسجيل وحفظ المستخدم في users.json
         const users = readUsersFromFile();
         if (users.find(u => u.email === email)) {
             delete pendingRegistrations[email];
@@ -352,7 +343,7 @@ app.get('/api/auth/verify-email', async (req, res) => {
             email: pendingData.email,
             name: pendingData.name, 
             password: pendingData.password, 
-            trialEndsAt: pendingData.trialEndsAt, // استخدام فترة التجربة المخزنة
+            trialEndsAt: pendingData.trialEndsAt,
             subscriptionEndsAt: null,
             activationCode: null,
             activationDurationDays: null
@@ -361,10 +352,8 @@ app.get('/api/auth/verify-email', async (req, res) => {
         users.push(newUser);
         writeUsersToFile(users);
 
-        // 2. مسح البيانات المؤقتة
         delete pendingRegistrations[email];
 
-        // 3. إظهار رسالة النجاح
         res.send(`
             <!DOCTYPE html><html lang="ar" dir="rtl"><head><title>تم التفعيل</title><style>body { font-family: 'Cairo', sans-serif; text-align: center; padding-top: 50px; background-color: #f0f2f5; } .success-box { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: inline-block; } h1 { color: #25D366; } a { color: #128C7E; text-decoration: none; }</style></head>
             <body><div class="success-box"><h1>✅ تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن تسجيل الدخول.</p><a href="/login.html">اضغط هنا لتسجيل الدخول</a></div></body></html>
@@ -375,7 +364,6 @@ app.get('/api/auth/verify-email', async (req, res) => {
         res.status(500).send('خطأ في التحقق من الإيميل. يرجى المحاولة مرة أخرى.');
     }
 });
-
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -393,16 +381,12 @@ app.post("/api/auth/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
     
-    // ----------------------------------------------------
-    // *** الحل: استخدام await لضمان الحذف قبل إرجاع التوكن ***
-    // ----------------------------------------------------
     try {
         const deletedRows = await dbRun(`DELETE FROM clients WHERE ownerId = ?`, [user.id]);
         console.log(`[Login Clean] Cleared ${deletedRows} old clients for user ${user.id}.`);
     } catch(e) {
         console.error(`[Login Clean] Failed to delete clients for user ${user.id}:`, e);
     }
-    // ----------------------------------------------------
 
     return res.status(200).json({ token });
   } catch {
@@ -429,7 +413,7 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
   writeUsersToFile(users);
 
   const mailOptions = {
-    from: SENDER_EMAIL, // abdo140693@gmail.com
+    from: SENDER_EMAIL,
     to: ADMIN_EMAIL,
     subject: `طلب اشتراك جديد: ${durationName}`,
     html: `
@@ -509,22 +493,12 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
     const userId = req.userData.userId;
     const text   = req.body.text;
     const image  = req.file ? req.file.filename : null; 
-
-    if (!text || !image) {
-        return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
-    }
-
+    if (!text || !image) return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
     try {
         const promos = readPromos(userId);
-        const newPromo = {
-            id: Date.now(),
-            text,
-            image,
-            createdAt: new Date().toISOString()
-        };
+        const newPromo = { id: Date.now(), text, image, createdAt: new Date().toISOString() };
         promos.push(newPromo);
         writePromos(userId, promos);
-
         res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
     } catch (error) {
         res.status(500).json({ message: "خطأ في السيرفر أثناء إضافة العرض." });
@@ -546,16 +520,9 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
     try {
         const promos = readPromos(userId);
         const promoIndex = promos.findIndex(p => p.id === promoId);
-
-        if (promoIndex === -1) {
-            return res.status(404).json({ message: "العرض غير موجود." });
-        }
-
+        if (promoIndex === -1) return res.status(404).json({ message: "العرض غير موجود." });
         const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
-
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         promos.splice(promoIndex, 1);
         writePromos(userId, promos);
         res.status(200).json({ message: "تم حذف العرض بنجاح." });
@@ -567,9 +534,7 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     const ownerId = req.userData.userId;
     db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        }
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         res.status(200).json(rows || []);
     });
 });
@@ -577,29 +542,18 @@ app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
     const ownerId = req.userData.userId;
     db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [ownerId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        }
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         res.status(200).json(rows || []);
     });
 });
 
 app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) => {
+    const { table, id } = req.params;
     const userId = req.userData.userId;
-    const table = req.params.table;
-    const id = parseInt(req.params.id, 10);
-
-    if (table !== 'clients' && table !== 'imported_clients') {
-        return res.status(400).json({ message: "جدول غير صالح." });
-    }
-
+    if (table !== 'clients' && table !== 'imported_clients') return res.status(400).json({ message: "جدول غير صالح." });
     db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء الحذف." });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ message: "لم يتم العثور على العميل." });
-        }
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء الحذف." });
+        if (this.changes === 0) return res.status(404).json({ message: "لم يتم العثور على العميل." });
         res.status(200).json({ message: "تم حذف العميل بنجاح." });
     });
 });
@@ -607,9 +561,7 @@ app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) =
 app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (req, res) => {
     const userId = req.userData.userId;
     db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
-        if (err) {
-            return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء حذف الكل." });
-        }
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات أثناء حذف الكل." });
         res.status(200).json({ message: `تم حذف ${this.changes} عميل مستورد.` });
     });
 });
@@ -619,52 +571,33 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
     const filePath = req.file.path;
     const results = [];
     let importedCount = 0;
-
     fs.createReadStream(filePath)
         .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
         .on('data', (data) => {
             const phone = String(data.phone).replace(/\D/g, "");
-            if (phone.length >= 8) {
-                results.push(phone);
-            }
+            if (phone.length >= 8) results.push(phone);
         })
         .on('end', () => {
             fs.unlinkSync(filePath); 
-
-            if (results.length === 0) {
-                return res.status(400).json({ message: "لا يوجد أرقام هواتف صالحة للاستيراد." });
-            }
-
+            if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام هواتف صالحة للاستيراد." });
             db.serialize(() => {
                 const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
-                results.forEach(phone => {
-                    stmt.run(phone, userId, function(err) {
-                        if (!err && this.changes > 0) {
-                            importedCount++;
-                        }
-                    });
-                });
-                stmt.finalize(() => {
-                    res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
-                });
+                results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
+                stmt.finalize(() => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount }));
             });
         })
-        .on('error', (err) => {
+        .on('error', () => {
             fs.unlinkSync(filePath);
             res.status(500).json({ message: "خطأ أثناء معالجة ملف CSV." });
         });
 });
 
-
-// --- مسار لحذف جلسة واتساب (WhatsApp Logout) ---
 app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
     const userId = req.userData.userId;
     const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
-    
     try {
         if (fs.existsSync(sessionPath)) {
             fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log(`[WhatsApp Logout] Session deleted for user ${userId}`);
         }
         res.status(200).json({ message: "WhatsApp session deleted." });
     } catch (error) {
@@ -675,16 +608,23 @@ app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
 
 // ================================================================= //
 // ========= 9. صفحات الويب: Activate & Dashboard + Static ========== //
+// ================================================================= //
+
 app.get('/dashboard', authMiddleware, (req, res) => {
   const users = readUsersFromFile();
   const user  = users.find(u => u.id === req.userData.userId);
   
-  if (!user) return res.redirect('/activate'); 
+  if (!user) {
+    // إذا لم يتم العثور على المستخدم, الأفضل إرجاعه لصفحة تسجيل الدخول
+    return res.redirect('/login.html'); 
+  }
   
-  if (!isSubscriptionActive(user)) {
+  // ✅  الحل: تحقق مما إذا كان الاشتراك المدفوع أو الفترة التجريبية نشطة
+  if (!isSubscriptionActive(user) && !isTrialActive(user)) {
     return res.redirect('/activate');
   }
   
+  // إذا كان كل شيء على ما يرام, أرسل لوحة التحكم
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
@@ -692,12 +632,17 @@ app.get('/activate', authMiddleware, (req, res) => {
   const users = readUsersFromFile();
   const user  = users.find(u => u.id === req.userData.userId);
   
-  if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+  if (!user) {
+    // يمكن إرساله إلى صفحة التفعيل مباشرة في هذه الحالة
+    return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+  }
 
-  if (isSubscriptionActive(user)) {
+  // ✅ الحل: إذا كان لديه اشتراك أو فترة تجريبية, يجب إرساله إلى لوحة التحكم
+  if (isSubscriptionActive(user) || isTrialActive(user)) {
     return res.redirect('/dashboard');
   }
   
+  // إذا لم يكن لديه أي منهما, أظهر له صفحة التفعيل
   res.sendFile(path.join(__dirname, 'public', 'activate.html'));
 });
 
