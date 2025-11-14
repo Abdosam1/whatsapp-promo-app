@@ -1,134 +1,109 @@
-// ================================================================= //
-// ==================== activate.js - منطق التفعيل =================== //
-// ================================================================= //
-// التحقق من التوكن (إجراء أمني أساسي)
-const token = localStorage.getItem('authToken');
-if (!token) {
-    window.location.href = 'index.html'; // الرجوع لصفحة تسجيل الدخول إذا لم يكن هناك توكن
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    // إعداد زر تسجيل الخروج
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) {
+        window.location.href = '/login.html';
+    }
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => { 
-            localStorage.removeItem('authToken'); 
-            alert('تم تسجيل الخروج'); 
-            window.location.href = 'index.html'; 
-        });
-    }
+        logoutBtn.onclick = () => {
+            localStorage.removeItem('userInfo');
 
-    // التحقق من حالة الاشتراك عند تحميل الصفحة
-    checkSubscriptionStatus();
+            window.location.href = '/login.html';
+        };
+    }
 });
 
-// دالة API Fetch (مكررة هنا لضمان عمل الصفحة باستقلالية)
-async function apiFetch(url, options = {}) {
-    const token = localStorage.getItem('authToken');
-    const headers = { ...options.headers };
-    if (token) { headers['Authorization'] = `Bearer ${token}`; }
-    if (!(options.body instanceof FormData)) { headers['Content-Type'] = 'application/json'; }
+async function requestActivationCode(period, days) {
+    const statusElement = document.getElementById('activation-status');
+    statusElement.textContent = 'المرجو الانتظار، يتم إرسال طلبك...';
+    statusElement.style.color = '#333';
 
-    const response = await fetch(url, { ...options, headers });
-    
-    // إذا كان 401، التحويل لصفحة تسجيل الدخول
-    if (response.status === 401) { 
-        localStorage.removeItem('authToken'); 
-        alert("انتهت صلاحية الجلسة"); 
-        window.location.href = 'index.html'; 
-        throw new Error('Authentication failed'); 
-    }
-    // ملاحظة: لا نحتاج لمعالجة 403 هنا لأننا أصلاً في صفحة التفعيل.
-    if (!response.ok) { 
-        const errorData = await response.json().catch(() => ({ message: `HTTP Error: ${response.statusText}` })); 
-        throw new Error(errorData.message || 'حدث خطأ غير معروف'); 
-    }
-    
-    const contentType = response.headers.get("content-type");
-    return contentType && contentType.includes("application/json") ? response.json() : response.text();
-}
-
-// دالة التحقق من الاشتراك (للتحويل لـ Dashboard إذا كان التفعيل قد وقع في نافذة أخرى مثلاً)
-async function checkSubscriptionStatus() {
-    try {
-        const status = await apiFetch(`/api/check-status?_=${new Date().getTime()}`);
-        if (status.active) {
-            // إذا كان الاشتراك مفعل، يحول مباشرة إلى الداشبورد
-            window.location.href = 'dashboard.html'; 
-        }
-    } catch (error) {
-        // إذا فشل الاتصال، يبقى المستخدم فصفحة التفعيل
-        console.error("Failed to check status:", error.message);
-    }
-}
-
-
-// --- 1. دالة طلب رمز التفعيل (إنشاء الرمز الأوتوماتيكي) ---
-async function requestActivationCode(durationName, durationDays) {
-    const optionsEl = document.getElementById('subscription-options');
-    const statusEl = document.getElementById('activation-status');
-    const formEl = document.getElementById('activation-form');
-    const overlayMessage = document.getElementById('overlay-message');
-    
-    optionsEl.style.display = 'none';
-    statusEl.textContent = `...جاري طلب تفعيل ${durationName} وإنشاء الرمز تلقائياً`;
-    statusEl.style.color = 'orange';
-
-    try {
-        await apiFetch('/api/request-code', { 
-            method: 'POST',
-            body: JSON.stringify({ durationName, durationDays }) 
-        });
-        
-        overlayMessage.innerHTML = `لقد اخترت اشتراك **${durationName}**.<br>لقد تم إنشاء الرمز تلقائياً وإرساله للمشرف. **المرجو إدخال الرمز بعد استلامه منه.**`;
-        statusEl.textContent = '✅ تم إنشاء الرمز تلقائياً وإرسال طلب للمشرف بنجاح! يرجى إدخال الرمز بعد استلامه.';
-        statusEl.style.color = 'var(--primary-color)';
-        formEl.style.display = 'block'; 
-        
-    } catch (error) {
-        statusEl.textContent = `❌ فشل إرسال الطلب: ${error.message || 'حدث خطأ.'}`;
-        statusEl.style.color = 'var(--danger-color)';
-        optionsEl.style.display = 'flex'; 
-        formEl.style.display = 'none';
-    }
-}
-
-
-// --- 2. دالة تفعيل الاشتراك بالرمز (التحويل المباشر لـ Dashboard) ---
-async function activateWithCode() {
-    const activateBtn = document.getElementById('activateBtn');
-    const statusEl = document.getElementById('activation-status');
-    const codeInput = document.getElementById('activationCodeInput');
-    
-    const activationCode = codeInput.value.trim();
-    if (!activationCode) {
-        statusEl.textContent = 'المرجو إدخال الرمز.';
-        statusEl.style.color = 'var(--danger-color)';
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    if (!userInfo || !userInfo.userId) {
+        statusElement.textContent = 'خطأ: لم يتم العثور على معلومات المستخدم. يرجى تسجيل الدخول مرة أخرى.';
+        statusElement.style.color = 'red';
         return;
     }
 
-    activateBtn.disabled = true;
-    statusEl.textContent = '...جاري التحقق من الرمز';
-    statusEl.style.color = 'orange';
+    try {
+        const response = await fetch('/request-activation-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: userInfo.userId,
+                subscriptionPeriod: period,
+                subscriptionDays: days
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            statusElement.textContent = 'تم إرسال طلبك بنجاح! سيتم التواصل معك من طرف المشرف لتزويدك بالرمز.';
+            statusElement.style.color = 'green';
+            
+            document.getElementById('subscription-options').style.display = 'none';
+            document.getElementById('overlay-message').style.display = 'none';
+            document.getElementById('activation-form').style.display = 'block';
+
+        } else {
+            statusElement.textContent = data.message || 'حدث خطأ أثناء إرسال الطلب. المرجو المحاولة لاحقاً.';
+            statusElement.style.color = 'red';
+        }
+    } catch (error) {
+        console.error('Error requesting activation code:', error);
+        statusElement.textContent = 'خطأ في الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+        statusElement.style.color = 'red';
+    }
+}
+
+async function activateWithCode() {
+    const codeInput = document.getElementById('activationCodeInput');
+    const code = codeInput.value.trim();
+    const statusElement = document.getElementById('activation-status');
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+
+    if (!code) {
+        statusElement.textContent = 'المرجو إدخال رمز التفعيل.';
+        statusElement.style.color = 'red';
+        return;
+    }
+
+    statusElement.textContent = 'المرجو الانتظار، يتم التحقق من الرمز...';
+    statusElement.style.color = '#333';
 
     try {
-        await apiFetch('/api/activate-with-code', {
+        const response = await fetch('/verify-activation-code', {
             method: 'POST',
-            body: JSON.stringify({ activationCode: activationCode })
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: userInfo.userId,
+                activationCode: code
+            }),
         });
-        
-        // التعديل المطلوب: التحويل المباشر لـ Dashboard مع Query Parameter
-        statusEl.textContent = '✅ تم تفعيل اشتراكك بنجاح! جاري التحويل إلى لوحة التحكم...';
-        statusEl.style.color = 'var(--primary-color)';
 
-        setTimeout(() => {
-            // إضافة ?activated=true لتخطي التحقق من Server في dashboard.js
-            window.location.replace('dashboard.html?activated=true'); 
-        }, 1000); // تقليل الوقت لـ 1 ثانية باش يكون التحويل أسرع
+        const data = await response.json();
 
+        if (response.ok && data.success) {
+            statusElement.textContent = 'تم تفعيل اشتراكك بنجاح! يتم الآن إعادة توجيهك.';
+            statusElement.style.color = 'green';
+
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 2000);
+
+        } else {
+            statusElement.textContent = data.message || 'الرمز الذي أدخلته غير صحيح أو منتهي الصلاحية.';
+            statusElement.style.color = 'red';
+        }
     } catch (error) {
-        statusEl.textContent = `❌ ${error.message || 'رمز غير صالح أو حدث خطأ.'}`;
-        statusEl.style.color = 'var(--danger-color)';
-        activateBtn.disabled = false;
+        console.error('Error verifying activation code:', error);
+        statusElement.textContent = 'خطأ في الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+        statusElement.style.color = 'red';
     }
 }
