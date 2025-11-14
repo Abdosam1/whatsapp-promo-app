@@ -12,8 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const subscriptionOptions = document.querySelectorAll('.subscription-option');
     const activationForm = document.getElementById('activation-form');
     const messageContainer = document.getElementById('message');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     // --- إضافة Event Listeners ---
+    if(logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('authToken');
+            window.location.href = 'index.html';
+        });
+    }
+
     subscriptionOptions.forEach(button => {
         button.addEventListener('click', () => {
             const durationName = button.dataset.durationName;
@@ -30,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- دالة طلب كود التفعيل ---
+    // --- دالة طلب كود التفعيل (النسخة المصححة) ---
     async function requestActivationCode(durationName, durationDays) {
         displayMessage('⏳ جاري إرسال طلب التفعيل...', 'info');
         try {
@@ -38,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // <-- استخدام التوكن الذي قرأناه في البداية
+                    'Authorization': `Bearer ${token}` // <-- **الإضافة المهمة: إرسال التوكن**
                 },
                 body: JSON.stringify({ durationName, durationDays })
             });
@@ -53,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- دالة التفعيل بالكود ---
+    // --- دالة التفعيل بالكود (النسخة المصححة) ---
     async function activateWithCode(activationCode) {
         displayMessage('⏳ جاري التحقق من الرمز...', 'info');
         try {
@@ -61,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // <-- استخدام التوكن هنا أيضًا
+                    'Authorization': `Bearer ${token}` // <-- **الإضافة المهمة: إرسال التوكن**
                 },
                 body: JSON.stringify({ activationCode })
             });
@@ -83,5 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
         messageContainer.textContent = message;
         messageContainer.className = `message ${type}`;
         messageContainer.style.display = message ? 'block' : 'none';
+    }
+
+    // --- التحقق من الحالة عند تحميل الصفحة ---
+    checkSubscriptionStatus();
+    async function checkSubscriptionStatus() {
+        try {
+            const response = await fetch(`/api/check-status?_=${new Date().getTime()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const status = await response.json();
+            if (status.active) {
+                window.location.href = 'dashboard.html'; 
+            }
+        } catch (error) {
+            console.error("Failed to check status:", error.message);
+        }
     }
 });
