@@ -13,6 +13,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require('nodemailer');
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
+// --- NEW ---
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 const server = http.createServer(app);
@@ -43,9 +46,14 @@ db.serialize(() => {
 app.use(cors());
 app.use(express.json());
 
+// --- NEW --- Initializing Passport
+app.use(passport.initialize());
+
+
 const authMiddleware = require('./middleware/auth');
 const checkSubscription = require('./middleware/checkSubscription');
 
+// ... (باقي الدوال والكود لم يتغير)
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 if (!fs.existsSync(promosUploadFolder)) {
   fs.mkdirSync(promosUploadFolder, { recursive: true });
@@ -138,64 +146,125 @@ function isTrialActive(user) {
   return trialEnds && trialEnds > now;
 }
 
+// ... (كود io.on('connection', ...) لم يتغير)
 io.on('connection', (socket) => {
-  let client = null, connectedUserId = null, isInitializing = false;
+    let client = null, connectedUserId = null, isInitializing = false;
+  
+    socket.on('init-whatsapp', async (token) => {
+      if (client || isInitializing) return;
+      isInitializing = true;
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        connectedUserId = decoded.userId;
+        client = new Client({
+          authStrategy: new LocalAuth({ clientId: `user-${connectedUserId}` }),
+          puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'] }
+        });
+  
+        client.on("ready", async () => {
+          isInitializing = false;
+          socket.emit('status', { message: "WhatsApp متصل!", ready: true });
+          await updateClientsFromWhatsApp(client, db, connectedUserId);
+        });
+        client.on("qr", qr => socket.emit('qr', qr));
+        client.on("disconnected", () => {
+          isInitializing = false;
+          socket.emit('status', { message: `تم قطع الاتصال`, ready: false, error: true });
+          client = null;
+        });
+        client.initialize().catch(err => {
+          console.error(`Init error:`, err);
+          isInitializing = false;
+        });
+      } catch {
+        isInitializing = false;
+      }
+    });
+  
+    socket.on('send-promo', async (data) => {
+      if (!client || !connectedUserId) return socket.emit('send-promo-status', { success: false, phone: data.phone, error: 'Client not ready' });
+      const { phone, promoId, fromImported } = data;
+      const promos = readPromos(connectedUserId);
+      const promo = promos.find(p => p.id === promoId);
+      if (!promo) return;
+      const numberId = `${phone.replace(/\D/g, "")}@c.us`;
+      const mediaPath = path.join(promosUploadFolder, promo.image);
+      if (!fs.existsSync(mediaPath)) return;
+      try {
+        const media = MessageMedia.fromFilePath(mediaPath);
+        await client.sendMessage(numberId, media, { caption: promo.text });
+        const table = fromImported ? "imported_clients" : "clients";
+        db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone.replace(/\D/g, ""), connectedUserId]);
+        socket.emit('send-promo-status', { success: true, phone });
+      } catch (err) {
+        socket.emit('send-promo-status', { success: false, phone, error: err.message });
+      }
+    });
+  
+    socket.on('disconnect', () => {
+      if (client) client.destroy().catch(console.error);
+    });
+  });
 
-  socket.on('init-whatsapp', async (token) => {
-    if (client || isInitializing) return;
-    isInitializing = true;
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      connectedUserId = decoded.userId;
-      client = new Client({
-        authStrategy: new LocalAuth({ clientId: `user-${connectedUserId}` }),
-        puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'] }
-      });
+// --- NEW --- Google OAuth Strategy Configuration
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/api/auth/google/callback"
+  },
+  (accessToken, refreshToken, profile, done) => {
+    const email = profile.emails[0].value;
+    const users = readUsersFromFile();
+    let user = users.find(u => u.email === email);
 
-      client.on("ready", async () => {
-        isInitializing = false;
-        socket.emit('status', { message: "WhatsApp متصل!", ready: true });
-        await updateClientsFromWhatsApp(client, db, connectedUserId);
-      });
-      client.on("qr", qr => socket.emit('qr', qr));
-      client.on("disconnected", () => {
-        isInitializing = false;
-        socket.emit('status', { message: `تم قطع الاتصال`, ready: false, error: true });
-        client = null;
-      });
-      client.initialize().catch(err => {
-        console.error(`Init error:`, err);
-        isInitializing = false;
-      });
-    } catch {
-      isInitializing = false;
+    if (user) {
+        // User exists, log them in.
+        return done(null, user);
+    } else {
+        // User is new, create a new account for them.
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
+
+        const newUser = {
+            id: Date.now().toString(),
+            googleId: profile.id,
+            email: email,
+            name: profile.displayName,
+            password: null, // No password for Google authenticated users
+            trialEndsAt: trialEndsAt.toISOString(),
+            subscriptionEndsAt: null,
+            activationCode: null,
+            activationDurationDays: null
+        };
+        users.push(newUser);
+        writeUsersToFile(users);
+        return done(null, newUser);
     }
-  });
+  }
+));
 
-  socket.on('send-promo', async (data) => {
-    if (!client || !connectedUserId) return socket.emit('send-promo-status', { success: false, phone: data.phone, error: 'Client not ready' });
-    const { phone, promoId, fromImported } = data;
-    const promos = readPromos(connectedUserId);
-    const promo = promos.find(p => p.id === promoId);
-    if (!promo) return;
-    const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-    const mediaPath = path.join(promosUploadFolder, promo.image);
-    if (!fs.existsSync(mediaPath)) return;
-    try {
-      const media = MessageMedia.fromFilePath(mediaPath);
-      await client.sendMessage(numberId, media, { caption: promo.text });
-      const table = fromImported ? "imported_clients" : "clients";
-      db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone.replace(/\D/g, ""), connectedUserId]);
-      socket.emit('send-promo-status', { success: true, phone });
-    } catch (err) {
-      socket.emit('send-promo-status', { success: false, phone, error: err.message });
-    }
-  });
 
-  socket.on('disconnect', () => {
-    if (client) client.destroy().catch(console.error);
-  });
-});
+// --- NEW --- Google Authentication Routes
+// 1. Redirect to Google for authentication
+app.get('/api/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+// 2. Google callback URL
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login.html', session: false }),
+  (req, res) => {
+    // On successful authentication, req.user is available.
+    // Generate JWT token
+    const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
+
+    // Redirect to dashboard and pass token in URL to be saved by frontend script
+    res.redirect(`/dashboard.html?token=${token}`);
+  }
+);
+
+
+// --- START AUTH ROUTES ---
 
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -263,17 +332,25 @@ app.get('/api/auth/verify-email', async (req, res) => {
   }
 });
 
+// --- MODIFIED --- Login route to handle Google users
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const users = readUsersFromFile();
     const user = users.find(u => u.email === email);
+    
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
     }
+
+    // --- MODIFIED --- Check if the user signed up with Google (no password)
+    if (user.googleId && !user.password) {
+        return res.status(401).json({ message: 'هذا الحساب مسجل عبر جوجل. الرجاء تسجيل الدخول باستخدام جوجل.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
     }
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
     try {
@@ -282,202 +359,206 @@ app.post("/api/auth/login", async (req, res) => {
       console.error(`[Login Clean] Failed to delete clients for user ${user.id}:`, e);
     }
     return res.status(200).json({ token });
-  } catch {
-    return res.status(500).json({ message: 'Server error' });
+  } catch(e) {
+    console.error(e);
+    return res.status(500).json({ message: 'خطأ في السيرفر' });
   }
 });
 
+
+// ... (باقي الكود لم يتغير)
 app.post("/api/request-code", authMiddleware, async (req, res) => {
-  const { durationName, durationDays } = req.body;
-  const userId = req.userData.userId;
-  const users = readUsersFromFile();
-  const idx = users.findIndex(u => u.id === userId);
-  if (idx === -1) return res.status(404).json({ message: "User not found" });
-  const newCode = generateActivationCode();
-  const duration = parseInt(durationDays, 10) || 30;
-  users[idx].activationCode = newCode;
-  users[idx].activationDurationDays = duration;
-  writeUsersToFile(users);
-  const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب اشتراك جديد: ${durationName}`, html: `<h2>طلب اشتراك:</h2><ul><li><b>المستخدم:</b> ${users[idx].email}</li><li><b>المدة:</b> ${durationName}</li><li><b>الرمز:</b> <b>${newCode}</b></li></ul>` };
-  try {
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: 'Activation request sent' });
-  } catch (err) {
-    console.error("Nodemailer Error:", err);
-    users[idx].activationCode = null;
-    users[idx].activationDurationDays = null;
-    writeUsersToFile(users);
-    res.status(500).json({ message: 'Failed to send email' });
-  }
-});
-
-app.post("/api/activate-with-code", authMiddleware, (req, res) => {
-  const { activationCode } = req.body;
-  const userId = req.userData.userId;
-  if (!activationCode) return res.status(400).json({ message: "Code is required" });
-  try {
+    const { durationName, durationDays } = req.body;
+    const userId = req.userData.userId;
     const users = readUsersFromFile();
     const idx = users.findIndex(u => u.id === userId);
     if (idx === -1) return res.status(404).json({ message: "User not found" });
-    const user = users[idx];
-    if (!user.activationCode || user.activationCode !== activationCode) {
-      return res.status(400).json({ message: "Invalid code" });
-    }
-    const durationDays = user.activationDurationDays || 30;
-    const endsAt = new Date();
-    endsAt.setDate(endsAt.getDate() + durationDays);
-    users[idx].subscriptionEndsAt = endsAt.toISOString();
-    users[idx].trialEndsAt = null;
-    users[idx].activationCode = null;
-    users[idx].activationDurationDays = null;
+    const newCode = generateActivationCode();
+    const duration = parseInt(durationDays, 10) || 30;
+    users[idx].activationCode = newCode;
+    users[idx].activationDurationDays = duration;
     writeUsersToFile(users);
-    res.status(200).json({ message: 'Subscription activated!' });
-  } catch (err) {
-    console.error("Activation Error:", err);
-    res.status(500).json({ message: 'Server error' });
-  }
+    const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب اشتراك جديد: ${durationName}`, html: `<h2>طلب اشتراك:</h2><ul><li><b>المستخدم:</b> ${users[idx].email}</li><li><b>المدة:</b> ${durationName}</li><li><b>الرمز:</b> <b>${newCode}</b></li></ul>` };
+    try {
+      await transporter.sendMail(mailOptions);
+      res.status(200).json({ message: 'Activation request sent' });
+    } catch (err) {
+      console.error("Nodemailer Error:", err);
+      users[idx].activationCode = null;
+      users[idx].activationDurationDays = null;
+      writeUsersToFile(users);
+      res.status(500).json({ message: 'Failed to send email' });
+    }
+});
+  
+app.post("/api/activate-with-code", authMiddleware, (req, res) => {
+    const { activationCode } = req.body;
+    const userId = req.userData.userId;
+    if (!activationCode) return res.status(400).json({ message: "Code is required" });
+    try {
+      const users = readUsersFromFile();
+      const idx = users.findIndex(u => u.id === userId);
+      if (idx === -1) return res.status(404).json({ message: "User not found" });
+      const user = users[idx];
+      if (!user.activationCode || user.activationCode !== activationCode) {
+        return res.status(400).json({ message: "Invalid code" });
+      }
+      const durationDays = user.activationDurationDays || 30;
+      const endsAt = new Date();
+      endsAt.setDate(endsAt.getDate() + durationDays);
+      users[idx].subscriptionEndsAt = endsAt.toISOString();
+      users[idx].trialEndsAt = null;
+      users[idx].activationCode = null;
+      users[idx].activationDurationDays = null;
+      writeUsersToFile(users);
+      res.status(200).json({ message: 'Subscription activated!' });
+    } catch (err) {
+      console.error("Activation Error:", err);
+      res.status(500).json({ message: 'Server error' });
+    }
 });
 
 app.get("/api/check-status", authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user = users.find(u => u.id === req.userData.userId);
-  if (!user) return res.status(404).json({ active: false, message: "User not found" });
-  let isActive = isSubscriptionActive(user) || isTrialActive(user);
-  res.status(200).json({ active: isActive });
+    const users = readUsersFromFile();
+    const user = users.find(u => u.id === req.userData.userId);
+    if (!user) return res.status(404).json({ active: false, message: "User not found" });
+    let isActive = isSubscriptionActive(user) || isTrialActive(user);
+    res.status(200).json({ active: isActive });
 });
-
+  
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
-  const { userId } = req.userData;
-  const { text } = req.body;
-  const image = req.file ? req.file.filename : null;
-  if (!text || !image) return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
-  try {
-    const promos = readPromos(userId);
-    const newPromo = { id: Date.now(), text, image, createdAt: new Date().toISOString() };
-    promos.push(newPromo);
-    writePromos(userId, promos);
-    res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
-  } catch (error) {
-    res.status(500).json({ message: "خطأ في السيرفر." });
-  }
+    const { userId } = req.userData;
+    const { text } = req.body;
+    const image = req.file ? req.file.filename : null;
+    if (!text || !image) return res.status(400).json({ message: "نص العرض والصورة مطلوبان." });
+    try {
+      const promos = readPromos(userId);
+      const newPromo = { id: Date.now(), text, image, createdAt: new Date().toISOString() };
+      promos.push(newPromo);
+      writePromos(userId, promos);
+      res.status(201).json({ message: "تم إضافة العرض بنجاح", promo: newPromo });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في السيرفر." });
+    }
 });
 
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
-  try {
-    const promos = readPromos(req.userData.userId);
-    res.status(200).json(promos || []);
-  } catch (error) {
-    res.status(500).json({ message: "خطأ في السيرفر." });
-  }
+    try {
+      const promos = readPromos(req.userData.userId);
+      res.status(200).json(promos || []);
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في السيرفر." });
+    }
 });
 
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-  const { userId } = req.userData;
-  const promoId = parseInt(req.params.id, 10);
-  try {
-    const promos = readPromos(userId);
-    const promoIndex = promos.findIndex(p => p.id === promoId);
-    if (promoIndex === -1) return res.status(404).json({ message: "العرض غير موجود." });
-    const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
-    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-    promos.splice(promoIndex, 1);
-    writePromos(userId, promos);
-    res.status(200).json({ message: "تم حذف العرض بنجاح." });
-  } catch (error) {
-    res.status(500).json({ message: "خطأ في السيرفر." });
-  }
+    const { userId } = req.userData;
+    const promoId = parseInt(req.params.id, 10);
+    try {
+      const promos = readPromos(userId);
+      const promoIndex = promos.findIndex(p => p.id === promoId);
+      if (promoIndex === -1) return res.status(404).json({ message: "العرض غير موجود." });
+      const imagePath = path.join(promosUploadFolder, promos[promoIndex].image);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      promos.splice(promoIndex, 1);
+      writePromos(userId, promos);
+      res.status(200).json({ message: "تم حذف العرض بنجاح." });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في السيرفر." });
+    }
 });
 
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
-  db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-    res.status(200).json(rows || []);
-  });
-});
-
-app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
-  db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-    res.status(200).json(rows || []);
-  });
-});
-
-app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) => {
-  const { table, id } = req.params;
-  const { userId } = req.userData;
-  if (table !== 'clients' && table !== 'imported_clients') return res.status(400).json({ message: "جدول غير صالح." });
-  db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
-    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-    if (this.changes === 0) return res.status(404).json({ message: "لم يتم العثور على العميل." });
-    res.status(200).json({ message: "تم حذف العميل بنجاح." });
-  });
-});
-
-app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (req, res) => {
-  db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], function(err) {
-    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-    res.status(200).json({ message: `تم حذف ${this.changes} عميل.` });
-  });
-});
-
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
-  const { userId } = req.userData;
-  const { path: filePath } = req.file;
-  const results = [];
-  let importedCount = 0;
-  fs.createReadStream(filePath)
-    .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
-    .on('data', (data) => {
-      const phone = String(data.phone).replace(/\D/g, "");
-      if (phone.length >= 8) results.push(phone);
-    })
-    .on('end', () => {
-      fs.unlinkSync(filePath);
-      if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
-      db.serialize(() => {
-        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
-        results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
-        stmt.finalize(() => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount }));
-      });
-    })
-    .on('error', () => {
-      fs.unlinkSync(filePath);
-      res.status(500).json({ message: "خطأ في معالجة الملف." });
+    db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+      if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+      res.status(200).json(rows || []);
     });
 });
 
+app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
+    db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+      if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+      res.status(200).json(rows || []);
+    });
+});
+
+app.delete("/delete/:table/:id", authMiddleware, checkSubscription, (req, res) => {
+    const { table, id } = req.params;
+    const { userId } = req.userData;
+    if (table !== 'clients' && table !== 'imported_clients') return res.status(400).json({ message: "جدول غير صالح." });
+    db.run(`DELETE FROM ${table} WHERE id = ? AND ownerId = ?`, [id, userId], function(err) {
+      if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+      if (this.changes === 0) return res.status(404).json({ message: "لم يتم العثور على العميل." });
+      res.status(200).json({ message: "تم حذف العميل بنجاح." });
+    });
+});
+  
+app.delete("/deleteAll/imported_clients", authMiddleware, checkSubscription, (req, res) => {
+    db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], function(err) {
+      if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+      res.status(200).json({ message: `تم حذف ${this.changes} عميل.` });
+    });
+});
+  
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+    const { userId } = req.userData;
+    const { path: filePath } = req.file;
+    const results = [];
+    let importedCount = 0;
+    fs.createReadStream(filePath)
+      .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+      .on('data', (data) => {
+        const phone = String(data.phone).replace(/\D/g, "");
+        if (phone.length >= 8) results.push(phone);
+      })
+      .on('end', () => {
+        fs.unlinkSync(filePath);
+        if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
+        db.serialize(() => {
+          const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+          results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
+          stmt.finalize(() => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount }));
+        });
+      })
+      .on('error', () => {
+        fs.unlinkSync(filePath);
+        res.status(500).json({ message: "خطأ في معالجة الملف." });
+      });
+});
+
 app.post("/api/whatsapp/logout", authMiddleware, (req, res) => {
-  const { userId } = req.userData;
-  const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
-  try {
-    if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true });
+    const { userId } = req.userData;
+    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-user-${userId}`);
+    try {
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      }
+      res.status(200).json({ message: "Session deleted." });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete session." });
     }
-    res.status(200).json({ message: "Session deleted." });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to delete session." });
-  }
 });
 
 app.get('/dashboard', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user = users.find(u => u.id === req.userData.userId);
-  if (!user) return res.redirect('/login.html');
-  if (!isSubscriptionActive(user) && !isTrialActive(user)) {
-    return res.redirect('/activate');
-  }
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+    const users = readUsersFromFile();
+    const user = users.find(u => u.id === req.userData.userId);
+    if (!user) return res.redirect('/login.html');
+    if (!isSubscriptionActive(user) && !isTrialActive(user)) {
+      return res.redirect('/activate');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/activate', authMiddleware, (req, res) => {
-  const users = readUsersFromFile();
-  const user = users.find(u => u.id === req.userData.userId);
-  if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
-  if (isSubscriptionActive(user) || isTrialActive(user)) {
-    return res.redirect('/dashboard');
-  }
-  res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+    const users = readUsersFromFile();
+    const user = users.find(u => u.id === req.userData.userId);
+    if (!user) return res.sendFile(path.join(__dirname, 'public', 'activate.html'));
+    if (isSubscriptionActive(user) || isTrialActive(user)) {
+      return res.redirect('/dashboard');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'activate.html'));
 });
+
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
