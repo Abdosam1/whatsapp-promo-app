@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeEventListeners() {
-    uiElements.logoutBtn.addEventListener('click', handleLogout);
+    uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     uiElements.importCsvBtn.addEventListener('click', importCSV);
     uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
@@ -117,7 +117,7 @@ function initializeWhatsAppConnection() {
 }
 
 // ================================================================= //
-// ============= 5. دالة مركزية للتواصل مع الـ API ================= //
+// ============= 5. دالة مركزية للتواصل مع الـ API (نسخة محدثة) ================= //
 // ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
@@ -134,14 +134,14 @@ async function apiFetch(url, options = {}) {
             throw new Error('فشل التحقق من الهوية، انتهت الجلسة.');
         }
 
-        // --- [ هذا هو التعديل الأهم والجديد ] ---
+        // --- [ هذا هو التعديل الأهم والجديد الذي طلبته ] ---
         // التعامل مع انتهاء صلاحية الاشتراك
         if (response.status === 403) {
             const errorData = await response.json().catch(() => ({}));
             if (errorData.subscriptionExpired) {
                 alert('انتهت صلاحية اشتراكك أو الفترة التجريبية. سيتم توجيهك لصفحة التفعيل.');
                 window.location.replace('/activate.html'); // الذهاب لصفحة التفعيل
-                throw new Error('Subscription expired'); // إيقاف الكود
+                throw new Error('Subscription expired'); // إيقاف الكود لتجنب أخطاء إضافية
             }
         }
         // --- [ نهاية التعديل ] ---
@@ -155,7 +155,7 @@ async function apiFetch(url, options = {}) {
         return text ? JSON.parse(text) : {}; // تجنب الخطأ إذا كان الجواب فارغاً
     
     } catch (error) {
-        // إذا لم يكن الخطأ بسبب إعادة التوجيه، قم بتسجيله
+        // إذا لم يكن الخطأ بسبب إعادة التوجيه، قم بتسجيله في الواجهة
         if (error.message !== 'Subscription expired') {
             log(`❌ حدث خطأ في الشبكة أو الخادم: ${error.message}`, 'red');
         }
@@ -177,7 +177,7 @@ async function loadClients() {
     try {
         clients = await apiFetch("/contacts") || [];
         displayClients(uiElements.clientsList, clients, 'contacts');
-    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch وإعادة التوجيه إذا لزم الأمر */ }
 }
 
 async function loadImportedClients() {
@@ -236,116 +236,28 @@ function displayPromos() {
 // ================================================================= //
 // =================== 7. وظائف التفاعل مع المستخدم ================= //
 // ================================================================= //
-async function addNewPromo() {
-    const text = uiElements.newPromoText.value.trim();
-    const imageFile = uiElements.newPromoImage.files[0]; 
-    if (!text || !imageFile) {
-        return alert('يرجى إدخال نص واختيار صورة.');
-    }
-    
-    const formData = new FormData();
-    formData.append('text', text);
-    formData.append('image', imageFile); 
-
-    try {
-        await apiFetch('/addPromo', { method: 'POST', body: formData });
-        log("✅ تم إضافة العرض بنجاح!", 'green');
-        uiElements.newPromoText.value = ''; 
-        uiElements.newPromoImage.value = '';
-        loadPromos(); // إعادة تحميل العروض لتظهر الإضافة الجديدة
-    } catch (err) { 
-        // لا داعي لإظهار alert هنا، الخطأ يظهر في الـ logs
-    }
-}
-
-async function importCSV() {
-    const file = uiElements.csvFileInput.files[0]; 
-    if (!file) { return alert('يرجى اختيار ملف CSV.'); }
-    
-    const formData = new FormData();
-    formData.append('csv', file);
-
-    try {
-        const result = await apiFetch('/import-csv', { method: 'POST', body: formData });
-        log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green');
-        uiElements.csvFileInput.value = '';
-        loadImportedClients(); // إعادة تحميل الأرقام المستوردة
-    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
-}
-
-function selectPromo(id) {
-    selectedPromoId = id;
-    log(`🔵 تم اختيار العرض #${id}`, "blue");
-    document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected'));
-    document.getElementById(`promo-${id}`).classList.add('selected');
-}
-
-async function deletePromo(id) {
-    if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return;
-    try {
-        await apiFetch(`/deletePromo/${id}`, { method: "DELETE" });
-        log(`✅ تم حذف العرض بنجاح.`, "green");
-        if (selectedPromoId === id) selectedPromoId = null;
-        loadPromos();
-    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
-}
+async function addNewPromo() { /* ... الكود يبقى كما هو ... */ }
+async function importCSV() { /* ... الكود يبقى كما هو ... */ }
+function selectPromo(id) { /* ... الكود يبقى كما هو ... */ }
+async function deletePromo(id) { /* ... الكود يبقى كما هو ... */ }
+// الكود الكامل للدوال لتجنب أي نقص
+async function addNewPromo() { const text = uiElements.newPromoText.value.trim(); const imageFile = uiElements.newPromoImage.files[0]; if (!text || !imageFile) { return alert('يرجى إدخال نص واختيار صورة.'); } const formData = new FormData(); formData.append('text', text); formData.append('image', imageFile); try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ تم إضافة العرض بنجاح!", 'green'); uiElements.newPromoText.value = ''; uiElements.newPromoImage.value = ''; loadPromos(); } catch (err) {} }
+async function importCSV() { const file = uiElements.csvFileInput.files[0]; if (!file) { return alert('يرجى اختيار ملف CSV.'); } const formData = new FormData(); formData.append('csv', file); try { const result = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} }
+function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
+async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
 
 // ================================================================= //
 // ========================= 8. وظائف الإرسال ======================= //
 // ================================================================= //
-function sendPromo(phone, promoId, fromImported) {
-    if (!isWhatsappReady || !socket) {
-        alert('❌ واتساب غير متصل. يرجى الانتظار.');
-        return false;
-    }
-    log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue');
-    socket.emit('send-promo', { phone, promoId, fromImported });
-    return true;
-}
-
-function sendSelectedPromo() {
-    const phone = uiElements.phoneInput.value.trim();
-    if (!phone) return alert("الرجاء إدخال رقم هاتف.");
-    if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
-    sendPromo(phone, selectedPromoId, false);
-}
-
-function testMessage() {
-    if (!selectedPromoId) return alert("الرجاء اختيار عرض لإرساله كتجربة.");
-    sendPromo(adminNumber, selectedPromoId, false);
-}
-
-async function sendPromoSequentially(list, fromImported) {
-    if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
-    if (!list || list.length === 0) return alert("القائمة فارغة.");
-    if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً.");
-    if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟`)) return;
-
-    uiElements.sendSequentiallyClientsBtn.disabled = true;
-    uiElements.sendSequentiallyImportedBtn.disabled = true;
-    log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple');
-
-    for (let i = 0; i < list.length; i++) {
-        const client = list[i];
-        if (!isWhatsappReady) {
-            log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red');
-            break;
-        }
-        
-        sendPromo(client.phone, selectedPromoId, fromImported);
-        
-        if (i < list.length - 1) {
-            // انتظار عشوائي بين 30 و 60 ثانية
-            const delay = 30000 + Math.random() * 30000;
-            log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-
-    log('🎉 انتهت حملة الإرسال بنجاح.', 'green');
-    uiElements.sendSequentiallyClientsBtn.disabled = false;
-    uiElements.sendSequentiallyImportedBtn.disabled = false;
-}
+function sendPromo(phone, promoId, fromImported) { /* ... الكود يبقى كما هو ... */ }
+function sendSelectedPromo() { /* ... الكود يبقى كما هو ... */ }
+function testMessage() { /* ... الكود يبقى كما هو ... */ }
+async function sendPromoSequentially(list, fromImported) { /* ... الكود يبقى كما هو ... */ }
+// الكود الكامل للدوال لتجنب أي نقص
+function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) { alert('❌ واتساب غير متصل. يرجى الانتظار.'); return; } log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
+function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("الرجاء إدخال رقم هاتف."); if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); sendPromo(phone, selectedPromoId, false); }
+function testMessage() { if (!selectedPromoId) return alert("الرجاء اختيار عرض لإرساله كتجربة."); sendPromo(adminNumber, selectedPromoId, false); }
+async function sendPromoSequentially(list, fromImported) { if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); if (!list || list.length === 0) return alert("القائمة فارغة."); if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً."); if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟`)) return; uiElements.sendSequentiallyClientsBtn.disabled = true; uiElements.sendSequentiallyImportedBtn.disabled = true; log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple'); for (let i = 0; i < list.length; i++) { const client = list[i]; if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; } sendPromo(client.phone, selectedPromoId, fromImported); if (i < list.length - 1) { const delay = 30000 + Math.random() * 30000; log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange"); await new Promise(resolve => setTimeout(resolve, delay)); } } log('🎉 انتهت حملة الإرسال بنجاح.', 'green'); uiElements.sendSequentiallyClientsBtn.disabled = false; uiElements.sendSequentiallyImportedBtn.disabled = false; }
 
 // ================================================================= //
 // ====================== 9. وظائف مساعدة أخرى ====================== //
@@ -363,6 +275,5 @@ function log(message, color = "black") {
     const p = document.createElement("p");
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
-    // إضافة السطر الجديد في الأعلى
     uiElements.logsContainer.prepend(p);
 }
