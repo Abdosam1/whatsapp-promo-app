@@ -350,6 +350,75 @@ app.post("/api/auth/login", async (req, res) => {
     }
 });
 
+// =============================================================
+// ====================   بداية الكود المضاف   ====================
+// =============================================================
+
+// --- مسار طلب رمز التفعيل ---
+app.post("/api/request-code", authMiddleware, async (req, res) => {
+    try {
+        // middleware `authMiddleware` قام بفك تشفير التوكن ووضع هوية المستخدم في req.userData
+        // ملاحظة: لقد قمت بتحديث هذا السطر ليتناسب مع الملف middleware/auth.js الخاص بك الذي يستخدم req.userData
+        const userId = req.userData.userId;
+        const { durationName, durationDays } = req.body; // نستقبل المدة من الطلب
+
+        // نقرأ ملف المستخدمين لنجد معلومات المستخدم (مثل الإيميل)
+        const users = readUsersFromFile();
+        const user = users.find(u => u.id === userId);
+
+        if (!user) {
+            return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
+        }
+
+        // 1. إنشاء رمز تفعيل جديد باستخدام الدالة المساعدة الموجودة عندك
+        const newActivationCode = generateActivationCode();
+        
+        // 2. تحديث بيانات المستخدم بالرمز الجديد ومعلومات الطلب
+        // هذه الخطوة مهمة جداً للتحقق من الرمز لاحقاً
+        user.activationRequest = {
+            code: newActivationCode,
+            durationName: durationName,
+            durationDays: durationDays,
+            requestedAt: new Date().toISOString()
+        };
+        writeUsersToFile(users); // نحفظ التغييرات في ملف users.json
+
+        // 3. إعداد وإرسال البريد الإلكتروني إلى المشرف (أنت)
+        const mailOptions = {
+            from: SENDER_EMAIL,
+            to: ADMIN_EMAIL, // الإيميل ديالك لي معرف فالمتغيرات
+            subject: `طلب تفعيل اشتراك جديد من ${user.email}`,
+            html: `
+                <h1>طلب تفعيل جديد</h1>
+                <p>قام المستخدم التالي بطلب تفعيل اشتراك:</p>
+                <ul>
+                    <li><strong>اسم المستخدم:</strong> ${user.name}</li>
+                    <li><strong>بريد إلكتروني:</strong> ${user.email}</li>
+                    <li><strong>مدة الاشتراك المطلوبة:</strong> ${durationName}</li>
+                </ul>
+                <p><strong>رمز التفعيل الخاص به هو:</strong></p>
+                <h2 style="text-align:center; background-color:#f0f0f0; padding:10px;">${newActivationCode}</h2>
+                <p>المرجو التواصل مع المستخدم وتزويده بالرمز أعلاه.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Activation email sent for user ${user.email} with code ${newActivationCode}`);
+
+        // 4. إرجاع جواب نجاح للمتصفح
+        res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح." });
+
+    } catch (error) {
+        console.error("Error in /api/request-code:", error);
+        res.status(500).json({ message: "حدث خطأ في الخادم أثناء طلب الرمز." });
+    }
+});
+
+// =============================================================
+// ====================    نهاية الكود المضاف   ====================
+// =============================================================
+
+
 // --- مسارات محمية (Protected Routes) ---
 app.get("/api/check-status", authMiddleware, (req, res) => {
     const users = readUsersFromFile();
