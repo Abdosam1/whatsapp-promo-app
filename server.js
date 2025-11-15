@@ -162,7 +162,12 @@ app.post("/api/auth/signup", async (req, res) => {
     db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => {
         if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
         const hashedPassword = await bcrypt.hash(password, 12);
-        // ... (بقية كود إرسال الإيميل للتفعيل)
+        const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+        const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
+        const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
+        pendingRegistrations[email] = { name, email, password: hashedPassword, token: verificationToken, trialEndsAt: trialEndsAt.toISOString() };
+        const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` };
+        await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
     });
 });
@@ -171,6 +176,7 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (!user) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
+        if(user.googleId && !user.password) return res.status(401).json({ message: 'هذا الحساب مسجل عبر جوجل.' });
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
@@ -211,12 +217,10 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 
 app.get("/promos", authMiddleware, (req, res) => res.json(readPromos(req.userData.userId)));
 
-// --- تم تعديل هذا المسار لإصلاح الخطأ ---
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
     const { text } = req.body;
     const { userId } = req.userData;
     
-    // --- التحقق الإضافي هنا ---
     if (!req.file) {
         return res.status(400).json({ message: "Image file is required." });
     }
@@ -234,7 +238,8 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
     let promos = readPromos(userId);
     const promo = promos.find(p => p.id === promoId);
     if (promo) {
-        fs.unlinkSync(path.join(promosUploadFolder, promo.image));
+        const imagePath = path.join(promosUploadFolder, promo.image);
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         writePromos(userId, promos.filter(p => p.id !== promoId));
     }
     res.json({ status: "deleted" });
