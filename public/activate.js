@@ -1,89 +1,59 @@
-// This function runs when the entire HTML page is loaded.
+// هذه الدالة تعمل عندما يتم تحميل الصفحة بالكامل
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Check if the login token exists.
-    const token = localStorage.getItem('authToken');
+    // 1. التحقق من وجود 'userInfo' التي تم تخزينها عند تسجيل الدخول
+    const userInfo = localStorage.getItem('userInfo');
 
-    // If no token is found, redirect to the login page.
-    if (!token) {
+    // 2. إذا لم نجدها، فهذا يعني أن المستخدم غير مسجل الدخول
+    if (!userInfo) {
+        // يتم توجيهه فورًا إلى صفحة تسجيل الدخول
         window.location.href = '/login.html';
-        return;
+        return; // نتوقف هنا
     }
 
-    // 2. Add functionality to the logout button.
+    // 3. إضافة وظيفة لزر تسجيل الخروج
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.onclick = () => {
-            // Remove the token and any other user data.
-            localStorage.removeItem('authToken');
-            // Redirect to the login page.
+            // حذف معلومات المستخدم من ذاكرة المتصفح
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('authToken'); // نحذف التوكن أيضًا للاحتياط
             window.location.href = '/login.html';
         };
     }
 });
 
 /**
- * A helper function to get the current user's data using the auth token.
- * This is more secure than storing user ID directly in localStorage.
- */
-async function getCurrentUser() {
-    const token = localStorage.getItem('authToken');
-    if (!token) return null;
-
-    try {
-        // IMPORTANT: You need to create this endpoint on your server.
-        // It should take the token, verify it, and return the user's data (like their ID).
-        const response = await fetch('/api/auth/me', { // <-- Endpoint to get user data
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            // If the token is invalid or expired, log the user out.
-            localStorage.removeItem('authToken');
-            window.location.href = '/login.html';
-            return null;
-        }
-
-        const userData = await response.json();
-        return userData; // Should return something like { userId: '12345', name: '...' }
-
-    } catch (error) {
-        console.error("Error fetching user data:", error);
-        return null;
-    }
-}
-
-
-/**
- * Called when a user clicks on a subscription duration button.
+ * هذه الدالة تعمل عندما يضغط المستخدم على أحد أزرار اختيار مدة الاشتراك
+ * @param {string} period - اسم المدة (مثال: '6 months')
+ * @param {number} days - عدد الأيام (مثال: 180)
  */
 async function requestActivationCode(period, days) {
     const statusElement = document.getElementById('activation-status');
-    statusElement.textContent = 'المرجو الانتظار، يتم الحصول على معلومات المستخدم...';
+    // نعرض رسالة انتظار للمستخدم
+    statusElement.textContent = 'المرجو الانتظار، يتم إرسال طلبك...';
     statusElement.style.color = '#333';
 
-    // Get user data from the server using the token.
-    const user = await getCurrentUser();
-    if (!user || !user.userId) {
-        statusElement.textContent = 'خطأ: لا يمكن التحقق من هوية المستخدم. حاول تسجيل الدخول مرة أخرى.';
+    // نستخرج معلومات المستخدم من الذاكرة التي خزناها أثناء تسجيل الدخول
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+
+    // نتأكد مرة أخرى من وجود معلومات المستخدم ومعرف المستخدم (ممارسة جيدة)
+    if (!userInfo || !userInfo.userId) {
+        statusElement.textContent = 'خطأ في تحديد هوية المستخدم. حاول تسجيل الدخول مرة أخرى.';
         statusElement.style.color = 'red';
         return;
     }
 
-    statusElement.textContent = 'المرجو الانتظار، يتم إرسال طلبك...';
-
     try {
-        const token = localStorage.getItem('authToken');
-        // Send a request to your backend server.
-        const response = await fetch('/request-activation-code', {
+        // إرسال طلب إلى السيرفر لإنشاء الكود وإرساله لك عبر البريد الإلكتروني
+        const response = await fetch('/request-activation-code', { // تأكد من أن هذا الرابط صحيح في السيرفر
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // Send token for authentication
+                // نرسل التوكن في الهيدر لمزيد من الأمان إذا كان السيرفر يتطلبه
+                'Authorization': `Bearer ${userInfo.token}` 
             },
             body: JSON.stringify({
-                userId: user.userId, // Send the user's ID we got from /api/auth/me
+                userId: userInfo.userId, // نرسل معرف المستخدم
                 subscriptionPeriod: period,
                 subscriptionDays: days
             }),
@@ -91,72 +61,25 @@ async function requestActivationCode(period, days) {
 
         const data = await response.json();
 
+        // إذا كان الطلب ناجحًا والسيرفر أكد ذلك
         if (response.ok && data.success) {
-            statusElement.textContent = 'تم إرسال طلبك بنجاح! سيتم التواصل معك من طرف المشرف لتزويدك بالرمز.';
-            statusElement.style.color = 'green';
             
-            document.getElementById('subscription-options').style.display = 'none';
-            document.getElementById('overlay-message').style.display = 'none';
-            document.getElementById('activation-form').style.display = 'block';
+            // ======================================================
+            // =========== هذا هو التغيير الذي طلبته ================
+            // ======================================================
+            // نوجه المستخدم مباشرة إلى صفحة إدخال الرمز
+            window.location.href = '/email-confirmation.html';
 
         } else {
-            statusElement.textContent = data.message || 'حدث خطأ أثناء إرسال الطلب.';
+            // إذا أرجع السيرفر رسالة خطأ
+            statusElement.textContent = data.message || 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.';
             statusElement.style.color = 'red';
         }
+
     } catch (error) {
+        // إذا كان هناك خطأ في الشبكة أو الاتصال بالسيرفر
         console.error('Error requesting activation code:', error);
-        statusElement.textContent = 'خطأ في الاتصال بالخادم.';
-        statusElement.style.color = 'red';
-    }
-}
-
-
-/**
- * Called when the user enters the activation code and clicks the 'Activate' button.
- */
-async function activateWithCode() {
-    const codeInput = document.getElementById('activationCodeInput');
-    const code = codeInput.value.trim();
-    const statusElement = document.getElementById('activation-status');
-    const token = localStorage.getItem('authToken');
-
-    if (!code) {
-        statusElement.textContent = 'المرجو إدخال رمز التفعيل.';
-        statusElement.style.color = 'red';
-        return;
-    }
-    
-    statusElement.textContent = 'المرجو الانتظار، يتم التحقق من الرمز...';
-    
-    try {
-        const response = await fetch('/verify-activation-code', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                activationCode: code
-            }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            statusElement.textContent = 'تم تفعيل اشتراكك بنجاح! يتم الآن إعادة توجيهك.';
-            statusElement.style.color = 'green';
-
-            setTimeout(() => {
-                window.location.href = '/dashboard.html';
-            }, 2000);
-
-        } else {
-            statusElement.textContent = data.message || 'الرمز الذي أدخلته غير صحيح أو منتهي الصلاحية.';
-            statusElement.style.color = 'red';
-        }
-    } catch (error) {
-        console.error('Error verifying activation code:', error);
-        statusElement.textContent = 'خطأ في الاتصال بالخادم.';
+        statusElement.textContent = 'خطأ في الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
         statusElement.style.color = 'red';
     }
 }
