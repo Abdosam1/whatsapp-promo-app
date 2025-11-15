@@ -41,7 +41,9 @@
 
     /* --- Buttons & Forms --- */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: none; border-radius: var(--border-radius); font-family: 'Cairo', sans-serif; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+    .btn:disabled { background-color: #ccc; cursor: not-allowed; }
     .btn-primary { background-color: var(--primary-color); color: white; }
+    .btn-secondary { background-color: var(--secondary-color); color: white; }
     .btn-danger { background-color: var(--danger-color); color: white; }
     .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
     .form-group { margin-bottom: 15px; }
@@ -66,10 +68,7 @@
 </head>
 <body>
 
-  <!-- ========================================================= -->
-  <!-- ================ المحتوى الرئيسي للصفحة ================= -->
-  <!-- التعديل هنا: إضافة style="display:none;" لإخفاء كل المحتوى في البداية -->
-  <div class="container" style="display:none;">
+  <div class="container">
     <header>
       <h1><i class="fab fa-whatsapp"></i> لوحة تحكم إرسال العروض</h1>
       <p>من هنا يمكنك إدارة حملاتك التسويقية بسهولة</p>
@@ -78,44 +77,37 @@
       </button>
     </header>
 
-    <!-- ========= قسم حالة الاتصال بواتساب =========== -->
-    <!-- سنعتمد على JavaScript لإظهارها لاحقاً -->
-    <div class="card full-width" id="whatsapp-status-card" style="transition: all 0.5s ease;">
+    <div class="card full-width" id="whatsapp-status-card">
         <h2><i class="fas fa-sync-alt"></i> حالة الاتصال بـ WhatsApp</h2>
         <div id="whatsapp-status" style="text-align: center; padding: 20px;">
             <p id="status-message" style="font-size: 1.2em; font-weight: 600;">في انتظار الاتصال...</p>
-            <canvas id="qrcode-canvas"></canvas>
+            <canvas id="qrcode-canvas" style="display:none;"></canvas>
         </div>
     </div>
 
-    <!-- ======== المحتوى الرئيسي للتطبيق (مخفي في البداية) ========= -->
     <div id="main-content" style="display:none;">
       <div class="main-grid">
-        <!-- ====== قسم العملاء ====== -->
         <div class="card">
           <h2><i class="fas fa-users"></i> العملاء الأساسيون</h2>
           <div class="button-group">
-              <button type="button" class="btn btn-primary" onclick="sendPromoToClients()"><i class="fas fa-paper-plane"></i> إرسال جماعي</button>
-              <button type="button" class="btn btn-secondary" onclick="sendPromoSequentially(clients, false)"><i class="fas fa-tasks"></i> إرسال متتابع</button>
+              <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> إرسال للكل</button>
           </div>
           <div id="clientsList" class="list-box"></div>
         </div>
 
         <div class="card">
           <h2><i class="fas fa-file-import"></i> العملاء المستوردون</h2>
-          <div class="input-group" style="margin-bottom: 15px;">
-              <input type="file" id="csvFileInput" accept=".csv" />
-              <button type="button" class="btn btn-secondary" onclick="importCSV()"><i class="fas fa-upload"></i> استيراد</button>
+          <div class="form-group" style="display:flex; gap: 10px; align-items: center;">
+              <input type="file" id="csvFileInput" accept=".csv" style="flex-grow: 1;" />
+              <button type="button" id="importCsvBtn" class="btn btn-secondary"><i class="fas fa-upload"></i> استيراد</button>
           </div>
           <div class="button-group">
-              <button type="button" class="btn btn-primary" onclick="sendPromoToImported()"><i class="fas fa-paper-plane"></i> إرسال جماعي</button>
-              <button type="button" class="btn btn-secondary" onclick="sendPromoSequentially(importedClients, true)"><i class="fas fa-tasks"></i> إرسال متتابع</button>
-              <button type="button" class="btn btn-danger" onclick="deleteAllImportedClients()"><i class="fas fa-trash-alt"></i> حذف الكل</button>
+              <button type="button" id="sendSequentiallyImportedBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> إرسال للكل</button>
+              <button type="button" id="deleteAllImportedBtn" class="btn btn-danger"><i class="fas fa-trash-alt"></i> حذف الكل</button>
           </div>
           <div id="importedClientsList" class="list-box"></div>
         </div>
 
-        <!-- ====== قسم العروض ====== -->
         <div class="card full-width">
           <h2><i class="fas fa-tags"></i> العروض المتاحة</h2>
           <div id="promosList" class="promos-grid"></div>
@@ -125,26 +117,25 @@
           <h2><i class="fas fa-plus-circle"></i> إضافة عرض جديد</h2>
           <div class="form-group">
             <label for="newPromoText">نص العرض:</label>
-            <textarea id="newPromoText" rows="3" placeholder="..."></textarea>
+            <textarea id="newPromoText" rows="3" placeholder="...اكتب نص العرض هنا"></textarea>
           </div>
           <div class="form-group">
             <label for="newPromoImage">صورة العرض:</label>
             <input type="file" id="newPromoImage" accept="image/*" />
           </div>
-          <button type="button" class="btn btn-primary full-width" onclick="addNewPromo()"><i class="fas fa-plus"></i> إضافة العرض</button>
+          <button type="button" id="addNewPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-plus"></i> إضافة العرض</button>
         </div>
         
         <div class="card">
-          <h2><i class="fas fa-bullseye"></i> إرسال محدد</h2>
+          <h2><i class="fas fa-bullseye"></i> إرسال فردي / تجريبي</h2>
           <div class="form-group">
-            <label for="phoneInput">رقم الهاتف:</label>
-            <input type="text" id="phoneInput" placeholder="+2126xxxxxxxx" />
+            <label for="phoneInput">رقم الهاتف (مع رمز الدولة):</label>
+            <input type="text" id="phoneInput" placeholder="212612345678" />
           </div>
-          <button type="button" class="btn btn-primary full-width" onclick="sendSelectedPromo()"><i class="fas fa-paper-plane"></i> إرسال</button>
-          <button type="button" class="btn" onclick="testMessage()" style="width:100%; margin-top:10px; background: linear-gradient(45deg, #6a82fb, #fc5c7d); color:white;">🧪 رسالة تجريبية</button>
+          <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> إرسال للمحدد</button>
+          <button type="button" id="testMessageBtn" class="btn" style="width:100%; margin-top:10px; background: linear-gradient(45deg, #6a82fb, #fc5c7d); color:white;">🧪 إرسال تجريبي لرقمك</button>
         </div>
 
-        <!-- ====== قسم السجل ====== -->
         <div class="card full-width">
           <h2><i class="fas fa-history"></i> السجل (Logs)</h2>
           <div id="logs" class="list-box logs-box"></div>
@@ -153,7 +144,6 @@
     </div>
   </div>
 
-  <!-- ======== استدعاء المكتبات وملف JavaScript الرئيسي ======== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <script src="dashboard.js"></script>
