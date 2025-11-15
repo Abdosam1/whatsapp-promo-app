@@ -141,7 +141,6 @@ app.post("/api/auth/signup", async (req, res) => {
     });
 });
 
-// --- [ هذا هو الجزء الذي تم التأكد منه وتصحيحه ] ---
 app.get('/api/auth/verify-email', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
@@ -149,59 +148,43 @@ app.get('/api/auth/verify-email', (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const { email } = decoded;
         const pendingData = pendingRegistrations[email];
-
-        if (!pendingData) {
-            return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح. ربما تم إعادة تشغيل الخادم، يرجى التسجيل مرة أخرى.');
-        }
-
+        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح. ربما تم إعادة تشغيل الخادم، يرجى التسجيل مرة أخرى.');
         db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
-            if (user) {
-                delete pendingRegistrations[email];
-                return res.status(400).send('هذا الحساب مسجل بالفعل.');
-            }
-            
-            const newUser = {
-                id: Date.now().toString(),
-                email: pendingData.email,
-                name: pendingData.name,
-                password: pendingData.password,
-                trialEndsAt: pendingData.trialEndsAt,
-                subscriptionEndsAt: null,
-                subscription_status: 'trial'
-            };
-
+            if (user) { delete pendingRegistrations[email]; return res.status(400).send('هذا الحساب مسجل بالفعل.'); }
+            const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial' };
             db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
                 (err) => {
-                    if (err) {
-                        return res.status(500).send('حدث خطأ أثناء إنشاء حسابك في قاعدة البيانات.');
-                    }
+                    if (err) return res.status(500).send('حدث خطأ أثناء إنشاء حسابك في قاعدة البيانات.');
                     delete pendingRegistrations[email];
                     res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
                 }
             );
         });
-    } catch (error) {
-        res.status(500).send('خطأ في التحقق من الرمز.');
-    }
+    } catch (error) { res.status(500).send('خطأ في التحقق من الرمز.'); }
 });
 
+// --- [ هذا هو التعديل الأهم الذي طلبته ] ---
 app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (err) return res.status(500).json({ message: "خطأ في الخادم." });
         if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة أو الحساب مسجل عبر جوجل.' });
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
+
+        // التحقق من صلاحية الاشتراك قبل إعطاء التوكن
         const now = new Date();
         const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null;
         const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null;
         const isActive = (trialEnds && trialEnds > now) || (subscriptionEnds && subscriptionEnds > now);
+
         if (isActive) {
             const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
             res.status(200).json({ token, subscriptionStatus: 'active' });
         } else {
-            const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+            const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' }); // توكن قصير فقط لصفحة التفعيل
             res.status(200).json({ token, subscriptionStatus: 'expired' });
         }
     });
