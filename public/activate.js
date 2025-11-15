@@ -1,147 +1,162 @@
-// This function runs when the entire HTML page is loaded and ready.
+// This function runs when the entire HTML page is loaded.
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Check if the user is logged in
-    // It looks for 'userInfo' in the browser's local storage.
-    const userInfo = localStorage.getItem('userInfo');
+    // 1. Check if the login token exists.
+    const token = localStorage.getItem('authToken');
 
-    // If 'userInfo' is not found, it means the user is not logged in.
-    if (!userInfo) {
-        // Redirect the user to the login page immediately.
-        // Make sure your login page is named 'login.html' or change the path here.
+    // If no token is found, redirect to the login page.
+    if (!token) {
         window.location.href = '/login.html';
-        return; // Stop running the rest of the script
+        return;
     }
 
-    // 2. Add functionality to the logout button
+    // 2. Add functionality to the logout button.
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        // When the logout button is clicked...
         logoutBtn.onclick = () => {
-            // Remove the user's information from local storage.
-            localStorage.removeItem('userInfo');
-            // Redirect the user to the login page.
+            // Remove the token and any other user data.
+            localStorage.removeItem('authToken');
+            // Redirect to the login page.
             window.location.href = '/login.html';
         };
     }
 });
 
 /**
- * This function is called when a user clicks on a subscription duration button.
- * e.g., onclick="requestActivationCode('6 months', 180)"
- * @param {string} period - The name of the subscription period (e.g., '6 months').
- * @param {number} days - The number of days for the subscription.
+ * A helper function to get the current user's data using the auth token.
+ * This is more secure than storing user ID directly in localStorage.
+ */
+async function getCurrentUser() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return null;
+
+    try {
+        // IMPORTANT: You need to create this endpoint on your server.
+        // It should take the token, verify it, and return the user's data (like their ID).
+        const response = await fetch('/api/auth/me', { // <-- Endpoint to get user data
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            // If the token is invalid or expired, log the user out.
+            localStorage.removeItem('authToken');
+            window.location.href = '/login.html';
+            return null;
+        }
+
+        const userData = await response.json();
+        return userData; // Should return something like { userId: '12345', name: '...' }
+
+    } catch (error) {
+        console.error("Error fetching user data:", error);
+        return null;
+    }
+}
+
+
+/**
+ * Called when a user clicks on a subscription duration button.
  */
 async function requestActivationCode(period, days) {
     const statusElement = document.getElementById('activation-status');
-    statusElement.textContent = 'المرجو الانتظار، يتم إرسال طلبك...';
+    statusElement.textContent = 'المرجو الانتظار، يتم الحصول على معلومات المستخدم...';
     statusElement.style.color = '#333';
 
-    // Get user info from local storage to send their ID to the server.
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-
-    // Double-check if user info exists (it should, but it's good practice).
-    if (!userInfo || !userInfo.userId) {
-        statusElement.textContent = 'خطأ: لم يتم العثور على معلومات المستخدم. يرجى تسجيل الدخول مرة أخرى.';
+    // Get user data from the server using the token.
+    const user = await getCurrentUser();
+    if (!user || !user.userId) {
+        statusElement.textContent = 'خطأ: لا يمكن التحقق من هوية المستخدم. حاول تسجيل الدخول مرة أخرى.';
         statusElement.style.color = 'red';
         return;
     }
 
+    statusElement.textContent = 'المرجو الانتظار، يتم إرسال طلبك...';
+
     try {
+        const token = localStorage.getItem('authToken');
         // Send a request to your backend server.
-        // IMPORTANT: Your server must have an endpoint at '/request-activation-code'.
         const response = await fetch('/request-activation-code', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Send token for authentication
             },
             body: JSON.stringify({
-                userId: userInfo.userId, // Send the user's ID
-                subscriptionPeriod: period, // Send the chosen period
-                subscriptionDays: days // Send the chosen duration in days
+                userId: user.userId, // Send the user's ID we got from /api/auth/me
+                subscriptionPeriod: period,
+                subscriptionDays: days
             }),
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
-            // If the server responds successfully
             statusElement.textContent = 'تم إرسال طلبك بنجاح! سيتم التواصل معك من طرف المشرف لتزويدك بالرمز.';
             statusElement.style.color = 'green';
             
-            // Hide the subscription choice buttons
             document.getElementById('subscription-options').style.display = 'none';
             document.getElementById('overlay-message').style.display = 'none';
-            // Show the form to enter the activation code
             document.getElementById('activation-form').style.display = 'block';
 
         } else {
-            // If the server responds with an error
-            statusElement.textContent = data.message || 'حدث خطأ أثناء إرسال الطلب. المرجو المحاولة لاحقاً.';
+            statusElement.textContent = data.message || 'حدث خطأ أثناء إرسال الطلب.';
             statusElement.style.color = 'red';
         }
     } catch (error) {
-        // If there's a network error (e.g., server is down)
         console.error('Error requesting activation code:', error);
-        statusElement.textContent = 'خطأ في الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+        statusElement.textContent = 'خطأ في الاتصال بالخادم.';
         statusElement.style.color = 'red';
     }
 }
 
+
 /**
- * This function is called when the user enters the activation code and clicks the 'Activate' button.
+ * Called when the user enters the activation code and clicks the 'Activate' button.
  */
 async function activateWithCode() {
     const codeInput = document.getElementById('activationCodeInput');
     const code = codeInput.value.trim();
     const statusElement = document.getElementById('activation-status');
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    const token = localStorage.getItem('authToken');
 
-    // Check if the input is empty
     if (!code) {
         statusElement.textContent = 'المرجو إدخال رمز التفعيل.';
         statusElement.style.color = 'red';
         return;
     }
-
+    
     statusElement.textContent = 'المرجو الانتظار، يتم التحقق من الرمز...';
-    statusElement.style.color = '#333';
-
+    
     try {
-        // Send the code to the backend for verification.
-        // IMPORTANT: Your server must have an endpoint at '/verify-activation-code'.
         const response = await fetch('/verify-activation-code', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                userId: userInfo.userId, // Send the user's ID
-                activationCode: code // Send the code they entered
+                activationCode: code
             }),
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
-            // If the code is correct
             statusElement.textContent = 'تم تفعيل اشتراكك بنجاح! يتم الآن إعادة توجيهك.';
             statusElement.style.color = 'green';
 
-            // Wait 2 seconds, then redirect to the main dashboard.
-            // Make sure your dashboard page is named 'dashboard.html' or change the path here.
             setTimeout(() => {
                 window.location.href = '/dashboard.html';
             }, 2000);
 
         } else {
-            // If the code is incorrect or expired
             statusElement.textContent = data.message || 'الرمز الذي أدخلته غير صحيح أو منتهي الصلاحية.';
             statusElement.style.color = 'red';
         }
     } catch (error) {
-        // If there's a network error
         console.error('Error verifying activation code:', error);
-        statusElement.textContent = 'خطأ في الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+        statusElement.textContent = 'خطأ في الاتصال بالخادم.';
         statusElement.style.color = 'red';
     }
 }
