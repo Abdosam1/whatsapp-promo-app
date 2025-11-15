@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تفعيل الاشتراك</title>
+  <title>طلب تفعيل الاشتراك</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
   <style>
-    /* ... (احتفظ بالـ CSS ديالك لي كان فـ dashboard.html باش تكون موحدة) ... */
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     :root {
       --primary-color: #25D366;
@@ -21,53 +20,105 @@
       --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       --border-radius: 8px;
     }
-    body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; padding: 20px; direction: rtl; display: flex; justify-content: center; align-items: center; min-height: 100vh;}
-    .activation-box { background: var(--card-background); color: var(--text-color); padding:40px 50px; border-radius:10px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 450px; }
-    .activation-box h2 { color:var(--dark-color); font-size:2em; margin-bottom: 25px;}
-    .form-group { margin-bottom: 15px; text-align: right; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; }
-    input { width: 100%; padding: 10px; border: 1px solid var(--light-gray); border-radius: var(--border-radius); box-sizing: border-box; font-family: 'Cairo', sans-serif; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: none; border-radius: var(--border-radius); font-family: 'Cairo', sans-serif; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
-    .btn-primary { background-color: var(--primary-color); color: white; }
-    .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; justify-content: center; }
-    .status-msg { margin-top:15px; font-weight:bold; min-height: 20px;}
+    body { 
+      font-family: 'Cairo', sans-serif; 
+      background-color: var(--background-color); 
+      color: var(--text-color); 
+      margin: 0; 
+      padding: 20px; 
+      direction: rtl; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      min-height: 100vh;
+    }
+    .activation-box { 
+      background: var(--card-background); 
+      color: var(--text-color); 
+      padding: 40px 50px; 
+      border-radius: 10px; 
+      text-align: center; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+      width: 450px; 
+      position: relative;
+    }
+    .activation-box h2 { 
+      color: var(--dark-color); 
+      font-size: 2em; 
+      margin-top: 0;
+      margin-bottom: 25px;
+    }
+    .btn { 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 8px; 
+      padding: 10px 20px; 
+      border: none; 
+      border-radius: var(--border-radius); 
+      font-family: 'Cairo', sans-serif; 
+      font-size: 1em; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+    }
+    .btn-primary { 
+      background-color: var(--primary-color); 
+      color: white; 
+    }
+    #logoutBtn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background-color: #777;
+        padding: 8px 12px;
+        font-size: 0.9em;
+    }
+    .button-group { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+      margin-bottom: 25px; 
+      justify-content: center; 
+    }
+    .status-msg { 
+      margin-top: 15px; 
+      font-weight: bold; 
+      min-height: 20px;
+      color: var(--danger-color);
+    }
   </style>
 </head>
 <body>
 
   <div class="activation-box">
-    <h2 id="activation-title"><i class="fas fa-money-check-alt"></i> تفعيل الاشتراك</h2>
-    <button id="logoutBtn" class="btn" style="position: absolute; top: 10px; left: 10px; background-color: #777;">
+    <!-- زر تسجيل الخروج أصبح هنا -->
+    <button id="logoutBtn" class="btn">
         <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
     </button>
+    
+    <h2 id="activation-title"><i class="fas fa-money-check-alt"></i> تفعيل الاشتراك</h2>
     
     <p id="overlay-message" style="font-size:1.1em; margin-bottom:20px;">المرجو اختيار مدة الاشتراك لطلب رمز التفعيل:</p>
     
     <!-- أزرار اختيار المدة -->
     <div id="subscription-options" class="button-group">
-        <button class="btn btn-primary" onclick="requestActivationCode('1 month', 30)" style="background:#4CAF50;"><i class="fas fa-calendar-alt"></i> 1 شهر</button>
+        <button class="btn btn-primary" onclick="requestActivationCode('1 month', 30)" style="background:#2196F3;"><i class="fas fa-calendar-alt"></i> 1 شهر</button>
         <button class="btn btn-primary" onclick="requestActivationCode('6 months', 180)" style="background:#FF9800;"><i class="fas fa-calendar-alt"></i> 6 أشهر</button>
-        <button class="btn btn-primary" onclick="requestActivationCode('1 year', 365)" style="background:#2196F3;"><i class="fas fa-calendar-alt"></i> 1 سنة</button>
+        <button class="btn btn-primary" onclick="requestActivationCode('1 year', 365)" style="background:#4CAF50;"><i class="fas fa-calendar-alt"></i> 1 سنة</button>
     </div>
     
     <hr style="margin: 20px 0;">
 
-    <!-- قسم إدخال الرمز لي غادي يبان بعد الطلب -->
-    <div id="activation-form" style="display:none;">
-      <div class="form-group">
-          <label for="activationCodeInput">رمز التفعيل الذي توصلت به:</label>
-          <input type="text" id="activationCodeInput" placeholder="XXXX-XXXX-XXXX" style="text-align: center; font-size: 1.2em; letter-spacing: 2px;">
-      </div>
-
-      <button id="activateBtn" class="btn btn-primary" style="font-size:1.2em; padding: 12px 30px; width: 100%;" onclick="activateWithCode()">
-          <i class="fas fa-check-circle"></i> تفعيل الاشتراك
-      </button>
-    </div>
+    <!-- 
+      تمت إزالة قسم إدخال الرمز من هنا لأنه سينتقل إلى صفحة email-confirmation.html
+    -->
 
     <p id="activation-status" class="status-msg"></p>
-    <p style="font-size: 0.9em; color: #777; margin-top: 15px;">بعد طلب الرمز، يرجى تتبعه من المشرف.</p>
+    <p style="font-size: 0.9em; color: #777; margin-top: 15px;">بعد طلب الرمز، سيتم توجيهك لصفحة التأكيد.</p>
   </div>
 
+<!-- ربط ملف الجافاسكريبت الذي سيقوم بعملية التوجيه -->
 <script src="activate.js"></script>
 </body>
 </html>
