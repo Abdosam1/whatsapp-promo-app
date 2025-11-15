@@ -178,8 +178,6 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// ... يمكنك إضافة بقية مسارات المصادقة هنا (/api/auth/verify-email, etc.)
-
 // --- المسارات التي تطابق لوحة التحكم (بدون /api) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
@@ -213,9 +211,16 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 
 app.get("/promos", authMiddleware, (req, res) => res.json(readPromos(req.userData.userId)));
 
+// --- تم تعديل هذا المسار لإصلاح الخطأ ---
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
     const { text } = req.body;
     const { userId } = req.userData;
+    
+    // --- التحقق الإضافي هنا ---
+    if (!req.file) {
+        return res.status(400).json({ message: "Image file is required." });
+    }
+
     const promos = readPromos(userId);
     const newPromo = { id: Date.now(), text, image: req.file.filename };
     promos.push(newPromo);
