@@ -14,29 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const name = signupForm.querySelector('#name').value;
             const email = signupForm.querySelector('#email').value;
             const password = signupForm.querySelector('#password').value;
-
             displayMessage('جاري إنشاء الحساب...', 'info');
-
             try {
                 const response = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, password })
                 });
-
                 const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'فشل التسجيل');
-                }
-
+                if (!response.ok) { throw new Error(data.message || 'فشل التسجيل'); }
                 displayMessage(data.message, 'success');
                 signupForm.reset();
-
             } catch (error) {
                 displayMessage(error.message, 'error');
             }
@@ -51,10 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const email = loginForm.querySelector('#email').value;
             const password = loginForm.querySelector('#password').value;
-
             displayMessage('جاري تسجيل الدخول...', 'info');
 
             try {
@@ -70,12 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'فشل تسجيل الدخول');
                 }
                 
-                // --- [ هذا هو التعديل الأهم والنهائي ] ---
+                // --- [ هذا هو الجزء الأهم الذي يقرر أين يذهب المستخدم ] ---
 
-                // الخطوة 1: دائماً نخزن التوكن لي عطانا السيرفر
+                // الخطوة 1: دائماً نخزن التوكن الذي أعطاه لنا السيرفر
                 localStorage.setItem('authToken', data.token);
 
-                // الخطوة 2: نقرر فين غانصيفطو المستخدم بناءً على جواب السيرفر
+                // الخطوة 2: نقرر أين سنوجه المستخدم بناءً على جواب السيرفر
                 if (data.subscriptionStatus === 'expired') {
                     // إذا كان الاشتراك منتهياً، نوجهه لصفحة التفعيل
                     displayMessage('اشتراكك منتهي. جاري توجيهك لصفحة التفعيل...', 'info');
@@ -85,8 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayMessage('تم تسجيل الدخول بنجاح!', 'success');
                     window.location.href = '/dashboard.html';
                 }
-
-                // --- [ نهاية التعديل ] ---
+                // --- [ نهاية الجزء المهم ] ---
 
             } catch (error) {
                 displayMessage(error.message, 'error');
@@ -99,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!messageContainer) return;
         messageContainer.textContent = message;
         messageContainer.className = 'message';
-        
         if (message) {
             messageContainer.classList.add(type); // 'error', 'success', or 'info'
             messageContainer.style.display = 'block';
