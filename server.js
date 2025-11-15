@@ -27,8 +27,8 @@ const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'your-email@gmail.com';
-const SENDER_EMAIL = ADMIN_EMAIL;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; // Admin's email
+const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
@@ -49,11 +49,13 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
 });
 
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: ADMIN_EMAIL, pass: process.env.GMAIL_APP_PASS } });
+const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
 if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
-const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }) });
-const uploadCSV = multer({ dest: uploadsFolder });
+
+const uploadLimits = { fileSize: 3 * 1024 * 1024 }; // 3 Megabytes
+const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: uploadLimits });
+const uploadCSV = multer({ dest: uploadsFolder, limits: uploadLimits });
 
 // ================================================================= //
 // ==================== 4. إعدادات Express Middleware =================== //
@@ -79,71 +81,51 @@ function writePromos(userId, promos) {
     if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
     fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2));
 }
-
-// --- الإضافة الجديدة: دالة مزامنة جهات الاتصال ---
 async function syncWhatsAppContacts(whatsappClient, ownerId) {
     try {
         console.log(`[Sync] Starting contact sync for user ${ownerId}...`);
         const chats = await whatsappClient.getChats();
         const privateChats = chats.filter(chat => !chat.isGroup && chat.id.user);
-
-        if (privateChats.length === 0) {
-            console.log(`[Sync] No private chats found to sync for user ${ownerId}.`);
-            return;
-        }
-
+        if (privateChats.length === 0) return;
         const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
-        let syncedCount = 0;
-
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
             privateChats.forEach(chat => {
                 const phone = chat.id.user;
                 const name = chat.name || chat.contact?.pushname || `+${phone}`;
-                stmt.run(name, phone, ownerId, function(err) {
-                    if (!err && this.changes > 0) {
-                        syncedCount++;
-                    }
-                });
+                stmt.run(name, phone, ownerId);
             });
             stmt.finalize();
             db.run("COMMIT");
         });
-        
-        console.log(`[Sync] Finished. Synced ${syncedCount} new contacts for user ${ownerId}.`);
-    } catch (err) {
-        console.error(`[Sync] Error syncing contacts for user ${ownerId}:`, err);
-    }
+        console.log(`[Sync] Finished for user ${ownerId}.`);
+    } catch (err) { console.error(`[Sync] Error for user ${ownerId}:`, err); }
+}
+function generateActivationCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = '';
+    for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; }
+    return code;
 }
 
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
-  console.log(`🔌 New connection: ${socket.id}`);
   let activeUserId = null;
-
   const client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
-
   socket.on('init-whatsapp', (token) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         activeUserId = decoded.userId;
         client.initialize();
-    } catch (e) { socket.emit('status', { message: "فشل التحقق من الهوية", ready: false, error: true }); }
+    } catch (e) { socket.emit('status', { message: "فشل التحقق", ready: false, error: true }); }
   });
-
   client.on("qr", (qr) => socket.emit('qr', qr));
-  
-  // --- التعديل: استدعاء دالة المزامنة هنا ---
   client.on("ready", async () => {
-    socket.emit('status', { message: "WhatsApp متصل وجاهز!", ready: true });
-    console.log(`User ${activeUserId} is ready, starting contact sync.`);
+    socket.emit('status', { message: "WhatsApp متصل!", ready: true });
     await syncWhatsAppContacts(client, activeUserId);
   });
-
   client.on("disconnected", () => socket.emit('status', { message: "تم قطع الاتصال!", ready: false, error: true }));
-
   socket.on('send-promo', async (data) => {
     const { phone, promoId, fromImported } = data;
     if (!activeUserId) return;
@@ -159,7 +141,6 @@ io.on('connection', (socket) => {
         socket.emit('send-promo-status', { success: true, phone });
     } catch (err) { socket.emit('send-promo-status', { success: false, phone, error: err.message }); }
   });
-
   socket.on('disconnect', () => {
     client.destroy().catch(console.error);
     const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${socket.id}`);
@@ -215,6 +196,28 @@ app.post("/api/auth/signup", async (req, res) => {
     });
 });
 
+app.get('/api/auth/verify-email', (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const { email } = decoded;
+        const pendingData = pendingRegistrations[email];
+        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
+        
+        db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
+            if (user) { delete pendingRegistrations[email]; return res.status(400).send('الحساب مسجل بالفعل.'); }
+            const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null };
+            db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt) VALUES (?, ?, ?, ?, ?, ?)", Object.values(newUser).slice(0,6), (err) => {
+                if (err) return res.status(500).send('خطأ في قاعدة البيانات.');
+                delete pendingRegistrations[email];
+                res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
+            });
+        });
+    } catch (error) { res.status(500).send('خطأ في التحقق من الإيميل.'); }
+});
+
+
 app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
@@ -224,6 +227,39 @@ app.post("/api/auth/login", async (req, res) => {
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({ token });
+    });
+});
+
+app.post("/api/request-code", authMiddleware, async (req, res) => {
+    const userId = req.userData.userId;
+    const { durationName, durationDays } = req.body;
+    db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => {
+        if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
+        const newActivationCode = generateActivationCode();
+        const activationRequest = { code: newActivationCode, durationName, durationDays };
+        db.run("UPDATE users SET activationRequest = ? WHERE id = ?", [JSON.stringify(activationRequest), userId], async (err) => {
+            if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
+            const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
+            await transporter.sendMail(mailOptions);
+            res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
+        });
+    });
+});
+
+app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
+    const { activationCode } = req.body;
+    const userId = req.userData.userId;
+    if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." });
+    db.get("SELECT activationRequest FROM users WHERE id = ?", [userId], (err, user) => {
+        if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
+        const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
+        if (!activationRequest || activationRequest.code !== activationCode.trim()) return res.status(400).json({ message: "رمز التفعيل غير صحيح." });
+        const { durationDays } = activationRequest;
+        const newSubscriptionEndDate = new Date(); newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
+        db.run("UPDATE users SET subscriptionEndsAt = ?, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => {
+            if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
+            res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
+        });
     });
 });
 
@@ -263,11 +299,7 @@ app.get("/promos", authMiddleware, (req, res) => res.json(readPromos(req.userDat
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
     const { text } = req.body;
     const { userId } = req.userData;
-    
-    if (!req.file) {
-        return res.status(400).json({ message: "Image file is required." });
-    }
-
+    if (!req.file) return res.status(400).json({ message: "Image file is required." });
     const promos = readPromos(userId);
     const newPromo = { id: Date.now(), text, image: req.file.filename };
     promos.push(newPromo);
