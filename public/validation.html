@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التحقق من الرمز</title> <!-- تم تغيير العنوان -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        /* ... (نفس الـ CSS الممتاز) ... */
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        :root {
+            --primary-color: #25D366; --secondary-color: #128C7E; --dark-color: #075E54;
+            --background-color: #f0f2f5; --card-background: #ffffff; --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px; --danger-color: #e74c3c;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: var(--card-background); padding: 40px; border-radius: var(--border-radius); box-shadow: var(--shadow); text-align: center; max-width: 450px; width: 90%; }
+        h1 { color: var(--dark-color); margin-bottom: 15px; }
+        p { color: #555; line-height: 1.6; margin-bottom: 25px; }
+        #activationCodeInput { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; text-align: center; font-size: 1.5em; letter-spacing: 4px; font-family: monospace; margin-bottom: 20px;}
+        .btn { width: 100%; padding: 12px; border: none; border-radius: var(--border-radius); color: white; background-color: var(--primary-color); font-size: 1.2em; font-weight: 600; cursor: pointer; transition: background-color 0.3s; }
+        .btn:disabled { background-color: #aaa; cursor: not-allowed; }
+        .status-msg { min-height: 22px; font-weight: bold; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1><i class="fas fa-key"></i> إدخال رمز التفعيل</h1>
+        <p>المرجو إدخال رمز التفعيل الذي استلمته من المشرف لإتمام عملية تفعيل الاشتراك.</p>
+        
+        <input type="text" id="activationCodeInput" placeholder="XXXX-XXXX-XXXX">
+        
+        <button id="verifyBtn" class="btn" onclick="verifyActivationCode()">تفعيل الإشتراك</button>
+
+        <p id="status-message" class="status-msg"></p>
+    </div>
+
+    <script src="validation.js"></script> <!-- تم تغيير اسم الملف هنا -->
+</body>
+</html>
