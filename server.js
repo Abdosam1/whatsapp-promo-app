@@ -3,7 +3,6 @@
 // ================================================================= //
 require('dotenv').config();
 
-// --- الوحدات الأساسية ---
 const http = require('http');
 const express = require("express");
 const socketIo = require('socket.io');
@@ -11,7 +10,6 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
-// --- وحدات الأدوات والـ Middleware ---
 const multer = require("multer");
 const csvParser = require("csv-parser");
 const bcrypt = require("bcryptjs");
@@ -20,7 +18,6 @@ const nodemailer = require('nodemailer');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-// --- وحدات قاعدة البيانات والواتساب ---
 const sqlite3 = require("sqlite3").verbose();
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 
@@ -42,25 +39,60 @@ const pendingRegistrations = {};
 // ================================================================= //
 // ================= 3. تهيئة الخدمات وقواعد البيانات ================= //
 // ================================================================= //
-
-// --- تهيئة قاعدة بيانات SQLite (لجهات الاتصال والمستخدمين) ---
 const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) { console.error("Fatal Error: Could not connect to database.", err); process.exit(1); }
+  if (err) { 
+    console.error("Fatal Error: Could not connect to database.", err); 
+    process.exit(1); 
+  }
   console.log("✅ Database connected successfully.");
 });
 
 db.serialize(() => {
   db.run(`PRAGMA journal_mode = WAL;`);
-  db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
-  db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
-  db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    name TEXT, 
+    phone TEXT, 
+    last_sent DATE, 
+    ownerId TEXT NOT NULL, 
+    UNIQUE(phone, ownerId)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS imported_clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    phone TEXT, 
+    last_sent DATE, 
+    ownerId TEXT NOT NULL, 
+    UNIQUE(phone, ownerId)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY, 
+    googleId TEXT, 
+    name TEXT, 
+    email TEXT UNIQUE, 
+    password TEXT, 
+    trialEndsAt TEXT, 
+    subscriptionEndsAt TEXT, 
+    activationRequest TEXT
+  )`);
 });
 
-// --- تهيئة Nodemailer, Multer, etc. ---
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: ADMIN_EMAIL, pass: process.env.GMAIL_APP_PASS } });
+// --- تهيئة Nodemailer ---
+const transporter = nodemailer.createTransport({ 
+  service: 'gmail', 
+  auth: { user: ADMIN_EMAIL, pass: process.env.GMAIL_APP_PASS } 
+});
+
+// --- إنشاء مجلدات إذا لم تكن موجودة ---
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
 if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
-const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }) });
+
+// --- Multer لإدارة رفع الملفات ---
+const uploadPromoImage = multer({ 
+  storage: multer.diskStorage({ 
+    destination: (req, file, cb) => cb(null, promosUploadFolder), 
+    filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) 
+  }) 
+});
 const uploadCSV = multer({ dest: uploadsFolder });
 
 // ================================================================= //
@@ -70,51 +102,63 @@ app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
 app.use('/promos', express.static(promosUploadFolder));
+
+// --- استيراد الميدلوير للتحقق من الهوية والاشتراك ---
 const authMiddleware = require('./middleware/auth');
 const checkSubscription = require('./middleware/checkSubscription');
 
 // ================================================================= //
 // ======================= 5. دوال مساعدة (Helpers) ====================== //
 // ================================================================= //
-// --- دوال العروض (Promos) باستخدام ملف JSON كما في مشروعك المحلي ---
 function readPromos(userId) {
-    const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
-    if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
-    const p = path.join(userPromoPath, 'promos.json');
+  const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
+  if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
+  const p = path.join(userPromoPath, 'promos.json');
+  try {
     return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : [];
+  } catch (e) {
+    console.error("Error parsing promos.json:", e);
+    return [];
+  }
 }
+
 function writePromos(userId, promos) {
-    const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
-    if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
-    fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2));
+  const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
+  if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
+  fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2));
 }
-// بقية الدوال المساعدة
-function generateActivationCode() { /* ... الكود الأصلي ... */ }
-function isSubscriptionActive(user) { /* ... الكود الأصلي ... */ }
-function isTrialActive(user) { /* ... الكود الأصلي ... */ }
+
+function isSubscriptionActive(user) { 
+  if (!user || !user.subscriptionEndsAt) return false;
+  return new Date(user.subscriptionEndsAt) > new Date(); 
+}
+
+function isTrialActive(user) { 
+  if (!user || !user.trialEndsAt) return false;
+  return new Date(user.trialEndsAt) > new Date(); 
+}
 
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
-// --- تم التعديل ليطابق منطق مشروعك المحلي (جلسة لكل اتصال) ---
 io.on('connection', (socket) => {
   console.log(`🔌 New connection: ${socket.id}`);
-  let activeUserId = null; // لتخزين هوية المستخدم لهذا الاتصال
+  let activeUserId = null;
 
   const client = new Client({
-    authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }), // جلسة فريدة لكل اتصال
+    authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }),
     puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
   });
 
   socket.on('init-whatsapp', (token) => {
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        activeUserId = decoded.userId;
-        console.log(`🚀 Initializing WhatsApp for user ${activeUserId}`);
-        client.initialize();
+      const decoded = jwt.verify(token, JWT_SECRET);
+      activeUserId = decoded.userId;
+      console.log(`🚀 Initializing WhatsApp for user ${activeUserId}`);
+      client.initialize();
     } catch (e) {
-        console.error("Authentication failed for socket:", socket.id);
-        socket.emit('status', { message: "فشل التحقق من الهوية", ready: false, error: true });
+      console.error("Authentication failed for socket:", socket.id);
+      socket.emit('status', { message: "فشل التحقق من الهوية", ready: false, error: true });
     }
   });
 
@@ -122,30 +166,28 @@ io.on('connection', (socket) => {
   client.on("ready", () => socket.emit('status', { message: "WhatsApp متصل وجاهز!", ready: true }));
   client.on("disconnected", () => socket.emit('status', { message: "تم قطع الاتصال!", ready: false, error: true }));
 
-  // --- منطق إرسال العرض (بدون تأخير من جهة الخادم) ---
   socket.on('send-promo', async (data) => {
     const { phone, promoId, fromImported } = data;
     if (!activeUserId) return socket.emit('send-promo-status', { success: false, phone, error: 'User not authenticated for this session' });
 
     const promos = readPromos(activeUserId);
     const promo = promos.find(p => p.id === promoId);
-    
     if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
 
     try {
-        const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-        const mediaPath = path.join(promosUploadFolder, promo.image);
-        if (!fs.existsSync(mediaPath)) throw new Error('ملف الصورة غير موجود');
-        
-        const media = MessageMedia.fromFilePath(mediaPath);
-        await client.sendMessage(numberId, media, { caption: promo.text });
-        
-        const table = fromImported ? "imported_clients" : "clients";
-        db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
-        
-        socket.emit('send-promo-status', { success: true, phone });
+      const numberId = `${phone.replace(/\D/g, "")}@c.us`;
+      const mediaPath = path.join(promosUploadFolder, promo.image);
+      if (!fs.existsSync(mediaPath)) throw new Error('ملف الصورة غير موجود');
+
+      const media = MessageMedia.fromFilePath(mediaPath);
+      await client.sendMessage(numberId, media, { caption: promo.text });
+
+      const table = fromImported ? "imported_clients" : "clients";
+      db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
+
+      socket.emit('send-promo-status', { success: true, phone });
     } catch (err) {
-        socket.emit('send-promo-status', { success: false, phone, error: err.message });
+      socket.emit('send-promo-status', { success: false, phone, error: err.message });
     }
   });
 
@@ -160,100 +202,125 @@ io.on('connection', (socket) => {
 // ================================================================= //
 // ==================== 7. إعدادات Passport.js (Google Auth) ================== //
 // ================================================================= //
-// ... لا تغيير هنا، الكود الأصلي للموقع ممتاز ...
-passport.use(new GoogleStrategy({ /* ... */ }));
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || "http://localhost:3001/api/auth/google/callback"
+},
+(accessToken, refreshToken, profile, done) => {
+  db.get("SELECT * FROM users WHERE googleId = ?", [profile.id], (err, user) => {
+    if (err) return done(err);
+    if (user) {
+      return done(null, user);
+    } else {
+      const newUser = {
+        id: profile.id,
+        googleId: profile.id,
+        name: profile.displayName,
+        email: profile.emails && profile.emails[0] ? profile.emails[0].value : null
+      };
+      db.run("INSERT INTO users (id, googleId, name, email) VALUES (?, ?, ?, ?)",
+        [newUser.id, newUser.googleId, newUser.name, newUser.email],
+        (err) => {
+          if (err) return done(err);
+          return done(null, newUser);
+        });
+    }
+  });
+}));
 
 // ================================================================= //
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
-// --- مسارات المصادقة (لا تغيير هنا) ---
+// --- Google OAuth routes ---
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/api/auth/google/callback', /* ... */);
-app.post("/api/auth/signup", /* ... */);
-app.get('/api/auth/verify-email', /* ... */);
-app.post("/api/auth/login", /* ... */);
-app.post("/api/request-code", /* ... */);
-app.post("/api/activate-with-code", /* ... */);
-app.get("/api/check-status", /* ... */);
-app.post("/api/whatsapp/logout", /* ... */); // هذا المسار قد لا يعمل كما هو متوقع مع البنية الجديدة
 
-// --- تم تعديل المسارات التالية لتطابق مشروعك المحلي (بدون /api واستخدام JSON للعروض) ---
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '7d' });
+    res.redirect(`/dashboard?token=${token}`);
+  }
+);
 
+// --- Authentication routes (signup, login, etc.) ---
+// (ضع هنا كود المصادقة الخاص بك أو استورد من ملفات أخرى)
+
+// --- Contacts routes ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
-    db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        res.status(200).json(rows || []);
-    });
+  db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+    res.status(200).json(rows || []);
+  });
 });
 
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
-    db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        res.status(200).json(rows || []);
+  db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
+    if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+    res.status(200).json(rows || []);
+  });
+});
+
+// --- CSV import route ---
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+  const { userId } = req.userData;
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const results = [];
+  fs.createReadStream(req.file.path)
+    .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+    .on('data', (data) => {
+      const phone = String(data.phone || "").replace(/\D/g, "");
+      if (phone.length >= 8) results.push(phone);
+    })
+    .on('end', () => {
+      fs.unlinkSync(req.file.path);
+      if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
+
+      let importedCount = 0;
+      const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
+        stmt.finalize();
+        db.run("COMMIT", (err) => {
+          if (err) return res.status(500).json({ message: "خطأ أثناء الاستيراد." });
+          res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
+        });
+      });
     });
 });
 
-// --- منطق استيراد CSV مطابق لمشروعك المحلي ---
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
-    const { userId } = req.userData;
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    
-    const results = [];
-    fs.createReadStream(req.file.path)
-      .pipe(csvParser({ headers: ['phone'], skipLines: 0 })) // يفترض وجود عمود 'phone'
-      .on('data', (data) => {
-        const phone = String(data.phone || "").replace(/\D/g, "");
-        if (phone.length >= 8) results.push(phone);
-      })
-      .on('end', () => {
-        fs.unlinkSync(req.file.path);
-        if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
-        
-        let importedCount = 0;
-        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
-            stmt.finalize();
-            db.run("COMMIT", (err) => {
-                if (err) return res.status(500).json({ message: "خطأ أثناء الاستيراد." });
-                res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
-            });
-        });
-      });
-});
-
-// --- مسارات العروض (تستخدم JSON الآن) ---
+// --- Promos routes ---
 app.get("/promos", authMiddleware, (req, res) => {
-    res.json(readPromos(req.userData.userId));
+  res.json(readPromos(req.userData.userId));
 });
 
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
-    const { text } = req.body;
-    const { userId } = req.userData;
-    if (!text || !req.file) return res.status(400).json({ message: "Text or image missing" });
-    
-    const promos = readPromos(userId);
-    const newPromo = { id: Date.now(), text, image: req.file.filename };
-    promos.push(newPromo);
-    writePromos(userId, promos);
-    res.json({ status: "success", promo: newPromo });
+  const { text } = req.body;
+  const { userId } = req.userData;
+  if (!text || !req.file) return res.status(400).json({ message: "Text or image missing" });
+
+  const promos = readPromos(userId);
+  const newPromo = { id: Date.now(), text, image: req.file.filename };
+  promos.push(newPromo);
+  writePromos(userId, promos);
+  res.json({ status: "success", promo: newPromo });
 });
 
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-    const promoId = parseInt(req.params.id);
-    const { userId } = req.userData;
-    let promos = readPromos(userId);
-    const promo = promos.find(p => p.id === promoId);
-    if (promo) {
-        const imagePath = path.join(promosUploadFolder, promo.image);
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-        writePromos(userId, promos.filter(p => p.id !== promoId));
-    }
-    res.json({ status: "deleted" });
+  const promoId = parseInt(req.params.id);
+  const { userId } = req.userData;
+  let promos = readPromos(userId);
+  const promo = promos.find(p => p.id === promoId);
+  if (promo) {
+    const imagePath = path.join(promosUploadFolder, promo.image);
+    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    writePromos(userId, promos.filter(p => p.id !== promoId));
+  }
+  res.json({ status: "deleted" });
 });
-
 
 // ================================================================= //
 // ===================== 9. خدمة الملفات الثابتة والمسارات النهائية =================== //
