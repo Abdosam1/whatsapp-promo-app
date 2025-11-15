@@ -1,42 +1,56 @@
-  const fs = require('fs');
-    const path = require('path');
-    const usersDbPath = path.join(__dirname, '..', 'users.json');
+const sqlite3 = require("sqlite3").verbose();
+const path = path = require("path");
 
-    const readUsersFromFile = () => {
-      try {
-        if (!fs.existsSync(usersDbPath)) return [];
-        const data = fs.readFileSync(usersDbPath, 'utf-8');
-        return data ? JSON.parse(data) : [];
-      } catch (error) {
-        console.error("Error reading or parsing users.json:", error);
-        return [];
-      }
-    };
+// --- الاتصال بنفس قاعدة البيانات المستخدمة في server.js ---
+// المسار الصحيح للوصول إلى الملف من داخل مجلد middleware
+const dbFile = path.join(__dirname, "..", "main_data.db");
+const db = new sqlite3.Database(dbFile, (err) => {
+    if (err) {
+        console.error("Failed to connect to the database from checkSubscription.js", err);
+    }
+});
 
-    module.exports = (req, res, next) => {
-      try {
-        if (!req.userData || !req.userData.userId) {
-          return res.status(401).json({ message: "Auth error, user ID not found." });
+// --- دوال مساعدة للتحقق من التواريخ ---
+function isSubscriptionActive(user) { 
+    if (!user || !user.subscriptionEndsAt) return false;
+    return new Date(user.subscriptionEndsAt) > new Date(); 
+}
+
+function isTrialActive(user) { 
+    if (!user || !user.trialEndsAt) return false;
+    return new Date(user.trialEndsAt) > new Date(); 
+}
+
+module.exports = (req, res, next) => {
+    // التأكد من أن authMiddleware قد عمل بنجاح قبله
+    if (!req.userData || !req.userData.userId) {
+        return res.status(401).json({ message: 'فشل التحقق من الهوية!' });
+    }
+
+    const userId = req.userData.userId;
+
+    // --- البحث عن المستخدم في قاعدة بيانات SQLite بدلاً من ملف JSON ---
+    const sql = "SELECT trialEndsAt, subscriptionEndsAt FROM users WHERE id = ?";
+    
+    db.get(sql, [userId], (err, user) => {
+        if (err) {
+            console.error("Database error in checkSubscription:", err);
+            return res.status(500).json({ message: "خطأ في الخادم عند التحقق من الاشتراك." });
         }
-        const users = readUsersFromFile();
-        const user = users.find(u => u.id === req.userData.userId);
         if (!user) {
-          return res.status(404).json({ message: "User not found." });
+            return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
         }
-        const now = new Date();
-        const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null;
-        const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null;
-        const hasValidAccess = (subscriptionEnds && subscriptionEnds > now) || (trialEnds && trialEnds > now);
 
-        if (hasValidAccess) {
-          return next();
+        // --- التحقق من صلاحية الاشتراك أو الفترة التجريبية ---
+        const isActive = isSubscriptionActive(user) || isTrialActive(user);
+
+        if (isActive) {
+            // إذا كان الحساب فعالاً، اسمح للطلب بالمرور إلى وجهته
+            next();
+        } else {
+            // إذا لم يكن فعالاً، أرسل خطأ "ممنوع"
+            // هذا الخطأ هو ما يسبب مشكلة JSON.parse في الواجهة الأمامية
+            res.status(403).json({ message: 'الاشتراك منتهي. يرجى تفعيل حسابك.' });
         }
-        if (req.accepts('html')) {
-          return res.redirect('/activate.html');
-        }
-        return res.status(403).json({ message: "Subscription or trial has expired." });
-      } catch (error) {
-        console.error("CRITICAL in checkSubscription:", error);
-        return res.status(500).json({ message: "Server error while checking subscription." });
-      }
-    };
+    });
+};
