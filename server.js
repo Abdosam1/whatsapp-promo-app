@@ -27,8 +27,10 @@ const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; // Admin's email
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
+const TRIAL_PERIOD_MINUTES = 15;
+
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
@@ -42,12 +44,30 @@ const db = new sqlite3.Database(dbFile, (err) => {
   console.log("✅ Database connected successfully.");
 });
 
+// [TA3DIL MOHIM] - Database Schema Migration
 db.serialize(() => {
-  db.run(`PRAGMA journal_mode = WAL;`);
-  db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
-  db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
-  db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
+    // L-Code l-9dim dyal CREATE TABLE
+    db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
+    db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
+    db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
+    
+    // Script li kayzid columns jdad b tari9a amina
+    const addColumnIfNotExists = (tableName, columnName, columnType) => {
+        db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`, (err) => {
+            if (err && err.message.includes('duplicate column name')) {
+                // Hania, l-column déja kayna
+            } else if (err) {
+                console.error(`Error adding column ${columnName} to ${tableName}:`, err.message);
+            } else {
+                console.log(`✅ Column '${columnName}' added to table '${tableName}'.`);
+            }
+        });
+    };
+
+    addColumnIfNotExists('users', 'subscription_status', "TEXT DEFAULT 'trial'");
+    addColumnIfNotExists('users', 'activation_code', 'TEXT');
 });
+
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
@@ -160,10 +180,21 @@ passport.use(new GoogleStrategy({
     db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
         if (err) return done(err, null);
         if (user) return done(null, user);
-        const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
-        const newUser = { id: Date.now().toString(), googleId: profile.id, email, name: profile.displayName, password: null, trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null };
-        db.run("INSERT INTO users (id, googleId, email, name, password, trialEndsAt, subscriptionEndsAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            Object.values(newUser), (err) => { if (err) return done(err, null); done(null, newUser); }
+
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
+        
+        const newUser = {
+            id: Date.now().toString(), googleId: profile.id, name: profile.displayName, email: email, password: null,
+            trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null, subscription_status: 'trial'
+        };
+
+        db.run("INSERT INTO users (id, googleId, name, email, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [newUser.id, newUser.googleId, newUser.name, newUser.email, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
+            (err) => {
+                if (err) return done(err, null);
+                done(null, newUser);
+            }
         );
     });
   }
@@ -173,8 +204,8 @@ passport.use(new GoogleStrategy({
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
-// --- مسارات المصادقة والاشتراك (مع البادئة /api) ---
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(`/dashboard.html?token=${token}`);
@@ -185,11 +216,15 @@ app.post("/api/auth/signup", async (req, res) => {
     if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
     db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => {
         if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
+        
         const hashedPassword = await bcrypt.hash(password, 12);
         const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
         const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
-        const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
-        pendingRegistrations[email] = { name, email, password: hashedPassword, token: verificationToken, trialEndsAt: trialEndsAt.toISOString() };
+        
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
+        pendingRegistrations[email] = { name, email, password: hashedPassword, trialEndsAt: trialEndsAt.toISOString() };
+
         const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` };
         await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
@@ -207,16 +242,23 @@ app.get('/api/auth/verify-email', (req, res) => {
         
         db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
             if (user) { delete pendingRegistrations[email]; return res.status(400).send('الحساب مسجل بالفعل.'); }
-            const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null };
-            db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt) VALUES (?, ?, ?, ?, ?, ?)", Object.values(newUser).slice(0,6), (err) => {
-                if (err) return res.status(500).send('خطأ في قاعدة البيانات.');
-                delete pendingRegistrations[email];
-                res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
-            });
+            
+            const newUser = {
+                id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password,
+                trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial'
+            };
+
+            db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
+                (err) => {
+                    if (err) return res.status(500).send('خطأ في قاعدة البيانات.');
+                    delete pendingRegistrations[email];
+                    res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
+                }
+            );
         });
     } catch (error) { res.status(500).send('خطأ في التحقق من الإيميل.'); }
 });
-
 
 app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
@@ -236,13 +278,16 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
     db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
         const newActivationCode = generateActivationCode();
-        const activationRequest = { code: newActivationCode, durationName, durationDays };
-        db.run("UPDATE users SET activationRequest = ? WHERE id = ?", [JSON.stringify(activationRequest), userId], async (err) => {
-            if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-            const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
-            await transporter.sendMail(mailOptions);
-            res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
-        });
+        // Nkhzno l-code jdid f DB
+        db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?",
+            [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
+            async (err) => {
+                if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
+                await transporter.sendMail(mailOptions);
+                res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
+            }
+        );
     });
 });
 
@@ -250,20 +295,34 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     const { activationCode } = req.body;
     const userId = req.userData.userId;
     if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." });
-    db.get("SELECT activationRequest FROM users WHERE id = ?", [userId], (err, user) => {
+
+    db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
+        
+        if (!user.activation_code || user.activation_code !== activationCode.trim()) {
+            return res.status(400).json({ message: "رمز التفعيل غير صحيح." });
+        }
+
         const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
-        if (!activationRequest || activationRequest.code !== activationCode.trim()) return res.status(400).json({ message: "رمز التفعيل غير صحيح." });
+        if (!activationRequest || !activationRequest.durationDays) {
+            return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." });
+        }
+        
         const { durationDays } = activationRequest;
-        const newSubscriptionEndDate = new Date(); newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
-        db.run("UPDATE users SET subscriptionEndsAt = ?, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => {
-            if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
-            res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
-        });
+        const newSubscriptionEndDate = new Date();
+        newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
+
+        db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?",
+            [newSubscriptionEndDate.toISOString(), userId],
+            (err) => {
+                if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
+                res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
+            }
+        );
     });
 });
 
-// --- المسارات التي تطابق لوحة التحكم (بدون /api) ---
+// --- المسارات الأخرى (contacts, promos, etc.) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
 });
@@ -326,6 +385,8 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
+// Route dyal l-login khassha tkoun public, bla authMiddleware
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 server.listen(PORT, () => {
