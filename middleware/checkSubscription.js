@@ -47,14 +47,12 @@ module.exports = (req, res, next) => {
         }
     });
 };
-```4.  **احفظ الملف**.
 
-**الخطوة الثالثة: تشغيل الخادم بالطريقة الصحيحة (باستخدام PM2 فقط)**
+// 4. احفظ الملف.
 
-في الـ Terminal، تأكد من أنك في مجلد المشروع (`cd ~/whatsapp-promo-app`) ثم اكتب:
-```bash
-pm2 start server.js --name whatsapp-app```
+// الخطوة الثالثة: تشغيل الخادم بالطريقة الصحيحة (باستخدام PM2 فقط)
+// في الـ Terminal، تأكد من أنك في مجلد المشروع (`cd ~/whatsapp-promo-app`) ثم اكتب:
+// pm2 start server.js --name whatsapp-app
 
-**الخطوة الرابعة: التحقق من الحالة**
-```bash
-pm2 logs
+// الخطوة الرابعة: التحقق من الحالة
+// pm2 logs
