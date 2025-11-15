@@ -1,14 +1,17 @@
 // ================================================================= //
-// ==================== activate.js - منطق التفعيل =================== //
+// ==================== activate.js - النسخة النهائية والمصححة =================== //
 // ================================================================= //
-// التحقق من التوكن (إجراء أمني أساسي)
+
+// --- التحقق الأولي: هل المستخدم مسجل دخوله؟ ---
 const token = localStorage.getItem('authToken');
 if (!token) {
-    window.location.href = 'index.html'; // الرجوع لصفحة تسجيل الدخول إذا لم يكن هناك توكن
+    // إذا لم يكن هناك توكن، يتم توجيه المستخدم فورًا إلى صفحة تسجيل الدخول
+    window.location.href = 'index.html';
 }
 
+// --- عند اكتمال تحميل الصفحة ---
 document.addEventListener('DOMContentLoaded', () => {
-    // إعداد زر تسجيل الخروج
+    // 1. إعداد زر تسجيل الخروج
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => { 
@@ -18,11 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // التحقق من حالة الاشتراك عند تحميل الصفحة
+    // 2. التحقق من حالة الاشتراك (إذا كان المستخدم نشطًا بالفعل، يتم توجيهه للوحة التحكم)
     checkSubscriptionStatus();
 });
 
-// دالة API Fetch (مكررة هنا لضمان عمل الصفحة باستقلالية)
+// --- دالة مساعدة لإجراء طلبات API (هذه الدالة جيدة ولا تحتاج لتغيير) ---
 async function apiFetch(url, options = {}) {
     const token = localStorage.getItem('authToken');
     const headers = { ...options.headers };
@@ -31,16 +34,14 @@ async function apiFetch(url, options = {}) {
 
     const response = await fetch(url, { ...options, headers });
     
-    // إذا كان 401، التحويل لصفحة تسجيل الدخول
     if (response.status === 401) { 
         localStorage.removeItem('authToken'); 
-        alert("انتهت صلاحية الجلسة"); 
+        alert("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى."); 
         window.location.href = 'index.html'; 
         throw new Error('Authentication failed'); 
     }
-    // ملاحظة: لا نحتاج لمعالجة 403 هنا لأننا أصلاً في صفحة التفعيل.
     if (!response.ok) { 
-        const errorData = await response.json().catch(() => ({ message: `HTTP Error: ${response.statusText}` })); 
+        const errorData = await response.json().catch(() => ({ message: `خطأ من الخادم: ${response.statusText}` })); 
         throw new Error(errorData.message || 'حدث خطأ غير معروف'); 
     }
     
@@ -48,87 +49,51 @@ async function apiFetch(url, options = {}) {
     return contentType && contentType.includes("application/json") ? response.json() : response.text();
 }
 
-// دالة التحقق من الاشتراك (للتحويل لـ Dashboard إذا كان التفعيل قد وقع في نافذة أخرى مثلاً)
+// --- دالة للتحقق من حالة الاشتراك (جيدة ولا تحتاج لتغيير) ---
 async function checkSubscriptionStatus() {
     try {
-        const status = await apiFetch(`/api/check-status?_=${new Date().getTime()}`);
+        const status = await apiFetch(`/api/check-status`);
         if (status.active) {
-            // إذا كان الاشتراك مفعل، يحول مباشرة إلى الداشبورد
             window.location.href = 'dashboard.html'; 
         }
     } catch (error) {
-        // إذا فشل الاتصال، يبقى المستخدم فصفحة التفعيل
         console.error("Failed to check status:", error.message);
     }
 }
 
 
-// --- 1. دالة طلب رمز التفعيل (إنشاء الرمز الأوتوماتيكي) ---
+// ===================================================================================
+// ===   الدالة الرئيسية التي تم تعديلها وتبسيطها لحل المشكلة   ===
+// ===================================================================================
+/**
+ * ترسل طلب إنشاء الرمز، وعند النجاح، تقوم بتوجيه المستخدم إلى صفحة التأكيد.
+ */
 async function requestActivationCode(durationName, durationDays) {
-    const optionsEl = document.getElementById('subscription-options');
     const statusEl = document.getElementById('activation-status');
-    const formEl = document.getElementById('activation-form');
-    const overlayMessage = document.getElementById('overlay-message');
     
-    optionsEl.style.display = 'none';
-    statusEl.textContent = `...جاري طلب تفعيل ${durationName} وإنشاء الرمز تلقائياً`;
+    // 1. عرض رسالة انتظار للمستخدم
+    statusEl.textContent = `...جاري طلب تفعيل اشتراك ${durationName}`;
     statusEl.style.color = 'orange';
 
     try {
+        // 2. إرسال الطلب إلى السيرفر
         await apiFetch('/api/request-code', { 
             method: 'POST',
             body: JSON.stringify({ durationName, durationDays }) 
         });
         
-        overlayMessage.innerHTML = `لقد اخترت اشتراك **${durationName}**.<br>لقد تم إنشاء الرمز تلقائياً وإرساله للمشرف. **المرجو إدخال الرمز بعد استلامه منه.**`;
-        statusEl.textContent = '✅ تم إنشاء الرمز تلقائياً وإرسال طلب للمشرف بنجاح! يرجى إدخال الرمز بعد استلامه.';
-        statusEl.style.color = 'var(--primary-color)';
-        formEl.style.display = 'block'; 
-        
-    } catch (error) {
-        statusEl.textContent = `❌ فشل إرسال الطلب: ${error.message || 'حدث خطأ.'}`;
-        statusEl.style.color = 'var(--danger-color)';
-        optionsEl.style.display = 'flex'; 
-        formEl.style.display = 'none';
-    }
-}
-
-
-// --- 2. دالة تفعيل الاشتراك بالرمز (التحويل المباشر لـ Dashboard) ---
-async function activateWithCode() {
-    const activateBtn = document.getElementById('activateBtn');
-    const statusEl = document.getElementById('activation-status');
-    const codeInput = document.getElementById('activationCodeInput');
-    
-    const activationCode = codeInput.value.trim();
-    if (!activationCode) {
-        statusEl.textContent = 'المرجو إدخال الرمز.';
-        statusEl.style.color = 'var(--danger-color)';
-        return;
-    }
-
-    activateBtn.disabled = true;
-    statusEl.textContent = '...جاري التحقق من الرمز';
-    statusEl.style.color = 'orange';
-
-    try {
-        await apiFetch('/api/activate-with-code', {
-            method: 'POST',
-            body: JSON.stringify({ activationCode: activationCode })
-        });
-        
-        // التعديل المطلوب: التحويل المباشر لـ Dashboard مع Query Parameter
-        statusEl.textContent = '✅ تم تفعيل اشتراكك بنجاح! جاري التحويل إلى لوحة التحكم...';
+        // 3. عند النجاح، تغيير الرسالة والاستعداد للتوجيه
+        statusEl.textContent = '✅ تم استلام طلبك بنجاح! جاري توجيهك...';
         statusEl.style.color = 'var(--primary-color)';
 
-        setTimeout(() => {
-            // إضافة ?activated=true لتخطي التحقق من Server في dashboard.js
-            window.location.replace('dashboard.html?activated=true'); 
-        }, 1000); // تقليل الوقت لـ 1 ثانية باش يكون التحويل أسرع
-
+        // 4. توجيه المستخدم مباشرة إلى صفحة إدخال الرمز
+        // هذا هو السطر الذي سيتم تنفيذه الآن بعد نجاح الطلب
+        window.location.href = '/email-confirmation.html';
+        
     } catch (error) {
-        statusEl.textContent = `❌ ${error.message || 'رمز غير صالح أو حدث خطأ.'}`;
+        // 5. في حالة الفشل، عرض رسالة الخطأ للمستخدم
+        statusEl.textContent = `❌ فشل إرسال الطلب: ${error.message}`;
         statusEl.style.color = 'var(--danger-color)';
-        activateBtn.disabled = false;
     }
 }
+// --- تم حذف دالة activateWithCode() لأنها غير ضرورية في هذه الصفحة ---
