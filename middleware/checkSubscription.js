@@ -1,5 +1,6 @@
 const sqlite3 = require("sqlite3").verbose();
-const path = path = require("path");
+// --- تم تصحيح هذا السطر ---
+const path = require("path");
 
 // --- الاتصال بنفس قاعدة البيانات المستخدمة في server.js ---
 // المسار الصحيح للوصول إلى الملف من داخل مجلد middleware
