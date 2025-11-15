@@ -5,6 +5,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get('token');
 if (tokenFromUrl) {
     localStorage.setItem('authToken', tokenFromUrl);
+    // ننظف الرابط من التوكن ليبقى الرابط نظيفاً
     window.history.replaceState({}, document.title, "/dashboard.html");
 }
 
@@ -27,6 +28,7 @@ let socket = null;
 let isWhatsappReady = false;
 const adminNumber = "212619145177"; // يمكنك تغيير هذا الرقم
 
+// تعريف عناصر الواجهة لتسهيل الوصول إليها
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
@@ -123,27 +125,41 @@ async function apiFetch(url, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(url, { ...options, headers });
-    
-    if (response.status === 401) {
-        handleLogout(true);
-        throw new Error('فشل التحقق من الهوية');
-    }
-    if (!response.ok) {
-        const errText = await response.text();
-        try {
-            const errJson = JSON.parse(errText);
-            throw new Error(errJson.message);
-        } catch {
-            throw new Error(`خطأ من الخادم: ${response.statusText} (${errText})`);
-        }
-    }
-    
-    const text = await response.text();
     try {
-        return JSON.parse(text);
-    } catch {
-        return text;
+        const response = await fetch(url, { ...options, headers });
+        
+        // التعامل مع انتهاء صلاحية الجلسة (Token)
+        if (response.status === 401) {
+            handleLogout(true); // تسجيل الخروج الإجباري
+            throw new Error('فشل التحقق من الهوية، انتهت الجلسة.');
+        }
+
+        // --- [ هذا هو التعديل الأهم والجديد ] ---
+        // التعامل مع انتهاء صلاحية الاشتراك
+        if (response.status === 403) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.subscriptionExpired) {
+                alert('انتهت صلاحية اشتراكك أو الفترة التجريبية. سيتم توجيهك لصفحة التفعيل.');
+                window.location.replace('/activate.html'); // الذهاب لصفحة التفعيل
+                throw new Error('Subscription expired'); // إيقاف الكود
+            }
+        }
+        // --- [ نهاية التعديل ] ---
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => null);
+            throw new Error(errJson ? errJson.message : `خطأ من الخادم: ${response.statusText}`);
+        }
+        
+        const text = await response.text();
+        return text ? JSON.parse(text) : {}; // تجنب الخطأ إذا كان الجواب فارغاً
+    
+    } catch (error) {
+        // إذا لم يكن الخطأ بسبب إعادة التوجيه، قم بتسجيله
+        if (error.message !== 'Subscription expired') {
+            log(`❌ حدث خطأ في الشبكة أو الخادم: ${error.message}`, 'red');
+        }
+        throw error; // إرجاع الخطأ ليتم التعامل معه في الدوال الأخرى إذا لزم الأمر
     }
 }
 
@@ -151,6 +167,7 @@ async function apiFetch(url, options = {}) {
 // =================== 6. تحميل وعرض البيانات ====================== //
 // ================================================================= //
 function loadInitialData() {
+    log('🔄 جاري تحميل البيانات الأولية...', 'blue');
     loadClients();
     loadImportedClients();
     loadPromos();
@@ -159,37 +176,45 @@ function loadInitialData() {
 async function loadClients() {
     try {
         clients = await apiFetch("/contacts") || [];
-        displayClients(uiElements.clientsList, clients);
-    } catch (err) { log(`❌ خطأ تحميل العملاء: ${err.message}`, "red"); }
+        displayClients(uiElements.clientsList, clients, 'contacts');
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
 
 async function loadImportedClients() {
     try {
         importedClients = await apiFetch("/imported-contacts") || [];
-        displayClients(uiElements.importedClientsList, importedClients);
-    } catch (err) { log(`❌ خطأ تحميل العملاء المستوردين: ${err.message}`, "red"); }
+        displayClients(uiElements.importedClientsList, importedClients, 'imported');
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
 
 async function loadPromos() {
     try {
         promos = await apiFetch("/promos") || [];
         displayPromos();
-    } catch (err) { log(`❌ خطأ تحميل العروض: ${err.message}`, "red"); }
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
 
-function displayClients(container, list) {
+function displayClients(container, list, type) {
     container.innerHTML = "";
-    if (!list || !list.length) return container.innerHTML = "<p>القائمة فارغة.</p>";
+    const title = type === 'contacts' ? 'جهات الاتصال' : 'الأرقام المستوردة';
+    if (!list || !list.length) {
+        container.innerHTML = `<p class="empty-list">قائمة ${title} فارغة.</p>`;
+        return;
+    }
     list.forEach(client => {
         const div = document.createElement("div");
-        div.innerHTML = `<span>${client.name || ''} +${client.phone}</span>`;
+        div.className = 'client-item';
+        div.innerHTML = `<span>${client.name || ''} <strong>+${client.phone}</strong></span>`;
         container.appendChild(div);
     });
 }
 
 function displayPromos() {
     uiElements.promosList.innerHTML = "";
-    if (!promos || !promos.length) return uiElements.promosList.innerHTML = "<p>لم تقم بإضافة أي عروض.</p>";
+    if (!promos || !promos.length) {
+        uiElements.promosList.innerHTML = `<p class="empty-list">لم تقم بإضافة أي عروض بعد.</p>`;
+        return;
+    }
     promos.forEach(promo => {
         const div = document.createElement("div");
         div.className = "promo";
@@ -224,32 +249,28 @@ async function addNewPromo() {
 
     try {
         await apiFetch('/addPromo', { method: 'POST', body: formData });
-        alert("✅ تم إضافة العرض بنجاح!");
+        log("✅ تم إضافة العرض بنجاح!", 'green');
         uiElements.newPromoText.value = ''; 
         uiElements.newPromoImage.value = '';
-        loadPromos();
+        loadPromos(); // إعادة تحميل العروض لتظهر الإضافة الجديدة
     } catch (err) { 
-        alert(`❌ فشل في إضافة العرض: ${err.message}`); 
+        // لا داعي لإظهار alert هنا، الخطأ يظهر في الـ logs
     }
 }
 
 async function importCSV() {
     const file = uiElements.csvFileInput.files[0]; 
-    if (!file) {
-        return alert('يرجى اختيار ملف CSV.');
-    }
+    if (!file) { return alert('يرجى اختيار ملف CSV.'); }
     
     const formData = new FormData();
     formData.append('csv', file);
 
     try {
         const result = await apiFetch('/import-csv', { method: 'POST', body: formData });
-        alert(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`);
+        log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green');
         uiElements.csvFileInput.value = '';
-        loadImportedClients();
-    } catch (err) { 
-        alert(`❌ فشل في استيراد الملف: ${err.message}`); 
-    }
+        loadImportedClients(); // إعادة تحميل الأرقام المستوردة
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
 
 function selectPromo(id) {
@@ -266,7 +287,7 @@ async function deletePromo(id) {
         log(`✅ تم حذف العرض بنجاح.`, "green");
         if (selectedPromoId === id) selectedPromoId = null;
         loadPromos();
-    } catch (err) { log(`❌ خطأ الحذف: ${err.message}`, 'red'); }
+    } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
 
 // ================================================================= //
@@ -311,18 +332,17 @@ async function sendPromoSequentially(list, fromImported) {
             break;
         }
         
-        if (sendPromo(client.phone, selectedPromoId, fromImported)) {
-            if (i < list.length - 1) {
-                const delay = 30000 + Math.random() * 30000;
-                log(`⏳ انتظار ${Math.round(delay/1000)} ثانية...`, "orange");
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        } else {
-            break;
+        sendPromo(client.phone, selectedPromoId, fromImported);
+        
+        if (i < list.length - 1) {
+            // انتظار عشوائي بين 30 و 60 ثانية
+            const delay = 30000 + Math.random() * 30000;
+            log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
 
-    log('🎉 انتهت حملة الإرسال.', 'green');
+    log('🎉 انتهت حملة الإرسال بنجاح.', 'green');
     uiElements.sendSequentiallyClientsBtn.disabled = false;
     uiElements.sendSequentiallyImportedBtn.disabled = false;
 }
@@ -330,8 +350,11 @@ async function sendPromoSequentially(list, fromImported) {
 // ================================================================= //
 // ====================== 9. وظائف مساعدة أخرى ====================== //
 // ================================================================= //
-async function handleLogout(force = false) {
-    if (!force && !confirm("هل أنت متأكد؟")) return;
+function handleLogout(isForced = false) {
+    if (!isForced && !confirm("هل أنت متأكد من رغبتك في تسجيل الخروج؟")) return;
+    if(isForced) {
+        alert("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
+    }
     localStorage.removeItem('authToken');
     window.location.replace('index.html');
 }
@@ -340,5 +363,6 @@ function log(message, color = "black") {
     const p = document.createElement("p");
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
+    // إضافة السطر الجديد في الأعلى
     uiElements.logsContainer.prepend(p);
 }
