@@ -260,7 +260,6 @@ passport.use(new GoogleStrategy({
     try {
         const email = profile.emails[0].value;
         
-        // --- تعديل: استخدام قاعدة البيانات ---
         db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
             if (err) return done(err, null);
             if (user) return done(null, user);
