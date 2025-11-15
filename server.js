@@ -305,7 +305,6 @@ app.get('/api/auth/google/callback', passport.authenticate('google', { failureRe
     res.redirect(`/dashboard.html?token=${token}`);
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.post("/api/auth/signup", async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -338,7 +337,6 @@ app.post("/api/auth/signup", async (req, res) => {
     }
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.get('/api/auth/verify-email', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
@@ -379,7 +377,6 @@ app.get('/api/auth/verify-email', (req, res) => {
     }
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.post("/api/auth/login", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -400,7 +397,6 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.post("/api/request-code", authMiddleware, async (req, res) => {
     try {
         const userId = req.userData.userId;
@@ -430,7 +426,6 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
     }
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     try {
         const { activationCode } = req.body;
@@ -462,7 +457,6 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
 });
 
 
-// --- تعديل: استخدام قاعدة البيانات ---
 app.get("/api/check-status", authMiddleware, (req, res) => {
     db.get("SELECT trialEndsAt, subscriptionEndsAt FROM users WHERE id = ?", [req.userData.userId], (err, user) => {
         if (err || !user) return res.status(404).json({ active: false, message: "User not found" });
@@ -487,8 +481,12 @@ app.post("/api/whatsapp/logout", authMiddleware, async (req, res) => {
     }
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
-app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
+
+// =============================================================================
+// ============ تعديل مهم: تم إضافة /api لجميع المسارات التالية ================
+// =============================================================================
+
+app.post("/api/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single('image'), (req, res) => {
     const { userId } = req.userData;
     const { text } = req.body;
     const image = req.file ? req.file.filename : null;
@@ -504,16 +502,14 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
     });
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
-app.get("/promos", authMiddleware, checkSubscription, (req, res) => {
+app.get("/api/promos", authMiddleware, checkSubscription, (req, res) => {
     db.all("SELECT * FROM promos WHERE ownerId = ?", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ message: "خطأ في السيرفر." });
         res.status(200).json(rows || []);
     });
 });
 
-// --- تعديل: استخدام قاعدة البيانات ---
-app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+app.delete("/api/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
     const { userId } = req.userData;
     const promoId = parseInt(req.params.id, 10);
 
@@ -531,22 +527,21 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
     });
 });
 
-app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
+app.get("/api/contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, name, phone, last_sent FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         res.status(200).json(rows || []);
     });
 });
 
-app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
+app.get("/api/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, phone, last_sent FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
         res.status(200).json(rows || []);
     });
 });
 
-// --- تعديل: تحسين أداء استيراد CSV باستخدام TRANSACTION ---
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+app.post("/api/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
     const { userId } = req.userData;
     const filePath = req.file.path;
     const results = [];
