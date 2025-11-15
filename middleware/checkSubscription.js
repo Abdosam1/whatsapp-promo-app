@@ -1,15 +1,9 @@
 const sqlite3 = require("sqlite3").verbose();
-const path = require("path"); // <-- هذا هو السطر المصحح
+const path = require("path");
 
-// --- الاتصال بنفس قاعدة البيانات المستخدمة في server.js ---
 const dbFile = path.join(__dirname, "..", "main_data.db");
-const db = new sqlite3.Database(dbFile, (err) => {
-    if (err) {
-        console.error("Failed to connect to the database from checkSubscription.js", err);
-    }
-});
+const db = new sqlite3.Database(dbFile);
 
-// --- دوال مساعدة للتحقق من التواريخ ---
 function isSubscriptionActive(user) { 
     if (!user || !user.subscriptionEndsAt) return false;
     return new Date(user.subscriptionEndsAt) > new Date(); 
@@ -26,33 +20,28 @@ module.exports = (req, res, next) => {
     }
 
     const userId = req.userData.userId;
-
     const sql = "SELECT trialEndsAt, subscriptionEndsAt FROM users WHERE id = ?";
     
     db.get(sql, [userId], (err, user) => {
-        if (err) {
-            console.error("Database error in checkSubscription:", err);
-            return res.status(500).json({ message: "خطأ في الخادم عند التحقق من الاشتراك." });
-        }
-        if (!user) {
+        if (err || !user) {
             return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
         }
 
         const isActive = isSubscriptionActive(user) || isTrialActive(user);
 
         if (isActive) {
+            // إذا كان الحساب فعالاً، اسمح للطلب بالمرور
             next();
         } else {
+            // إذا كان الحساب غير فعال
+            // تحقق مما إذا كان الطلب يريد صفحة HTML (مثل /dashboard)
+            if (req.accepts('html')) {
+                // قم بتوجيهه إلى صفحة التفعيل
+                return res.redirect('/activate.html');
+            }
+            
+            // إذا كان الطلب هو API (يريد JSON)، أرسل خطأ
             res.status(403).json({ message: 'الاشتراك منتهي. يرجى تفعيل حسابك.' });
         }
     });
 };
-
-// 4. احفظ الملف.
-
-// الخطوة الثالثة: تشغيل الخادم بالطريقة الصحيحة (باستخدام PM2 فقط)
-// في الـ Terminal، تأكد من أنك في مجلد المشروع (`cd ~/whatsapp-promo-app`) ثم اكتب:
-// pm2 start server.js --name whatsapp-app
-
-// الخطوة الرابعة: التحقق من الحالة
-// pm2 logs
