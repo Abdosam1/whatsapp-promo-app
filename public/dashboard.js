@@ -1,4 +1,23 @@
 // ================================================================= //
+// ============ 0. معالجة التوكن عند الدخول عبر جوجل (تعديل مهم) ============ //
+// ================================================================= //
+
+// يبحث هذا الكود عن توكن في رابط الصفحة (URL) عند تحميلها لأول مرة.
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get('token');
+
+// إذا وجد توكن في الرابط (وهذا يحدث فقط بعد تسجيل الدخول بجوجل)...
+if (tokenFromUrl) {
+    // 1. نقوم بتخزينه في localStorage حتى نتمكن من استخدامه في جميع الطلبات.
+    localStorage.setItem('authToken', tokenFromUrl);
+
+    // 2. نقوم بتنظيف الرابط لإزالة التوكن منه، حتى لا يظل ظاهرًا للمستخدم.
+    // هذا يحسن من الأمان وتجربة المستخدم.
+    window.history.replaceState({}, document.title, "/dashboard.html");
+}
+
+
+// ================================================================= //
 // ==================== 1. التحقق من الأمان أولاً =================== //
 // ================================================================= //
 // هذا الكود يعمل فوراً عند تحميل الصفحة. إذا لم يكن هناك توكن،
@@ -57,14 +76,12 @@ function initializeEventListeners() {
         uiElements.logoutBtn.addEventListener('click', handleLogout);
     }
     // يمكنك إضافة أي event listeners أخرى هنا بنفس الطريقة
-    // مثال: document.getElementById('someButton').addEventListener('click', someFunction);
 }
 
 /**
  * يتحقق من حالة اشتراك المستخدم ثم يبدأ الاتصال بواتساب.
  */
 async function checkSubscriptionAndInitialize() {
-    // إخفاء المحتوى الرئيسي في البداية لتجنب ظهور عناصر غير مكتملة.
     uiElements.mainContainer.style.display = 'none';
     uiElements.statusCard.style.display = 'none';
 
@@ -76,13 +93,10 @@ async function checkSubscriptionAndInitialize() {
             uiElements.statusCard.style.display = 'block';
             initializeWhatsAppConnection();
         } else {
-            // إذا لم يكن الاشتراك فعالاً، يتم التوجيه مباشرة لصفحة التفعيل.
             console.log("Subscription is inactive. Redirecting...");
             window.location.href = 'activate.html';
         }
     } catch (error) {
-        // سيتم التعامل مع أخطاء التوكن والاشتراك داخل `apiFetch` نفسها.
-        // هذا الـ catch مخصص لأخطاء الشبكة أو الأخطاء غير المتوقعة.
         console.error("Failed to check status:", error);
         if (error.message !== 'Subscription has expired' && error.message !== 'Authentication failed') {
             log('❌ خطأ في الاتصال بالخادم، يرجى المحاولة مرة أخرى.', 'red');
@@ -96,7 +110,6 @@ async function checkSubscriptionAndInitialize() {
 // ================================================================= //
 function initializeWhatsAppConnection() {
     socket = io({
-        // إعادة الاتصال تلقائياً في حالة انقطاع الشبكة
         reconnection: true,
         reconnectionAttempts: 5
     });
@@ -123,7 +136,7 @@ function initializeWhatsAppConnection() {
             setTimeout(() => {
                 uiElements.statusCard.style.display = 'none';
                 uiElements.mainContent.style.display = 'block';
-                loadInitialData(); // تحميل البيانات بعد نجاح الاتصال
+                loadInitialData();
             }, 2000);
         } else if (status.error) {
             uiElements.statusCard.style.backgroundColor = '#f8d7da';
@@ -149,6 +162,7 @@ function initializeWhatsAppConnection() {
 // ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers };
+    // نستخدم المتغير 'token' الذي تم تعريفه في بداية السكريبت
     headers['Authorization'] = `Bearer ${token}`;
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
@@ -157,12 +171,12 @@ async function apiFetch(url, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
 
-        if (response.status === 403) { // خطأ: الاشتراك منتهي
+        if (response.status === 403) {
             window.location.replace('activate.html');
             throw new Error('Subscription has expired');
         }
-        if (response.status === 401) { // خطأ: التوكن غير صالح أو منتهي
-            handleLogout(false); // تسجيل الخروج بدون تنبيه
+        if (response.status === 401) {
+            handleLogout(false);
             throw new Error('Authentication failed');
         }
         if (!response.ok) {
@@ -174,7 +188,6 @@ async function apiFetch(url, options = {}) {
         return contentType?.includes("application/json") ? response.json() : response.text();
 
     } catch (error) {
-        // إعادة رمي الخطأ ليتم التعامل معه في المكان الذي تم استدعاء الدالة منه
         throw error;
     }
 }
@@ -220,13 +233,8 @@ async function loadPromos() {
     }
 }
 
-/**
- * دالة لعرض قائمة العملاء (العاديين أو المستوردين)
- * @param {HTMLElement} container - العنصر الذي سيحتوي على القائمة
- * @param {Array} list - قائمة العملاء
- */
 function displayClients(container, list) {
-    container.innerHTML = ""; // تفريغ القائمة قبل إعادة بنائها
+    container.innerHTML = "";
     if (!list.length) {
         container.innerHTML = "<p class='empty-list-message'>لا يوجد عملاء في هذه القائمة حالياً.</p>";
         return;
@@ -237,27 +245,19 @@ function displayClients(container, list) {
     });
 }
 
-/**
- * [دالة مساعدة] تنشئ صف عميل واحد مع زر الحذف.
- * @returns {HTMLElement}
- */
 function createClientRow(client, containerId) {
     const div = document.createElement("div");
     div.className = 'client-row';
-
     const infoSpan = document.createElement("span");
     infoSpan.textContent = `${client.name || "بدون اسم"} - +${client.phone}`;
-
     const deleteButton = document.createElement("button");
     deleteButton.className = 'btn-danger-small';
     deleteButton.textContent = 'حذف';
     deleteButton.addEventListener('click', () => deleteClient(containerId, client.id));
-
     div.appendChild(infoSpan);
     div.appendChild(deleteButton);
     return div;
 }
-
 
 function displayPromos() {
     uiElements.promosList.innerHTML = "";
@@ -271,38 +271,28 @@ function displayPromos() {
     });
 }
 
-/**
- * [دالة مساعدة] تنشئ كارت عرض ترويجي واحد.
- * @returns {HTMLElement}
- */
 function createPromoCard(promo) {
     const div = document.createElement("div");
     div.className = "promo";
     div.id = `promo-${promo.id}`;
-
     const img = document.createElement("img");
     img.src = `promos/${promo.image}`;
     img.alt = "صورة العرض";
-
     const p = document.createElement("p");
     p.title = promo.text;
     p.textContent = promo.text.length > 50 ? `${promo.text.substr(0, 50)}...` : promo.text;
-
     const buttonsDiv = document.createElement("div");
     buttonsDiv.className = "promo-buttons";
-
     const selectButton = document.createElement("button");
     selectButton.type = 'button';
     selectButton.className = 'btn-select';
     selectButton.innerHTML = `<i class="fas fa-check"></i> اختيار`;
     selectButton.addEventListener('click', () => selectPromo(promo.id));
-
     const deleteButton = document.createElement("button");
     deleteButton.type = 'button';
     deleteButton.className = 'btn-delete';
     deleteButton.innerHTML = `<i class="fas fa-trash"></i> حذف`;
     deleteButton.addEventListener('click', () => deletePromo(promo.id));
-
     buttonsDiv.appendChild(selectButton);
     buttonsDiv.appendChild(deleteButton);
     div.appendChild(img);
@@ -310,7 +300,6 @@ function createPromoCard(promo) {
     div.appendChild(buttonsDiv);
     return div;
 }
-
 
 // ================================================================= //
 // =================== 7. وظائف التفاعل مع المستخدم ================= //
@@ -335,12 +324,11 @@ async function deleteClient(containerId, id) {
         alert(`❌ خطأ أثناء الحذف: ${err.message}`);
     }
 }
-// ... (باقي دوال التفاعل مثل addNewPromo, importCSV, etc. تبقى كما هي مع استخدام apiFetch)
-
 
 // ================================================================= //
 // ========================= 8. وظائف الإرسال ======================= //
 // ================================================================= //
+
 function isWhatsAppReady() {
     if (uiElements.mainContent.style.display !== 'block') {
         alert('❌ يرجى الانتظار حتى يتم الاتصال بواتساب بنجاح!');
@@ -367,7 +355,6 @@ async function sendPromoSequentially(list, fromImported) {
     if (!isWhatsAppReady()) return;
     if (!list.length) return alert(`القائمة فارغة، لا يوجد عملاء للإرسال إليهم.`);
     
-    // تعطيل الأزرار لمنع النقر المزدوج
     const button = fromImported ? uiElements.sendToAllImportedBtn : uiElements.sendToAllClientsBtn;
     button.disabled = true;
     button.textContent = 'جاري الإرسال...';
@@ -377,7 +364,6 @@ async function sendPromoSequentially(list, fromImported) {
     for (let i = 0; i < list.length; i++) {
         sendPromo(list[i].phone, selectedPromoId, fromImported);
         if (i < list.length - 1) {
-            // انتظار عشوائي بين 30 و 60 ثانية لتجنب الحظر
             const delay = 30000 + Math.random() * 30000;
             log(`⏳ الانتظار لمدة ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -386,7 +372,6 @@ async function sendPromoSequentially(list, fromImported) {
     
     log(`🏁 اكتملت عملية الإرسال المتسلسل بنجاح!`, "green");
     
-    // إعادة تفعيل الزر
     button.disabled = false;
     button.textContent = fromImported ? 'إرسال للكل (مستورد)' : 'إرسال للكل (جهات الاتصال)';
 }
@@ -394,6 +379,7 @@ async function sendPromoSequentially(list, fromImported) {
 // ================================================================= //
 // ====================== 9. وظائف مساعدة أخرى ====================== //
 // ================================================================= //
+
 async function handleLogout(showAlert = true) {
     log('🔄 جاري تسجيل الخروج...', 'blue');
     try {
@@ -411,8 +397,6 @@ async function handleLogout(showAlert = true) {
 function log(message, color = "black") {
     const entry = document.createElement("div");
     entry.style.color = color;
-    // إضافة الطابع الزمني للرسالة
     entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    // إضافة الرسالة الجديدة في الأعلى
     uiElements.logsContainer.prepend(entry);
 }
