@@ -1,49 +1,30 @@
 // ================================================================= //
 // ============ 0. معالجة التوكن عند الدخول عبر جوجل (تعديل مهم) ============ //
 // ================================================================= //
-
-// يبحث هذا الكود عن توكن في رابط الصفحة (URL) عند تحميلها لأول مرة.
 const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get('token');
-
-// إذا وجد توكن في الرابط (وهذا يحدث فقط بعد تسجيل الدخول بجوجل)...
 if (tokenFromUrl) {
-    // 1. نقوم بتخزينه في localStorage حتى نتمكن من استخدامه في جميع الطلبات.
     localStorage.setItem('authToken', tokenFromUrl);
-
-    // 2. نقوم بتنظيف الرابط لإزالة التوكن منه، حتى لا يظل ظاهرًا للمستخدم.
-    // هذا يحسن من الأمان وتجربة المستخدم.
     window.history.replaceState({}, document.title, "/dashboard.html");
 }
-
 
 // ================================================================= //
 // ==================== 1. التحقق من الأمان أولاً =================== //
 // ================================================================= //
-// هذا الكود يعمل فوراً عند تحميل الصفحة. إذا لم يكن هناك توكن،
-// يتم توجيه المستخدم لصفحة البداية قبل تنفيذ أي شيء آخر.
 const token = localStorage.getItem('authToken');
 if (!token) {
-    // نستخدم .replace() لمنع المستخدم من العودة للصفحة السابقة عبر زر "Back".
     window.location.replace('index.html');
 }
-
 
 // ================================================================= //
 // ======================== 2. إعدادات عامة ======================== //
 // ================================================================= //
-
-// --- إدارة الحالة (State) ---
-// نخزن البيانات الديناميكية هنا لتكون متاحة في كل التطبيق.
 let clients = [];
 let importedClients = [];
 let promos = [];
 let selectedPromoId = null;
 let socket = null;
-const adminNumber = "212619145177"; // رقمك الخاص للاختبار
 
-// --- عناصر الواجهة الرسومية (UI Elements) ---
-// نجمع كل العناصر التي سنتعامل معها في كائن واحد لتسهيل الوصول إليها.
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     mainContainer: document.querySelector('.container'),
@@ -55,64 +36,43 @@ const uiElements = {
     importedClientsList: document.getElementById('importedClientsList'),
     promosList: document.getElementById('promosList'),
     logsContainer: document.getElementById('logs'),
-    sendToAllClientsBtn: document.getElementById('sendToAllClientsBtn'),
-    sendToAllImportedBtn: document.getElementById('sendToAllImportedBtn'),
+    sendSequentiallyClientsBtn: document.getElementById('sendSequentiallyClientsBtn'),
+    csvFileInput: document.getElementById('csvFileInput'),
+    importCsvBtn: document.getElementById('importCsvBtn'),
+    sendSequentiallyImportedBtn: document.getElementById('sendSequentiallyImportedBtn'),
+    deleteAllImportedBtn: document.getElementById('deleteAllImportedBtn'),
+    newPromoText: document.getElementById('newPromoText'),
+    newPromoImage: document.getElementById('newPromoImage'),
+    addNewPromoBtn: document.getElementById('addNewPromoBtn'),
+    phoneInput: document.getElementById('phoneInput'),
+    sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
+    testMessageBtn: document.getElementById('testMessageBtn'),
 };
-
 
 // ================================================================= //
 // ==================== 3. نقطة انطلاق التطبيق ===================== //
 // ================================================================= //
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
-    checkSubscriptionAndInitialize();
+    initializeWhatsAppConnection();
 });
 
-/**
- * دالة مركزية لإضافة كل الـ Event Listeners عند بدء تشغيل الصفحة.
- */
 function initializeEventListeners() {
-    if (uiElements.logoutBtn) {
-        uiElements.logoutBtn.addEventListener('click', handleLogout);
-    }
-    // يمكنك إضافة أي event listeners أخرى هنا بنفس الطريقة
+    uiElements.logoutBtn.addEventListener('click', handleLogout);
+    uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
+    uiElements.importCsvBtn.addEventListener('click', importCSV);
+    uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
+    uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
+    uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImportedClients);
+    uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
+    uiElements.testMessageBtn.addEventListener('click', testMessage);
 }
-
-/**
- * يتحقق من حالة اشتراك المستخدم ثم يبدأ الاتصال بواتساب.
- */
-async function checkSubscriptionAndInitialize() {
-    uiElements.mainContainer.style.display = 'none';
-    uiElements.statusCard.style.display = 'none';
-
-    try {
-        const status = await apiFetch(`/api/check-status?_=${new Date().getTime()}`); // Cache bust
-        if (status.active) {
-            console.log("Subscription is active. Initializing...");
-            uiElements.mainContainer.style.display = 'block';
-            uiElements.statusCard.style.display = 'block';
-            initializeWhatsAppConnection();
-        } else {
-            console.log("Subscription is inactive. Redirecting...");
-            window.location.href = 'activate.html';
-        }
-    } catch (error) {
-        console.error("Failed to check status:", error);
-        if (error.message !== 'Subscription has expired' && error.message !== 'Authentication failed') {
-            log('❌ خطأ في الاتصال بالخادم، يرجى المحاولة مرة أخرى.', 'red');
-        }
-    }
-}
-
 
 // ================================================================= //
 // =============== 4. الاتصال بواتساب عبر Socket.IO ================ //
 // ================================================================= //
 function initializeWhatsAppConnection() {
-    socket = io({
-        reconnection: true,
-        reconnectionAttempts: 5
-    });
+    socket = io({ reconnection: true, reconnectionAttempts: 5 });
     
     socket.on('connect', () => {
         uiElements.statusMessage.textContent = 'جاري طلب الاتصال بواتساب...';
@@ -151,252 +111,114 @@ function initializeWhatsAppConnection() {
         }
     });
 
-    socket.on('disconnect', () => {
-        log('🔌 تم قطع الاتصال بـ Socket.IO، حاول تحديث الصفحة.', 'orange');
-    });
+    socket.on('disconnect', () => log('🔌 تم قطع الاتصال، حاول تحديث الصفحة.', 'orange'));
 }
-
 
 // ================================================================= //
 // ============= 5. دالة مركزية للتواصل مع الـ API ================= //
 // ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers };
-    // نستخدم المتغير 'token' الذي تم تعريفه في بداية السكريبت
     headers['Authorization'] = `Bearer ${token}`;
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
     }
-
-    try {
-        const response = await fetch(url, { ...options, headers });
-
-        if (response.status === 403) {
-            window.location.replace('activate.html');
-            throw new Error('Subscription has expired');
-        }
-        if (response.status === 401) {
-            handleLogout(false);
-            throw new Error('Authentication failed');
-        }
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: `خطأ في الخادم: ${response.statusText}` }));
-            throw new Error(errorData.message || 'حدث خطأ غير معروف');
-        }
-
-        const contentType = response.headers.get("content-type");
-        return contentType?.includes("application/json") ? response.json() : response.text();
-
-    } catch (error) {
-        throw error;
+    const response = await fetch(url, { ...options, headers });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Server error: ${response.statusText}` }));
+        throw new Error(errorData.message || 'Unknown error');
     }
+    const contentType = response.headers.get("content-type");
+    return contentType?.includes("application/json") ? response.json() : response.text();
 }
-
 
 // ================================================================= //
 // =================== 6. تحميل وعرض البيانات ====================== //
 // ================================================================= //
-
 function loadInitialData() {
     loadClients();
     loadImportedClients();
     loadPromos();
 }
+async function loadClients() { /* ... الكود ديالك كيبقى هنا ... */ }
+async function loadImportedClients() { /* ... الكود ديالك كيبقى هنا ... */ }
+async function loadPromos() { /* ... الكود ديالك كيبقى هنا ... */ }
+// ... باقي دوال العرض displayClients, createPromoCard ...
 
-async function loadClients() {
+// ================================================================= //
+// =================== 7. وظائف التفاعل الجديدة ===================== //
+// ================================================================= //
+async function addNewPromo() {
+    const text = uiElements.newPromoText.value.trim();
+    const image = uiElements.newPromoImage.files[0];
+    if (!text || !image) return alert('يرجى إدخال نص العرض واختيار صورة.');
+
+    const formData = new FormData();
+    formData.append('text', text);
+    formData.append('image', image);
+    uiElements.addNewPromoBtn.disabled = true;
+
     try {
-        const data = await apiFetch("/contacts");
-        clients = Array.isArray(data) ? data : [];
-        displayClients(uiElements.clientsList, clients);
+        log('⏳ جاري إضافة العرض الجديد...', 'orange');
+        await apiFetch('/promos', { method: 'POST', body: formData });
+        log('✅ تم إضافة العرض بنجاح!', 'green');
+        uiElements.newPromoText.value = '';
+        uiElements.newPromoImage.value = '';
+        loadPromos();
     } catch (err) {
-        if (err.message !== 'Subscription has expired') log(`❌ خطأ في تحميل العملاء: ${err.message}`, "red");
-    }
-}
-
-async function loadImportedClients() {
-    try {
-        const data = await apiFetch("/imported-contacts");
-        importedClients = Array.isArray(data) ? data : [];
-        displayClients(uiElements.importedClientsList, importedClients);
-    } catch (err) {
-        if (err.message !== 'Subscription has expired') log(`❌ خطأ في تحميل العملاء المستوردين: ${err.message}`, "red");
-    }
-}
-
-async function loadPromos() {
-    try {
-        const data = await apiFetch("/promos");
-        promos = Array.isArray(data) ? data : [];
-        displayPromos();
-    } catch (err) {
-        if (err.message !== 'Subscription has expired') log("❌ خطأ في تحميل العروض الترويجية", "red");
-    }
-}
-
-function displayClients(container, list) {
-    container.innerHTML = "";
-    if (!list.length) {
-        container.innerHTML = "<p class='empty-list-message'>لا يوجد عملاء في هذه القائمة حالياً.</p>";
-        return;
-    }
-    list.forEach(client => {
-        const clientRow = createClientRow(client, container.id);
-        container.appendChild(clientRow);
-    });
-}
-
-function createClientRow(client, containerId) {
-    const div = document.createElement("div");
-    div.className = 'client-row';
-    const infoSpan = document.createElement("span");
-    infoSpan.textContent = `${client.name || "بدون اسم"} - +${client.phone}`;
-    const deleteButton = document.createElement("button");
-    deleteButton.className = 'btn-danger-small';
-    deleteButton.textContent = 'حذف';
-    deleteButton.addEventListener('click', () => deleteClient(containerId, client.id));
-    div.appendChild(infoSpan);
-    div.appendChild(deleteButton);
-    return div;
-}
-
-function displayPromos() {
-    uiElements.promosList.innerHTML = "";
-    if (!promos.length) {
-        uiElements.promosList.innerHTML = "<p class='empty-list-message'>لم تقم بإضافة أي عروض بعد.</p>";
-        return;
-    }
-    promos.forEach(promo => {
-        const promoCard = createPromoCard(promo);
-        uiElements.promosList.appendChild(promoCard);
-    });
-}
-
-function createPromoCard(promo) {
-    const div = document.createElement("div");
-    div.className = "promo";
-    div.id = `promo-${promo.id}`;
-    const img = document.createElement("img");
-    img.src = `promos/${promo.image}`;
-    img.alt = "صورة العرض";
-    const p = document.createElement("p");
-    p.title = promo.text;
-    p.textContent = promo.text.length > 50 ? `${promo.text.substr(0, 50)}...` : promo.text;
-    const buttonsDiv = document.createElement("div");
-    buttonsDiv.className = "promo-buttons";
-    const selectButton = document.createElement("button");
-    selectButton.type = 'button';
-    selectButton.className = 'btn-select';
-    selectButton.innerHTML = `<i class="fas fa-check"></i> اختيار`;
-    selectButton.addEventListener('click', () => selectPromo(promo.id));
-    const deleteButton = document.createElement("button");
-    deleteButton.type = 'button';
-    deleteButton.className = 'btn-delete';
-    deleteButton.innerHTML = `<i class="fas fa-trash"></i> حذف`;
-    deleteButton.addEventListener('click', () => deletePromo(promo.id));
-    buttonsDiv.appendChild(selectButton);
-    buttonsDiv.appendChild(deleteButton);
-    div.appendChild(img);
-    div.appendChild(p);
-    div.appendChild(buttonsDiv);
-    return div;
-}
-
-// ================================================================= //
-// =================== 7. وظائف التفاعل مع المستخدم ================= //
-// ================================================================= //
-
-function selectPromo(id) {
-    selectedPromoId = id;
-    log(`🔵 تم اختيار العرض #${id} للإرسال.`, "blue");
-    document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected'));
-    document.getElementById(`promo-${id}`).classList.add('selected');
-}
-
-async function deleteClient(containerId, id) {
-    if (!confirm("هل أنت متأكد من حذف هذا العميل؟")) return;
-    const table = containerId === "clientsList" ? "clients" : "imported_clients";
-    try {
-        await apiFetch(`/delete/${table}/${id}`, { method: "DELETE" });
-        log(`✅ تم حذف العميل بنجاح.`, "green");
-        if (table === "clients") loadClients();
-        else loadImportedClients();
-    } catch (err) {
-        alert(`❌ خطأ أثناء الحذف: ${err.message}`);
-    }
-}
-
-// ================================================================= //
-// ========================= 8. وظائف الإرسال ======================= //
-// ================================================================= //
-
-function isWhatsAppReady() {
-    if (uiElements.mainContent.style.display !== 'block') {
-        alert('❌ يرجى الانتظار حتى يتم الاتصال بواتساب بنجاح!');
-        return false;
-    }
-    if (!selectedPromoId) {
-        alert("⚠️ يرجى اختيار عرض ترويجي أولاً!");
-        return false;
-    }
-    if (!socket || !socket.connected) {
-        log('❌ خطأ: اتصال Socket غير جاهز. يرجى تحديث الصفحة.', 'red');
-        return false;
-    }
-    return true;
-}
-
-function sendPromo(phone, promoId, fromImported = false) {
-    const cleanPhone = phone.replace(/\D/g, "");
-    log(`⏳ جاري إرسال العرض #${promoId} إلى +${cleanPhone}...`, 'orange');
-    socket.emit('send-promo', { phone: cleanPhone, promoId, fromImported });
-}
-
-async function sendPromoSequentially(list, fromImported) {
-    if (!isWhatsAppReady()) return;
-    if (!list.length) return alert(`القائمة فارغة، لا يوجد عملاء للإرسال إليهم.`);
-    
-    const button = fromImported ? uiElements.sendToAllImportedBtn : uiElements.sendToAllClientsBtn;
-    button.disabled = true;
-    button.textContent = 'جاري الإرسال...';
-    
-    log(`🚀 بدء الإرسال المتسلسل لـ ${list.length} عميل...`, 'blue');
-    
-    for (let i = 0; i < list.length; i++) {
-        sendPromo(list[i].phone, selectedPromoId, fromImported);
-        if (i < list.length - 1) {
-            const delay = 30000 + Math.random() * 30000;
-            log(`⏳ الانتظار لمدة ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-    
-    log(`🏁 اكتملت عملية الإرسال المتسلسل بنجاح!`, "green");
-    
-    button.disabled = false;
-    button.textContent = fromImported ? 'إرسال للكل (مستورد)' : 'إرسال للكل (جهات الاتصال)';
-}
-
-// ================================================================= //
-// ====================== 9. وظائف مساعدة أخرى ====================== //
-// ================================================================= //
-
-async function handleLogout(showAlert = true) {
-    log('🔄 جاري تسجيل الخروج...', 'blue');
-    try {
-        await apiFetch('/api/whatsapp/logout', { method: 'POST' });
-        if (socket) socket.disconnect();
-    } catch (e) {
-        console.warn("Failed to delete WhatsApp session on server, but proceeding with client-side logout.", e);
+        log(`❌ فشل في إضافة العرض: ${err.message}`, 'red');
     } finally {
-        localStorage.removeItem('authToken');
-        if(showAlert) alert('تم تسجيل الخروج بنجاح.');
-        window.location.replace('index.html');
+        uiElements.addNewPromoBtn.disabled = false;
     }
 }
 
-function log(message, color = "black") {
-    const entry = document.createElement("div");
-    entry.style.color = color;
-    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    uiElements.logsContainer.prepend(entry);
+async function importCSV() {
+    const file = uiElements.csvFileInput.files[0];
+    if (!file) return alert('يرجى اختيار ملف CSV أولاً.');
+
+    const formData = new FormData();
+    formData.append('csvFile', file);
+    uiElements.importCsvBtn.disabled = true;
+
+    try {
+        log('⏳ جاري استيراد الأرقام...', 'orange');
+        await apiFetch('/imported-contacts/import', { method: 'POST', body: formData });
+        log('✅ تم استيراد الأرقام بنجاح.', 'green');
+        uiElements.csvFileInput.value = '';
+        loadImportedClients();
+    } catch (err) {
+        log(`❌ فشل استيراد الملف: ${err.message}`, 'red');
+    } finally {
+        uiElements.importCsvBtn.disabled = false;
+    }
 }
+
+async function deleteAllImportedClients() {
+    if (!confirm("هل أنت متأكد من حذف جميع العملاء المستوردين؟ هذه العملية لا يمكن التراجع عنها.")) return;
+    try {
+        log('⏳ جاري حذف جميع العملاء المستوردين...', 'orange');
+        await apiFetch('/imported-contacts', { method: 'DELETE' });
+        log('✅ تم حذف جميع العملاء المستوردين بنجاح.', 'green');
+        loadImportedClients();
+    } catch (err) {
+        log(`❌ خطأ أثناء الحذف: ${err.message}`, 'red');
+    }
+}
+
+function sendSelectedPromo() {
+    const phone = uiElements.phoneInput.value.trim();
+    if (!phone) return alert('يرجى إدخال رقم هاتف.');
+    if (!isWhatsAppReady()) return;
+    sendPromo(phone, selectedPromoId);
+}
+
+function testMessage() {
+    const adminNumber = "212619145177"; // رقمك الخاص
+    if (!isWhatsAppReady()) return;
+    log(`🧪 إرسال رسالة تجريبية إلى رقمك ${adminNumber}...`, 'blue');
+    sendPromo(adminNumber, selectedPromoId);
+}
+
+// ... باقي الدوال ديالك من بعد ...
+// selectPromo, deleteClient, isWhatsAppReady, sendPromo, sendPromoSequentially, handleLogout, log
+// هاد الدوال كتبقى كيفما هي عندك
