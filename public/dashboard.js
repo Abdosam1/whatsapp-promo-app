@@ -126,7 +126,7 @@ async function apiFetch(url, options = {}) {
     const response = await fetch(url, { ...options, headers });
     
     if (response.status === 401) {
-        handleLogout(true); // تسجيل خروج إجباري
+        handleLogout(true);
         throw new Error('فشل التحقق من الهوية');
     }
     if (!response.ok) {
@@ -135,7 +135,7 @@ async function apiFetch(url, options = {}) {
             const errJson = JSON.parse(errText);
             throw new Error(errJson.message);
         } catch {
-            throw new Error(`خطأ من الخادم: ${response.statusText}`);
+            throw new Error(`خطأ من الخادم: ${response.statusText} (${errText})`);
         }
     }
     
@@ -213,34 +213,43 @@ function displayPromos() {
 // ================================================================= //
 async function addNewPromo() {
     const text = uiElements.newPromoText.value.trim();
-    const image = uiElements.newPromoImage.files;
-    if (!text || !image) return alert('يرجى إدخال نص وصورة.');
+    const imageFile = uiElements.newPromoImage.files[0]; 
+    if (!text || !imageFile) {
+        return alert('يرجى إدخال نص واختيار صورة.');
+    }
     
     const formData = new FormData();
     formData.append('text', text);
-    formData.append('image', image);
+    formData.append('image', imageFile); 
 
     try {
         await apiFetch('/addPromo', { method: 'POST', body: formData });
-        alert("✅ تم إضافة العرض");
-        uiElements.newPromoText.value = ''; uiElements.newPromoImage.value = '';
+        alert("✅ تم إضافة العرض بنجاح!");
+        uiElements.newPromoText.value = ''; 
+        uiElements.newPromoImage.value = '';
         loadPromos();
-    } catch (err) { alert(`❌ فشل الإضافة: ${err.message}`); }
+    } catch (err) { 
+        alert(`❌ فشل في إضافة العرض: ${err.message}`); 
+    }
 }
 
 async function importCSV() {
-    const file = uiElements.csvFileInput.files;
-    if (!file) return alert('يرجى اختيار ملف CSV.');
+    const file = uiElements.csvFileInput.files[0]; 
+    if (!file) {
+        return alert('يرجى اختيار ملف CSV.');
+    }
     
     const formData = new FormData();
     formData.append('csv', file);
 
     try {
         const result = await apiFetch('/import-csv', { method: 'POST', body: formData });
-        alert(`✅ ${result.message} (أرقام جديدة: ${result.imported})`);
+        alert(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`);
         uiElements.csvFileInput.value = '';
         loadImportedClients();
-    } catch (err) { alert(`❌ فشل الاستيراد: ${err.message}`); }
+    } catch (err) { 
+        alert(`❌ فشل في استيراد الملف: ${err.message}`); 
+    }
 }
 
 function selectPromo(id) {
