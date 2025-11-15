@@ -191,8 +191,49 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // --- 8.2: مسارات تفعيل الاشتراك ---
-app.post("/api/request-code", authMiddleware, async (req, res) => { const userId = req.userData.userId; const { durationName, durationDays } = req.body; db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => { if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." }); const newActivationCode = generateActivationCode(); db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?", [newActivationCode, JSON.stringify({ durationName, durationDays }), userId], async (err) => { if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." }); const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` }; await transporter.sendMail(mailOptions); res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." }); }); }); });
-app.post("/api/activate-with-code", authMiddleware, async (req, res) => { const { activationCode } = req.body; const userId = req.userData.userId; if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." }); db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => { if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." }); if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); } const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null; if (!activationRequest || !activationRequest.durationDays) { return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." }); } const { durationDays } = activationRequest; const newSubscriptionEndDate = new Date(); newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10)); db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => { if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." }); res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" }); }); }); });
+app.post("/api/request-code", authMiddleware, async (req, res) => {
+    const userId = req.userData.userId;
+    const { durationName, durationDays } = req.body;
+    db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => {
+        if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
+        const newActivationCode = generateActivationCode();
+        db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?",
+            [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
+            async (err) => {
+                if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
+                const mailOptions = {
+                    from: SENDER_EMAIL,
+                    to: ADMIN_EMAIL,
+                    subject: `طلب تفعيل اشتراك جديد من ${user.email}`,
+                    html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>`
+                };
+                await transporter.sendMail(mailOptions);
+                res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
+            }
+        );
+    });
+});
+
+app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
+    const { activationCode } = req.body;
+    const userId = req.userData.userId;
+    if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." });
+    db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => {
+        if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
+        if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); }
+        const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
+        if (!activationRequest || !activationRequest.durationDays) { return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." }); }
+        const { durationDays } = activationRequest;
+        const newSubscriptionEndDate = new Date();
+        newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
+        db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?",
+            [newSubscriptionEndDate.toISOString(), userId], (err) => {
+                if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
+                res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
+            }
+        );
+    });
+});
 
 // --- 8.3: المسارات المحمية (التي تتطلب اشتراكاً صالحاً) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
