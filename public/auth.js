@@ -19,10 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = signupForm.querySelector('#email').value;
             const password = signupForm.querySelector('#password').value;
 
-            displayMessage(''); // إخفاء الرسائل القديمة
+            displayMessage('جاري إنشاء الحساب...', 'info');
 
             try {
-                // --- المسار الصحيح الذي يتوقعه الخادم ---
                 const response = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -56,10 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = loginForm.querySelector('#email').value;
             const password = loginForm.querySelector('#password').value;
 
-            displayMessage(''); // إخفاء الرسائل القديمة
+            displayMessage('جاري تسجيل الدخول...', 'info');
 
             try {
-                // --- المسار الصحيح الذي يتوقعه الخادم ---
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -71,17 +69,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) {
                     throw new Error(data.message || 'فشل تسجيل الدخول');
                 }
+                
+                // --- [ هذا هو التعديل الأهم والنهائي ] ---
 
-                // --- نجاح تسجيل الدخول ---
-
-                // الخطوة 1: تخزين التوكن في ذاكرة المتصفح
+                // الخطوة 1: دائماً نخزن التوكن لي عطانا السيرفر
                 localStorage.setItem('authToken', data.token);
 
-                // الخطوة 2: توجيه المستخدم إلى لوحة التحكم
-                window.location.href = '/dashboard.html';
+                // الخطوة 2: نقرر فين غانصيفطو المستخدم بناءً على جواب السيرفر
+                if (data.subscriptionStatus === 'expired') {
+                    // إذا كان الاشتراك منتهياً، نوجهه لصفحة التفعيل
+                    displayMessage('اشتراكك منتهي. جاري توجيهك لصفحة التفعيل...', 'info');
+                    window.location.href = '/activate.html';
+                } else {
+                    // إذا كان الاشتراك صالحاً، نوجهه للداشبورد
+                    displayMessage('تم تسجيل الدخول بنجاح!', 'success');
+                    window.location.href = '/dashboard.html';
+                }
 
-            } catch (error)
-             {
+                // --- [ نهاية التعديل ] ---
+
+            } catch (error) {
                 displayMessage(error.message, 'error');
             }
         });
@@ -94,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageContainer.className = 'message';
         
         if (message) {
-            messageContainer.classList.add(type === 'error' ? 'error' : 'success');
+            messageContainer.classList.add(type); // 'error', 'success', or 'info'
             messageContainer.style.display = 'block';
         } else {
             messageContainer.style.display = 'none';
