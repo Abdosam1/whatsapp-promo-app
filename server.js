@@ -84,12 +84,6 @@ const checkSubscription = require('./middleware/checkSubscription');
 // ================================================================= //
 // ======================= 5. دوال مساعدة (Helpers) ====================== //
 // ================================================================= //
-function readPromos(userId) { /* ... الكود يبقى كما هو ... */ }
-function writePromos(userId, promos) { /* ... الكود يبقى كما هو ... */ }
-async function syncWhatsAppContacts(whatsappClient, ownerId) { /* ... الكود يبقى كما هو ... */ }
-function generateActivationCode() { /* ... الكود يبقى كما هو ... */ }
-
-// ... (للاختصار، الدوال المساعدة تبقى كما هي بالضبط) ...
 function readPromos(userId) {
     const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
     if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
@@ -103,7 +97,6 @@ function writePromos(userId, promos) {
 }
 async function syncWhatsAppContacts(whatsappClient, ownerId) {
     try {
-        console.log(`[Sync] Starting contact sync for user ${ownerId}...`);
         const chats = await whatsappClient.getChats();
         const privateChats = chats.filter(chat => !chat.isGroup && chat.id.user);
         if (privateChats.length === 0) return;
@@ -118,7 +111,6 @@ async function syncWhatsAppContacts(whatsappClient, ownerId) {
             stmt.finalize();
             db.run("COMMIT");
         });
-        console.log(`[Sync] Finished for user ${ownerId}.`);
     } catch (err) { console.error(`[Sync] Error for user ${ownerId}:`, err); }
 }
 function generateActivationCode() {
@@ -126,11 +118,11 @@ function generateActivationCode() {
     for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; }
     return code;
 }
+
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
-    // ... (هذا الجزء يبقى كما هو بالضبط) ...
     let activeUserId = null;
     const client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
     socket.on('init-whatsapp', (token) => {
@@ -171,8 +163,6 @@ io.on('connection', (socket) => {
 // ================================================================= //
 // ==================== 7. إعدادات Passport.js ===================== //
 // ================================================================= //
-passport.use(new GoogleStrategy({ /* ... الكود يبقى كما هو ... */ }));
-// ... (للاختصار، هذا الجزء يبقى كما هو بالضبط) ...
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -201,44 +191,36 @@ passport.use(new GoogleStrategy({
     });
   }
 ));
+
 // ================================================================= //
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
-// --- مسارات المصادقة (لا تحتاج حماية اشتراك) ---
+// --- 8.1: مسارات المصادقة والتسجيل (لا تحتاج حماية اشتراك) ---
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => { /* ... الكود يبقى كما هو ... */ });
-app.post("/api/auth/signup", async (req, res) => { /* ... الكود يبقى كما هو ... */ });
-app.get('/api/auth/verify-email', (req, res) => { /* ... الكود يبقى كما هو ... */ });
-app.post("/api/auth/login", async (req, res) => { /* ... الكود يبقى كما هو ... */ });
 
-// --- مسارات تفعيل الاشتراك (تحتاج فقط تسجيل الدخول) ---
-app.post("/api/request-code", authMiddleware, async (req, res) => { /* ... الكود يبقى كما هو ... */ });
-app.post("/api/activate-with-code", authMiddleware, async (req, res) => { /* ... الكود يبقى كما هو ... */ });
-// ... (للاختصار، مسارات API تبقى كما هي بالضبط) ...
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(`/dashboard.html?token=${token}`);
 });
+
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
     db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => {
         if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
-        
         const hashedPassword = await bcrypt.hash(password, 12);
         const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
         const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
-        
         const trialEndsAt = new Date();
         trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
         pendingRegistrations[email] = { name, email, password: hashedPassword, trialEndsAt: trialEndsAt.toISOString() };
-
         const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` };
         await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
     });
 });
+
 app.get('/api/auth/verify-email', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
@@ -247,15 +229,12 @@ app.get('/api/auth/verify-email', (req, res) => {
         const { email } = decoded;
         const pendingData = pendingRegistrations[email];
         if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
-        
         db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
             if (user) { delete pendingRegistrations[email]; return res.status(400).send('الحساب مسجل بالفعل.'); }
-            
             const newUser = {
                 id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password,
                 trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial'
             };
-
             db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
                 (err) => {
@@ -267,17 +246,19 @@ app.get('/api/auth/verify-email', (req, res) => {
         });
     } catch (error) { res.status(500).send('خطأ في التحقق من الإيميل.'); }
 });
+
 app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
-        if (!user) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
-        if(user.googleId && !user.password) return res.status(401).json({ message: 'هذا الحساب مسجل عبر جوجل.' });
+        if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة أو الحساب مسجل عبر جوجل.' });
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({ token });
     });
 });
+
+// --- 8.2: مسارات تفعيل الاشتراك (تحتاج فقط تسجيل الدخول) ---
 app.post("/api/request-code", authMiddleware, async (req, res) => {
     const userId = req.userData.userId;
     const { durationName, durationDays } = req.body;
@@ -295,11 +276,11 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
         );
     });
 });
+
 app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     const { activationCode } = req.body;
     const userId = req.userData.userId;
     if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." });
-
     db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
         if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); }
@@ -308,17 +289,16 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
         const { durationDays } = activationRequest;
         const newSubscriptionEndDate = new Date();
         newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
-
         db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?",
-            [newSubscriptionEndDate.toISOString(), userId],
-            (err) => {
+            [newSubscriptionEndDate.toISOString(), userId], (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
                 res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
             }
         );
     });
 });
-// --- المسارات المحمية (تحتاج تسجيل الدخول + اشتراك صالح) ---
+
+// --- 8.3: المسارات المحمية (تحتاج تسجيل الدخول + اشتراك صالح) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
 });
@@ -328,7 +308,6 @@ app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
 });
 
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
-    // ... (الكود يبقى كما هو) ...
     const { userId } = req.userData;
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const results = [];
@@ -339,8 +318,8 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
       }).on('end', () => {
         fs.unlinkSync(req.file.path);
         if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
-        let importedCount = 0;
         const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+        let importedCount = 0;
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
             results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
@@ -353,7 +332,6 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
-    // ... (الكود يبقى كما هو) ...
     const { text } = req.body;
     const { userId } = req.userData;
     if (!req.file) return res.status(400).json({ message: "Image file is required." });
@@ -365,7 +343,6 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
 });
 
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-    // ... (الكود يبقى كما هو) ...
     const promoId = parseInt(req.params.id);
     const { userId } = req.userData;
     let promos = readPromos(userId);
@@ -383,13 +360,9 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
 // ================================================================= //
 app.use(express.static(path.join(__dirname, 'public')));
 
-// المسارات المحمية التي تعرض صفحات
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-
-// [تعديل] هذا المسار يجب أن يعمل حتى لو انتهى الاشتراك
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
 
-// المسارات العامة
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
