@@ -80,6 +80,42 @@ function writePromos(userId, promos) {
     fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2));
 }
 
+// --- الإضافة الجديدة: دالة مزامنة جهات الاتصال ---
+async function syncWhatsAppContacts(whatsappClient, ownerId) {
+    try {
+        console.log(`[Sync] Starting contact sync for user ${ownerId}...`);
+        const chats = await whatsappClient.getChats();
+        const privateChats = chats.filter(chat => !chat.isGroup && chat.id.user);
+
+        if (privateChats.length === 0) {
+            console.log(`[Sync] No private chats found to sync for user ${ownerId}.`);
+            return;
+        }
+
+        const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
+        let syncedCount = 0;
+
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            privateChats.forEach(chat => {
+                const phone = chat.id.user;
+                const name = chat.name || chat.contact?.pushname || `+${phone}`;
+                stmt.run(name, phone, ownerId, function(err) {
+                    if (!err && this.changes > 0) {
+                        syncedCount++;
+                    }
+                });
+            });
+            stmt.finalize();
+            db.run("COMMIT");
+        });
+        
+        console.log(`[Sync] Finished. Synced ${syncedCount} new contacts for user ${ownerId}.`);
+    } catch (err) {
+        console.error(`[Sync] Error syncing contacts for user ${ownerId}:`, err);
+    }
+}
+
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
@@ -98,7 +134,14 @@ io.on('connection', (socket) => {
   });
 
   client.on("qr", (qr) => socket.emit('qr', qr));
-  client.on("ready", () => socket.emit('status', { message: "WhatsApp متصل وجاهز!", ready: true }));
+  
+  // --- التعديل: استدعاء دالة المزامنة هنا ---
+  client.on("ready", async () => {
+    socket.emit('status', { message: "WhatsApp متصل وجاهز!", ready: true });
+    console.log(`User ${activeUserId} is ready, starting contact sync.`);
+    await syncWhatsAppContacts(client, activeUserId);
+  });
+
   client.on("disconnected", () => socket.emit('status', { message: "تم قطع الاتصال!", ready: false, error: true }));
 
   socket.on('send-promo', async (data) => {
