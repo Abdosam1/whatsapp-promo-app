@@ -1,9 +1,7 @@
 const sqlite3 = require("sqlite3").verbose();
-// --- تم تصحيح هذا السطر ---
-const path = require("path");
+const path = require("path"); // <-- هذا هو السطر المصحح
 
 // --- الاتصال بنفس قاعدة البيانات المستخدمة في server.js ---
-// المسار الصحيح للوصول إلى الملف من داخل مجلد middleware
 const dbFile = path.join(__dirname, "..", "main_data.db");
 const db = new sqlite3.Database(dbFile, (err) => {
     if (err) {
@@ -23,14 +21,12 @@ function isTrialActive(user) {
 }
 
 module.exports = (req, res, next) => {
-    // التأكد من أن authMiddleware قد عمل بنجاح قبله
     if (!req.userData || !req.userData.userId) {
         return res.status(401).json({ message: 'فشل التحقق من الهوية!' });
     }
 
     const userId = req.userData.userId;
 
-    // --- البحث عن المستخدم في قاعدة بيانات SQLite بدلاً من ملف JSON ---
     const sql = "SELECT trialEndsAt, subscriptionEndsAt FROM users WHERE id = ?";
     
     db.get(sql, [userId], (err, user) => {
@@ -42,16 +38,23 @@ module.exports = (req, res, next) => {
             return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
         }
 
-        // --- التحقق من صلاحية الاشتراك أو الفترة التجريبية ---
         const isActive = isSubscriptionActive(user) || isTrialActive(user);
 
         if (isActive) {
-            // إذا كان الحساب فعالاً، اسمح للطلب بالمرور إلى وجهته
             next();
         } else {
-            // إذا لم يكن فعالاً، أرسل خطأ "ممنوع"
-            // هذا الخطأ هو ما يسبب مشكلة JSON.parse في الواجهة الأمامية
             res.status(403).json({ message: 'الاشتراك منتهي. يرجى تفعيل حسابك.' });
         }
     });
 };
+```4.  **احفظ الملف**.
+
+**الخطوة الثالثة: تشغيل الخادم بالطريقة الصحيحة (باستخدام PM2 فقط)**
+
+في الـ Terminal، تأكد من أنك في مجلد المشروع (`cd ~/whatsapp-promo-app`) ثم اكتب:
+```bash
+pm2 start server.js --name whatsapp-app```
+
+**الخطوة الرابعة: التحقق من الحالة**
+```bash
+pm2 logs
