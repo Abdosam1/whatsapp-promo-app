@@ -130,16 +130,21 @@ async function apiFetch(url, options = {}) {
         throw new Error('فشل التحقق من الهوية');
     }
     if (!response.ok) {
-        const err = await response.json().catch(() => ({ message: `خطأ من الخادم: ${response.statusText}` }));
-        throw new Error(err.message);
+        const errText = await response.text();
+        try {
+            const errJson = JSON.parse(errText);
+            throw new Error(errJson.message);
+        } catch {
+            throw new Error(`خطأ من الخادم: ${response.statusText}`);
+        }
     }
     
-    // بعض المسارات قد لا ترجع JSON
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-        return response.json();
+    const text = await response.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
     }
-    return response.text();
 }
 
 // ================================================================= //
@@ -208,7 +213,7 @@ function displayPromos() {
 // ================================================================= //
 async function addNewPromo() {
     const text = uiElements.newPromoText.value.trim();
-    const image = uiElements.newPromoImage.files[0];
+    const image = uiElements.newPromoImage.files;
     if (!text || !image) return alert('يرجى إدخال نص وصورة.');
     
     const formData = new FormData();
@@ -224,7 +229,7 @@ async function addNewPromo() {
 }
 
 async function importCSV() {
-    const file = uiElements.csvFileInput.files[0];
+    const file = uiElements.csvFileInput.files;
     if (!file) return alert('يرجى اختيار ملف CSV.');
     
     const formData = new FormData();
@@ -298,14 +303,13 @@ async function sendPromoSequentially(list, fromImported) {
         }
         
         if (sendPromo(client.phone, selectedPromoId, fromImported)) {
-            // انتظار عشوائي بين 30 و 60 ثانية فقط إذا نجح الطلب الأولي
             if (i < list.length - 1) {
                 const delay = 30000 + Math.random() * 30000;
                 log(`⏳ انتظار ${Math.round(delay/1000)} ثانية...`, "orange");
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         } else {
-            break; // توقف إذا فشل أول طلب إرسال
+            break;
         }
     }
 
@@ -328,4 +332,4 @@ function log(message, color = "black") {
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
-}```
+}
