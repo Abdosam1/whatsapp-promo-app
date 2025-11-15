@@ -70,22 +70,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'فشل تسجيل الدخول');
                 }
 
-                // --- نجاح تسجيل الدخول (هذا هو الجزء المهم) ---
+                // --- نجاح تسجيل الدخول (تم التعديل هنا) ---
 
-                // الخطوة 1: نجهز المعلومات التي سنحتاجها لاحقًا
-                const userInfoToStore = {
-                    userId: data.userId, // المعلومة التي تحتاجها صفحة التفعيل
-                    token: data.token
-                };
-
-                // الخطوة 2: نخزن التوكن (اختياري لكن جيد)
+                // الخطوة 1: تخزين التوكن فقط في ذاكرة المتصفح
                 localStorage.setItem('authToken', data.token);
 
-                // الخطوة 3: نخزن معلومات المستخدم بالاسم 'userInfo'
-                // هذا هو السطر الذي يحل المشكلة ويسمح للصفحات الأخرى بالعمل
-                localStorage.setItem('userInfo', JSON.stringify(userInfoToStore));
-
-                // الخطوة 4: نوجه المستخدم إلى لوحة التحكم
+                // الخطوة 2: توجيه المستخدم إلى لوحة التحكم
                 window.location.href = '/dashboard.html';
 
             } catch (error)
