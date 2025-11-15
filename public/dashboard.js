@@ -25,7 +25,7 @@ let promos = [];
 let selectedPromoId = null;
 let socket = null;
 let isWhatsappReady = false;
-const adminNumber = "212619145177"; // رقمك الخاص للاختبار
+const adminNumber = "212619145177"; // يمكنك تغيير هذا الرقم
 
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
@@ -41,7 +41,6 @@ const uiElements = {
     csvFileInput: document.getElementById('csvFileInput'),
     importCsvBtn: document.getElementById('importCsvBtn'),
     sendSequentiallyImportedBtn: document.getElementById('sendSequentiallyImportedBtn'),
-    deleteAllImportedBtn: document.getElementById('deleteAllImportedBtn'),
     newPromoText: document.getElementById('newPromoText'),
     newPromoImage: document.getElementById('newPromoImage'),
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
@@ -120,14 +119,27 @@ function initializeWhatsAppConnection() {
 // ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
-    if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
     
     const response = await fetch(url, { ...options, headers });
     
-    if (response.status === 401) { handleLogout(true); throw new Error('Authentication failed'); }
-    if (!response.ok) { const err = await response.json(); throw new Error(err.message); }
+    if (response.status === 401) {
+        handleLogout(true); // تسجيل خروج إجباري
+        throw new Error('فشل التحقق من الهوية');
+    }
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: `خطأ من الخادم: ${response.statusText}` }));
+        throw new Error(err.message);
+    }
     
-    return response.json();
+    // بعض المسارات قد لا ترجع JSON
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+        return response.json();
+    }
+    return response.text();
 }
 
 // ================================================================= //
@@ -249,10 +261,11 @@ async function deletePromo(id) {
 function sendPromo(phone, promoId, fromImported) {
     if (!isWhatsappReady || !socket) {
         alert('❌ واتساب غير متصل. يرجى الانتظار.');
-        return;
+        return false;
     }
     log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue');
-    socket.emit('send-promo', { phone, promoId, fromImported, token });
+    socket.emit('send-promo', { phone, promoId, fromImported });
+    return true;
 }
 
 function sendSelectedPromo() {
@@ -267,7 +280,6 @@ function testMessage() {
     sendPromo(adminNumber, selectedPromoId, false);
 }
 
-// --- منطق الإرسال المتسلسل من جهة المتصفح (كما في مشروعك المحلي) ---
 async function sendPromoSequentially(list, fromImported) {
     if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
     if (!list || list.length === 0) return alert("القائمة فارغة.");
@@ -285,13 +297,15 @@ async function sendPromoSequentially(list, fromImported) {
             break;
         }
         
-        sendPromo(client.phone, selectedPromoId, fromImported);
-
-        // انتظار عشوائي بين 30 و 60 ثانية قبل الرسالة التالية
-        if (i < list.length - 1) {
-            const delay = 30000 + Math.random() * 30000;
-            log(`⏳ انتظار ${Math.round(delay/1000)} ثانية...`, "orange");
-            await new Promise(resolve => setTimeout(resolve, delay));
+        if (sendPromo(client.phone, selectedPromoId, fromImported)) {
+            // انتظار عشوائي بين 30 و 60 ثانية فقط إذا نجح الطلب الأولي
+            if (i < list.length - 1) {
+                const delay = 30000 + Math.random() * 30000;
+                log(`⏳ انتظار ${Math.round(delay/1000)} ثانية...`, "orange");
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        } else {
+            break; // توقف إذا فشل أول طلب إرسال
         }
     }
 
@@ -314,4 +328,4 @@ function log(message, color = "black") {
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
-}
+}```
