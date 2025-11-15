@@ -103,9 +103,7 @@ io.on('connection', (socket) => {
         activeUserId = decoded.userId;
         console.log(`🚀 Initializing WhatsApp for user ${activeUserId}`);
         client.initialize();
-    } catch (e) {
-        socket.emit('status', { message: "فشل التحقق من الهوية", ready: false, error: true });
-    }
+    } catch (e) { socket.emit('status', { message: "فشل التحقق من الهوية", ready: false, error: true }); }
   });
 
   client.on("qr", (qr) => socket.emit('qr', qr));
@@ -114,28 +112,20 @@ io.on('connection', (socket) => {
 
   socket.on('send-promo', async (data) => {
     const { phone, promoId, fromImported } = data;
-    if (!activeUserId) return socket.emit('send-promo-status', { success: false, phone, error: 'User not authenticated' });
-
+    if (!activeUserId) return;
     const promos = readPromos(activeUserId);
     const promo = promos.find(p => p.id === promoId);
-    
     if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-
     try {
         const numberId = `${phone.replace(/\D/g, "")}@c.us`;
         const mediaPath = path.join(promosUploadFolder, promo.image);
         if (!fs.existsSync(mediaPath)) throw new Error('ملف الصورة غير موجود');
-        
         const media = MessageMedia.fromFilePath(mediaPath);
         await client.sendMessage(numberId, media, { caption: promo.text });
-        
         const table = fromImported ? "imported_clients" : "clients";
         db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
-        
         socket.emit('send-promo-status', { success: true, phone });
-    } catch (err) {
-        socket.emit('send-promo-status', { success: false, phone, error: err.message });
-    }
+    } catch (err) { socket.emit('send-promo-status', { success: false, phone, error: err.message }); }
   });
 
   socket.on('disconnect', () => {
@@ -152,27 +142,20 @@ io.on('connection', (socket) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback", // تم تعديل المسار
+    callbackURL: "/api/auth/google/callback",
   },
   (accessToken, refreshToken, profile, done) => {
-    try {
-        const email = profile.emails[0].value;
-        db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-            if (err) return done(err, null);
-            if (user) return done(null, user);
-
-            const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
-            const newUser = {
-                id: Date.now().toString(), googleId: profile.id, email: email, name: profile.displayName,
-                password: null, trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null,
-            };
-            
-            db.run("INSERT INTO users (id, googleId, email, name, password, trialEndsAt, subscriptionEndsAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [newUser.id, newUser.googleId, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt],
-                (err) => { if (err) return done(err, null); done(null, newUser); }
-            );
-        });
-    } catch(e) { return done(e, null); }
+    const email = profile.emails[0].value;
+    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+        if (err) return done(err, null);
+        if (user) return done(null, user);
+        const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + 15);
+        const newUser = { id: Date.now().toString(), googleId: profile.id, email, name: profile.displayName, password: null, trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null };
+        db.run("INSERT INTO users (id, googleId, email, name, password, trialEndsAt, subscriptionEndsAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [newUser.id, newUser.googleId, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt],
+            (err) => { if (err) return done(err, null); done(null, newUser); }
+        );
+    });
   }
 ));
 
@@ -180,34 +163,74 @@ passport.use(new GoogleStrategy({
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
-// --- مسارات المصادقة والاشتراك (بدون /api) ---
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
+// --- مسارات المصادقة والاشتراك (مع البادئة /api) ---
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(`/dashboard.html?token=${token}`);
 });
 
-app.post("/signup", async (req, res) => { /* ... كود إنشاء الحساب هنا ... */ });
-app.post("/login", async (req, res) => { /* ... كود تسجيل الدخول هنا ... */ });
-// ... بقية مسارات المصادقة هنا ...
+app.post("/api/auth/signup", async (req, res) => { /* ... كود إنشاء الحساب الكامل هنا ... */ });
+app.post("/api/auth/login", async (req, res) => { /* ... كود تسجيل الدخول الكامل هنا ... */ });
+// ... يمكنك إضافة بقية مسارات المصادقة هنا بنفس الطريقة ...
 
-// --- المسارات التي تطابق مشروعك المحلي ---
+// --- المسارات التي تطابق مشروعك المحلي (بدون /api) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
-    db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-        res.json(rows || []);
-    });
+    db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
 });
 
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
-    db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => {
-        res.json(rows || []);
-    });
+    db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
 });
 
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { /* ... كود الاستيراد هنا ... */ });
-app.get("/promos", authMiddleware, (req, res) => { res.json(readPromos(req.userData.userId)); });
-app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => { /* ... كود إضافة العرض هنا ... */ });
-app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { /* ... كود حذف العرض هنا ... */ });
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+    const { userId } = req.userData;
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const results = [];
+    fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+      .on('data', (data) => {
+        const phone = String(data.phone || "").replace(/\D/g, "");
+        if (phone.length >= 8) results.push(phone);
+      }).on('end', () => {
+        fs.unlinkSync(req.file.path);
+        if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." });
+        let importedCount = 0;
+        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            results.forEach(phone => stmt.run(phone, userId, function(err) { if (!err && this.changes > 0) importedCount++; }));
+            stmt.finalize();
+            db.run("COMMIT", (err) => {
+                if (err) return res.status(500).json({ message: "خطأ أثناء الاستيراد." });
+                res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount });
+            });
+        });
+      });
+});
+
+app.get("/promos", authMiddleware, (req, res) => res.json(readPromos(req.userData.userId)));
+app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
+    const { text } = req.body;
+    const { userId } = req.userData;
+    if (!text || !req.file) return res.status(400).json({ message: "Text or image missing" });
+    const promos = readPromos(userId);
+    const newPromo = { id: Date.now(), text, image: req.file.filename };
+    promos.push(newPromo);
+    writePromos(userId, promos);
+    res.json({ status: "success", promo: newPromo });
+});
+app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+    const promoId = parseInt(req.params.id);
+    const { userId } = req.userData;
+    let promos = readPromos(userId);
+    const promo = promos.find(p => p.id === promoId);
+    if (promo) {
+        const imagePath = path.join(promosUploadFolder, promo.image);
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+        writePromos(userId, promos.filter(p => p.id !== promoId));
+    }
+    res.json({ status: "deleted" });
+});
 
 // ================================================================= //
 // ===================== 9. خدمة الملفات الثابتة والتشغيل =================== //
