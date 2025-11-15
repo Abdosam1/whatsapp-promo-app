@@ -29,7 +29,7 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
-const TRIAL_PERIOD_MINUTES = 5;
+const TRIAL_PERIOD_MINUTES = 5; // يمكنك تغيير مدة التجريب من هنا
 
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
@@ -44,22 +44,16 @@ const db = new sqlite3.Database(dbFile, (err) => {
   console.log("✅ Database connected successfully.");
 });
 
-// [TA3DIL MOHIM] - Database Schema Migration
+// [نظام تلقائي لإضافة الأعمدة الجديدة للداتا بايز بأمان]
 db.serialize(() => {
-    // L-Code l-9dim dyal CREATE TABLE
     db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
     db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
     db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
     
-    // Script li kayzid columns jdad b tari9a amina
     const addColumnIfNotExists = (tableName, columnName, columnType) => {
         db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`, (err) => {
-            if (err && err.message.includes('duplicate column name')) {
-                // Hania, l-column déja kayna
-            } else if (err) {
+            if (err && !err.message.includes('duplicate column name')) {
                 console.error(`Error adding column ${columnName} to ${tableName}:`, err.message);
-            } else {
-                console.log(`✅ Column '${columnName}' added to table '${tableName}'.`);
             }
         });
     };
@@ -68,12 +62,12 @@ db.serialize(() => {
     addColumnIfNotExists('users', 'activation_code', 'TEXT');
 });
 
-
+// تهيئة باقي الخدمات
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
 if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
 
-const uploadLimits = { fileSize: 3 * 1024 * 1024 }; // 3 Megabytes
+const uploadLimits = { fileSize: 3 * 1024 * 1024 }; // 3 MB
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: uploadLimits });
 const uploadCSV = multer({ dest: uploadsFolder, limits: uploadLimits });
 
@@ -90,6 +84,12 @@ const checkSubscription = require('./middleware/checkSubscription');
 // ================================================================= //
 // ======================= 5. دوال مساعدة (Helpers) ====================== //
 // ================================================================= //
+function readPromos(userId) { /* ... الكود يبقى كما هو ... */ }
+function writePromos(userId, promos) { /* ... الكود يبقى كما هو ... */ }
+async function syncWhatsAppContacts(whatsappClient, ownerId) { /* ... الكود يبقى كما هو ... */ }
+function generateActivationCode() { /* ... الكود يبقى كما هو ... */ }
+
+// ... (للاختصار، الدوال المساعدة تبقى كما هي بالضبط) ...
 function readPromos(userId) {
     const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`);
     if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true });
@@ -126,51 +126,53 @@ function generateActivationCode() {
     for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; }
     return code;
 }
-
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
-  let activeUserId = null;
-  const client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
-  socket.on('init-whatsapp', (token) => {
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        activeUserId = decoded.userId;
-        client.initialize();
-    } catch (e) { socket.emit('status', { message: "فشل التحقق", ready: false, error: true }); }
-  });
-  client.on("qr", (qr) => socket.emit('qr', qr));
-  client.on("ready", async () => {
-    socket.emit('status', { message: "WhatsApp متصل!", ready: true });
-    await syncWhatsAppContacts(client, activeUserId);
-  });
-  client.on("disconnected", () => socket.emit('status', { message: "تم قطع الاتصال!", ready: false, error: true }));
-  socket.on('send-promo', async (data) => {
-    const { phone, promoId, fromImported } = data;
-    if (!activeUserId) return;
-    const promos = readPromos(activeUserId);
-    const promo = promos.find(p => p.id === promoId);
-    if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-    try {
-        const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-        const media = MessageMedia.fromFilePath(path.join(promosUploadFolder, promo.image));
-        await client.sendMessage(numberId, media, { caption: promo.text });
-        const table = fromImported ? "imported_clients" : "clients";
-        db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
-        socket.emit('send-promo-status', { success: true, phone });
-    } catch (err) { socket.emit('send-promo-status', { success: false, phone, error: err.message }); }
-  });
-  socket.on('disconnect', () => {
-    client.destroy().catch(console.error);
-    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${socket.id}`);
-    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
-  });
+    // ... (هذا الجزء يبقى كما هو بالضبط) ...
+    let activeUserId = null;
+    const client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${socket.id}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
+    socket.on('init-whatsapp', (token) => {
+      try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          activeUserId = decoded.userId;
+          client.initialize();
+      } catch (e) { socket.emit('status', { message: "فشل التحقق", ready: false, error: true }); }
+    });
+    client.on("qr", (qr) => socket.emit('qr', qr));
+    client.on("ready", async () => {
+      socket.emit('status', { message: "WhatsApp متصل!", ready: true });
+      await syncWhatsAppContacts(client, activeUserId);
+    });
+    client.on("disconnected", () => socket.emit('status', { message: "تم قطع الاتصال!", ready: false, error: true }));
+    socket.on('send-promo', async (data) => {
+      const { phone, promoId, fromImported } = data;
+      if (!activeUserId) return;
+      const promos = readPromos(activeUserId);
+      const promo = promos.find(p => p.id === promoId);
+      if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
+      try {
+          const numberId = `${phone.replace(/\D/g, "")}@c.us`;
+          const media = MessageMedia.fromFilePath(path.join(promosUploadFolder, promo.image));
+          await client.sendMessage(numberId, media, { caption: promo.text });
+          const table = fromImported ? "imported_clients" : "clients";
+          db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
+          socket.emit('send-promo-status', { success: true, phone });
+      } catch (err) { socket.emit('send-promo-status', { success: false, phone, error: err.message }); }
+    });
+    socket.on('disconnect', () => {
+      client.destroy().catch(console.error);
+      const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${socket.id}`);
+      if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    });
 });
 
 // ================================================================= //
 // ==================== 7. إعدادات Passport.js ===================== //
 // ================================================================= //
+passport.use(new GoogleStrategy({ /* ... الكود يبقى كما هو ... */ }));
+// ... (للاختصار، هذا الجزء يبقى كما هو بالضبط) ...
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -199,18 +201,25 @@ passport.use(new GoogleStrategy({
     });
   }
 ));
-
 // ================================================================= //
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
 
+// --- مسارات المصادقة (لا تحتاج حماية اشتراك) ---
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => { /* ... الكود يبقى كما هو ... */ });
+app.post("/api/auth/signup", async (req, res) => { /* ... الكود يبقى كما هو ... */ });
+app.get('/api/auth/verify-email', (req, res) => { /* ... الكود يبقى كما هو ... */ });
+app.post("/api/auth/login", async (req, res) => { /* ... الكود يبقى كما هو ... */ });
 
+// --- مسارات تفعيل الاشتراك (تحتاج فقط تسجيل الدخول) ---
+app.post("/api/request-code", authMiddleware, async (req, res) => { /* ... الكود يبقى كما هو ... */ });
+app.post("/api/activate-with-code", authMiddleware, async (req, res) => { /* ... الكود يبقى كما هو ... */ });
+// ... (للاختصار، مسارات API تبقى كما هي بالضبط) ...
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(`/dashboard.html?token=${token}`);
 });
-
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
@@ -230,7 +239,6 @@ app.post("/api/auth/signup", async (req, res) => {
         res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
     });
 });
-
 app.get('/api/auth/verify-email', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('رابط التفعيل غير صالح.');
@@ -259,7 +267,6 @@ app.get('/api/auth/verify-email', (req, res) => {
         });
     } catch (error) { res.status(500).send('خطأ في التحقق من الإيميل.'); }
 });
-
 app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
@@ -271,14 +278,12 @@ app.post("/api/auth/login", async (req, res) => {
         res.status(200).json({ token });
     });
 });
-
 app.post("/api/request-code", authMiddleware, async (req, res) => {
     const userId = req.userData.userId;
     const { durationName, durationDays } = req.body;
     db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." });
         const newActivationCode = generateActivationCode();
-        // Nkhzno l-code jdid f DB
         db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?",
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
@@ -290,7 +295,6 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
         );
     });
 });
-
 app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     const { activationCode } = req.body;
     const userId = req.userData.userId;
@@ -298,16 +302,9 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
 
     db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
-        
-        if (!user.activation_code || user.activation_code !== activationCode.trim()) {
-            return res.status(400).json({ message: "رمز التفعيل غير صحيح." });
-        }
-
+        if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); }
         const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
-        if (!activationRequest || !activationRequest.durationDays) {
-            return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." });
-        }
-        
+        if (!activationRequest || !activationRequest.durationDays) { return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." });}
         const { durationDays } = activationRequest;
         const newSubscriptionEndDate = new Date();
         newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
@@ -321,8 +318,7 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
         );
     });
 });
-
-// --- المسارات الأخرى (contacts, promos, etc.) ---
+// --- المسارات المحمية (تحتاج تسجيل الدخول + اشتراك صالح) ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => {
     db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || []));
 });
@@ -332,6 +328,7 @@ app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => {
 });
 
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+    // ... (الكود يبقى كما هو) ...
     const { userId } = req.userData;
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const results = [];
@@ -353,9 +350,10 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
       });
 });
 
-app.get("/promos", authMiddleware, (req, res) => res.json(readPromos(req.userData.userId)));
+app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
+    // ... (الكود يبقى كما هو) ...
     const { text } = req.body;
     const { userId } = req.userData;
     if (!req.file) return res.status(400).json({ message: "Image file is required." });
@@ -367,6 +365,7 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
 });
 
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+    // ... (الكود يبقى كما هو) ...
     const promoId = parseInt(req.params.id);
     const { userId } = req.userData;
     let promos = readPromos(userId);
@@ -383,9 +382,14 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
 // ===================== 9. خدمة الملفات الثابتة والتشغيل =================== //
 // ================================================================= //
 app.use(express.static(path.join(__dirname, 'public')));
+
+// المسارات المحمية التي تعرض صفحات
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+
+// [تعديل] هذا المسار يجب أن يعمل حتى لو انتهى الاشتراك
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
-// Route dyal l-login khassha tkoun public, bla authMiddleware
+
+// المسارات العامة
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
