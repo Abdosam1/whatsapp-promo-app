@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             // دمج الترجمات المحملة في الكائن الرئيسي
             Object.assign(translations, data);
-        } catch (error) {
+        } catch (error)
+        
+        {
             console.error("Could not load translations file:", error);
         }
     }
@@ -31,19 +33,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-key]').forEach(element => {
             const key = element.getAttribute('data-key');
             if (translations[lang][key]) {
-                // استخدام innerHTML للسماح بوجود أيقونات HTML داخل الأزرار مثلاً
                 element.innerHTML = translations[lang][key];
             }
         });
 
-        // تحديث لغة واتجاه الصفحة الرئيسية (<html>)
+        // ======================== التغيير الأهم ========================
+        // تحديث لغة واتجاه الصفحة الرئيسية (<html>). 
+        // هذا السطر هو الذي يسمح لخصائص CSS المنطقية بالعمل بشكل صحيح.
         document.documentElement.lang = lang;
         document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        
-        // تعديل محاذاة النص في بعض الصفحات التي تحتاج ذلك
-        if (document.body.classList.contains('text-align-handler')) {
-            document.body.style.textAlign = lang === 'ar' ? 'center' : 'left';
-        }
+        // =============================================================
 
         // تحديث حالة الأزرار (إظهار الزر النشط)
         const langArBtn = document.getElementById('lang-ar');
@@ -78,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadTranslations();
         
         // ثانياً، نحدد اللغة التي يجب عرضها
-        // إما اللغة المحفوظة سابقاً، أو لغة المتصفح الافتراضية
         const savedLang = localStorage.getItem('language') || (navigator.language.startsWith('ar') ? 'ar' : 'en');
         
         // ثالثاً، نقوم بتطبيق اللغة وإعداد الأزرار
