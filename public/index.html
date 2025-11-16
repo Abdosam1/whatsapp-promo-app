@@ -24,12 +24,11 @@
             margin: 0;
             background-color: var(--background-color);
             text-align: center;
-            direction: rtl;
         }
 
         /* --- Hero Section (Top Banner) --- */
         .hero {
-            position: relative; /* ضروري لوضع أزرار اللغة */
+            position: relative; 
             background: var(--dark-color);
             background: linear-gradient(135deg, var(--dark-color) 0%, var(--secondary-color) 100%);
             color: white;
@@ -50,11 +49,11 @@
             opacity: 0.9;
         }
         
-        /* --- ستايل أزرار اللغة (تمت الإضافة) --- */
+        /* --- ستايل أزرار اللغة (معدل لاستخدام الخصائص المنطقية) --- */
         .language-switcher {
             position: absolute;
             top: 20px;
-            left: 20px;
+            inset-inline-start: 20px; /* بديل 'left' ليدعم RTL/LTR */
             z-index: 10;
         }
         .language-switcher button {
@@ -64,7 +63,7 @@
             padding: 5px 10px;
             border-radius: 5px;
             cursor: pointer;
-            margin-left: 5px;
+            margin-inline-start: 5px; /* بديل 'margin-left' */
             font-family: 'Cairo', sans-serif;
             font-weight: 700;
         }
@@ -97,7 +96,14 @@
         .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
 
         /* --- Feature Card --- */
-        .feature-card { background-color: var(--card-background); padding: 30px; border-radius: var(--border-radius); box-shadow: var(--shadow); transition: transform 0.3s ease; }
+        .feature-card { 
+            background-color: var(--card-background); 
+            padding: 30px; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow); 
+            transition: transform 0.3s ease; 
+            text-align: start; /* محاذاة النص للبداية (يمين في العربية، يسار في الإنجليزية) */
+        }
         .feature-card:hover { transform: translateY(-10px); }
         .feature-card .icon { font-size: 3em; color: var(--primary-color); margin-bottom: 20px; }
         .feature-card h3 { font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px; }
@@ -111,12 +117,12 @@
         .footer-copyright { margin-top: 15px; font-size: 0.8em; color: #aaa; }
     </style>
 </head>
-<body class="text-align-handler">
+<body>
 
     <div class="hero">
         <div class="language-switcher">
-            <button id="lang-ar" data-key="lang_ar">العربية</button>
-            <button id="lang-en" data-key="lang_en">English</button>
+            <button id="lang-ar" data-key="lang_ar"></button>
+            <button id="lang-en" data-key="lang_en"></button>
         </div>
 
         <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
