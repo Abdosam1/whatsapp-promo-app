@@ -3,215 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول</title>
-    <!-- رابط مكتبة الأيقونات -->
+    <title data-key="pageTitleLogin">تسجيل الدخول</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     
     <style>
-        /* --- Google Font --- */
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-
-        /* --- متغيرات الألوان من التصميم الرئيسي --- */
         :root {
-            --primary-color: #25D366;
-            --secondary-color: #128C7E;
-            --dark-color: #075E54;
-            --background-color: #f0f2f5;
-            --card-background: #ffffff;
-            --danger-color: #e74c3c;
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            --border-radius: 8px;
+            --primary-color: #25D366; --secondary-color: #128C7E; --dark-color: #075E54;
+            --background-color: #f0f2f5; --card-background: #ffffff; --danger-color: #e74c3c;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1); --border-radius: 8px;
         }
-
         body {
-            font-family: 'Cairo', sans-serif;
-            background-color: var(--background-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            direction: rtl;
+            font-family: 'Cairo', sans-serif; background-color: var(--background-color);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0;
         }
-
-        .container {
-            width: 100%;
-            max-width: 420px;
-            padding: 20px;
-        }
-
+        .container { width: 100%; max-width: 420px; padding: 20px; }
         .auth-card {
-            background: var(--card-background);
-            padding: 30px 40px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            text-align: center;
+            background: var(--card-background); padding: 30px 40px; border-radius: var(--border-radius);
+            box-shadow: var(--shadow); text-align: center; position: relative; /* لوضع الأزرار */
         }
-
-        .auth-card h1 {
-            font-size: 2em;
-            color: var(--dark-color);
-            margin-bottom: 10px;
+        .language-switcher {
+            position: absolute; top: 15px; inset-inline-start: 15px; /* يدعم RTL/LTR */
         }
+        .language-switcher button {
+            background: #f0f0f0; border: 1px solid #ddd; color: #555; padding: 5px 10px;
+            border-radius: 5px; cursor: pointer; margin-inline-start: 5px;
+        }
+        .language-switcher button.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
         
-        .auth-card h1 i {
-            color: var(--primary-color);
-        }
-
-        .auth-card p {
-            color: #666;
-            margin-bottom: 30px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            text-align: right;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
+        .auth-card h1 { font-size: 2em; color: var(--dark-color); margin-bottom: 10px; }
+        .auth-card h1 i { color: var(--primary-color); }
+        .auth-card p { color: #666; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; text-align: start; } /* تعديل هنا */
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
         input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: var(--border-radius);
-            box-sizing: border-box;
-            font-family: 'Cairo', sans-serif;
-            transition: border-color 0.3s, box-shadow 0.3s;
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: var(--border-radius);
+            box-sizing: border-box; font-family: 'Cairo', sans-serif; transition: border-color 0.3s, box-shadow 0.3s;
         }
-        
-        input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.2);
-        }
-
-
+        input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.2); }
         .btn {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius);
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+            width: 100%; padding: 12px; background-color: var(--primary-color); color: white;
+            border: none; border-radius: var(--border-radius); font-size: 1.1em; font-weight: 600;
+            cursor: pointer; transition: background-color 0.3s ease;
         }
+        .btn:hover { background-color: var(--secondary-color); }
 
-        .btn:hover {
-            background-color: var(--secondary-color);
-        }
-
-        /* --- NEW: Google Button --- */
         .btn-google {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            padding: 12px;
-            margin-top: 15px;
-            background-color: #4285F4; /* Google Blue */
-            color: white;
-            border: none;
-            border-radius: var(--border-radius);
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
+            display: flex; align-items: center; justify-content: center; gap: 10px; /* أفضل من margin */
+            width: 100%; padding: 12px; margin-top: 15px; background-color: #4285F4;
+            color: white; border: none; border-radius: var(--border-radius); font-size: 1em;
+            font-weight: 600; cursor: pointer; text-decoration: none; transition: background-color 0.3s ease;
         }
+        .btn-google:hover { background-color: #357ae8; }
+        .btn-google i { font-size: 1.2em; }
         
-        .btn-google:hover {
-            background-color: #357ae8;
-        }
-
-        .btn-google i {
-            font-size: 1.2em;
-            margin-left: 10px; /* لتباعد الأيقونة عن النص */
-        }
-        
-        /* --- NEW: Separator --- */
         .separator {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            color: #999;
-            margin: 25px 0;
+            display: flex; align-items: center; text-align: center;
+            color: #999; margin: 25px 0;
         }
-
-        .separator::before,
-        .separator::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #ddd;
-        }
-        .separator:not(:empty)::before {
-            margin-left: 1em;
-        }
-        .separator:not(:empty)::after {
-            margin-right: 1em;
-        }
-
-        .error {
-            color: var(--danger-color);
-            margin-top: 15px;
-            font-weight: 600;
-            min-height: 20px;
-        }
-
-        .switch-link {
-            margin-top: 25px;
-            font-size: 0.9em;
-        }
-
-        .switch-link a {
-            color: var(--secondary-color);
-            text-decoration: none;
-            font-weight: 600;
-        }
+        .separator::before, .separator::after { content: ''; flex: 1; border-bottom: 1px solid #ddd; }
+        .separator:not(:empty)::before { margin-inline-end: 1em; } /* تعديل هنا */
+        .separator:not(:empty)::after { margin-inline-start: 1em; } /* تعديل هنا */
+        
+        .error { color: var(--danger-color); margin-top: 15px; font-weight: 600; min-height: 20px; }
+        .switch-link { margin-top: 25px; font-size: 0.9em; }
+        .switch-link a { color: var(--secondary-color); text-decoration: none; font-weight: 600; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="auth-card">
-            <h1><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</h1>
-            <p>أهلاً بعودتك! سجل الدخول للمتابعة.</p>
+            <div class="language-switcher">
+                <button id="lang-ar" data-key="lang_ar"></button>
+                <button id="lang-en" data-key="lang_en"></button>
+            </div>
+            <h1><i class="fas fa-sign-in-alt"></i> <span data-key="loginTitle"></span></h1>
+            <p data-key="loginSubtitle"></p>
             <form id="login-form">
                 <div class="form-group">
-                    <label for="email">البريد الإلكتروني:</label>
+                    <label for="email" data-key="loginEmailLabel"></label>
                     <input type="email" id="email" name="email" required>
                 </div>
                 <div class="form-group">
-                    <label for="password">كلمة المرور:</label>
+                    <label for="password" data-key="loginPasswordLabel"></label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <button type="submit" class="btn">دخول</button>
+                <button type="submit" class="btn" data-key="loginBtn"></button>
             </form>
 
-            <!-- رسالة الخطأ -->
             <div id="error-message" class="error"></div>
             
-            <!-- NEW: Separator -->
-            <div class="separator">أو</div>
+            <div class="separator" data-key="loginOr"></div>
             
-            <!-- NEW: Google Login Button -->
             <a href="/api/auth/google" class="btn-google">
                 <i class="fab fa-google"></i>
-                <span>المتابعة بواسطة جوجل</span>
+                <span data-key="loginWithGoogle"></span>
             </a>
 
-            <p class="switch-link">ليس لديك حساب؟ <a href="signup.html">أنشئ واحداً</a></p>
+            <p class="switch-link">
+                <span data-key="loginNoAccount"></span>
+                <a href="signup.html" data-key="loginCreateOne"></a>
+            </p>
         </div>
     </div>
 
-    <!-- تأكد من أن ملف auth.js يتعامل مع عملية تسجيل الدخول العادية -->
     <script src="auth.js"></script>
+    <script src="language.js"></script>
 </body>
 </html>
