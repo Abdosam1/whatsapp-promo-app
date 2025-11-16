@@ -122,6 +122,39 @@
             color: #555;
             line-height: 1.6;
         }
+        
+        /* ================= CSS for Footer (تمت الإضافة هنا) ================= */
+        .site-footer {
+            background-color: #333; /* لون خلفية غامق */
+            color: #ccc;            /* لون نص فاتح */
+            text-align: center;
+            padding: 25px 0;
+            font-size: 0.9em;
+            width: 100%;
+            /* تمت إضافة الهامش العلوي لترك مسافة */
+            margin-top: 50px; 
+        }
+
+        .footer-links a {
+            color: #fff; /* لون الروابط أبيض ليكون واضحاً */
+            text-decoration: none;
+            margin: 0 10px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-color); /* يستعمل اللون الأخضر عند مرور الفأرة */
+        }
+
+        .footer-links span {
+            color: #666; /* لون الفاصل بين الروابط */
+        }
+
+        .footer-copyright {
+            margin-top: 15px;
+            font-size: 0.8em;
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -158,5 +191,24 @@
         </div>
     </div>
 
+    <!-- ================= FOOTER START (تمت الإضافة هنا) ================= -->
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="about.html">About Us</a>
+            <span>|</span>
+            <a href="privacy.html">Privacy Policy</a>
+        </div>
+        <div class="footer-copyright">
+            <!-- السنة سيتم إضافتها تلقائياً بواسطة الجافاسكريبت -->
+            &copy; <span id="copyright-year"></span> Autosend Pro. جميع الحقوق محفوظة.
+        </div>
+    </footer>
+    <!-- ================= FOOTER END ================= -->
+
+    <!-- ================= JavaScript for Dynamic Year (تمت الإضافة هنا) ================= -->
+    <script>
+        // هذا السكريبت يضمن أن سنة حقوق النشر تتحدث تلقائياً كل عام
+        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    </script>
 </body>
 </html>
