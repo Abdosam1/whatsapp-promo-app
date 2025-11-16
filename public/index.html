@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أداة إرسال واتساب الاحترافية</title>
+    <title data-key="pageTitleIndex">أداة إرسال واتساب الاحترافية</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         /* --- Google Font & Theme Variables --- */
@@ -29,6 +29,7 @@
 
         /* --- Hero Section (Top Banner) --- */
         .hero {
+            position: relative; /* ضروري لوضع أزرار اللغة */
             background: var(--dark-color);
             background: linear-gradient(135deg, var(--dark-color) 0%, var(--secondary-color) 100%);
             color: white;
@@ -48,6 +49,29 @@
             margin: 10px auto 30px;
             opacity: 0.9;
         }
+        
+        /* --- ستايل أزرار اللغة (تمت الإضافة) --- */
+        .language-switcher {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+        .language-switcher button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 5px;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+        }
+        .language-switcher button.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
 
         /* --- Call-to-Action Buttons --- */
         .cta-buttons a {
@@ -62,153 +86,82 @@
             display: inline-block;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        .btn-main {
-            background-color: var(--primary-color);
-            border: 2px solid var(--primary-color);
-        }
-        .btn-main:hover {
-            background-color: #20c35b;
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-        }
-        .btn-secondary {
-            background-color: transparent;
-            border: 2px solid white;
-        }
-        .btn-secondary:hover {
-            background-color: white;
-            color: var(--dark-color);
-        }
+        .btn-main { background-color: var(--primary-color); border: 2px solid var(--primary-color); }
+        .btn-main:hover { background-color: #20c35b; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+        .btn-secondary { background-color: transparent; border: 2px solid white; }
+        .btn-secondary:hover { background-color: white; color: var(--dark-color); }
 
         /* --- Features Section --- */
-        .features {
-            padding: 100px 20px 50px;
-            max-width: 1200px;
-            margin: auto;
-        }
-        .features h2 {
-            font-size: 2.8em;
-            color: var(--dark-color);
-            margin-bottom: 50px;
-        }
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-        }
+        .features { padding: 100px 20px 50px; max-width: 1200px; margin: auto; }
+        .features h2 { font-size: 2.8em; color: var(--dark-color); margin-bottom: 50px; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
 
         /* --- Feature Card --- */
-        .feature-card {
-            background-color: var(--card-background);
-            padding: 30px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            transition: transform 0.3s ease;
-        }
-        .feature-card:hover {
-            transform: translateY(-10px);
-        }
-        .feature-card .icon {
-            font-size: 3em;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-        .feature-card h3 {
-            font-size: 1.5em;
-            color: var(--secondary-color);
-            margin-bottom: 10px;
-        }
-        .feature-card p {
-            color: #555;
-            line-height: 1.6;
-        }
+        .feature-card { background-color: var(--card-background); padding: 30px; border-radius: var(--border-radius); box-shadow: var(--shadow); transition: transform 0.3s ease; }
+        .feature-card:hover { transform: translateY(-10px); }
+        .feature-card .icon { font-size: 3em; color: var(--primary-color); margin-bottom: 20px; }
+        .feature-card h3 { font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px; }
+        .feature-card p { color: #555; line-height: 1.6; }
         
-        /* ================= CSS for Footer (تمت الإضافة هنا) ================= */
-        .site-footer {
-            background-color: #333; /* لون خلفية غامق */
-            color: #ccc;            /* لون نص فاتح */
-            text-align: center;
-            padding: 25px 0;
-            font-size: 0.9em;
-            width: 100%;
-            /* تمت إضافة الهامش العلوي لترك مسافة */
-            margin-top: 50px; 
-        }
-
-        .footer-links a {
-            color: #fff; /* لون الروابط أبيض ليكون واضحاً */
-            text-decoration: none;
-            margin: 0 10px;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: var(--primary-color); /* يستعمل اللون الأخضر عند مرور الفأرة */
-        }
-
-        .footer-links span {
-            color: #666; /* لون الفاصل بين الروابط */
-        }
-
-        .footer-copyright {
-            margin-top: 15px;
-            font-size: 0.8em;
-            color: #aaa;
-        }
+        /* --- Footer CSS --- */
+        .site-footer { background-color: #333; color: #ccc; text-align: center; padding: 25px 0; font-size: 0.9em; width: 100%; margin-top: 50px; }
+        .footer-links a { color: #fff; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
+        .footer-links a:hover { color: var(--primary-color); }
+        .footer-links span { color: #666; }
+        .footer-copyright { margin-top: 15px; font-size: 0.8em; color: #aaa; }
     </style>
 </head>
-<body>
+<body class="text-align-handler">
 
-    <!-- ======================= Hero Section ======================= -->
     <div class="hero">
-        <h1><i class="fab fa-whatsapp"></i> أداة إرسال واتساب الاحترافية</h1>
-        <p>أتمتة حملاتك التسويقية والوصول لآلاف العملاء بضغطة زر. سهل، سريع، وآمن.</p>
+        <div class="language-switcher">
+            <button id="lang-ar" data-key="lang_ar">العربية</button>
+            <button id="lang-en" data-key="lang_en">English</button>
+        </div>
+
+        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
+        <p data-key="heroSubtitle"></p>
         <div class="cta-buttons">
-            <a href="signup.html" class="btn-main">🚀 ابدأ تجربتك المجانية (24 ساعة)</a>
-            <a href="login.html" class="btn-secondary">تسجيل الدخول</a>
+            <a href="signup.html" class="btn-main" data-key="ctaStart"></a>
+            <a href="login.html" class="btn-secondary" data-key="ctaLogin"></a>
         </div>
     </div>
 
-    <!-- ======================= Features Section ======================= -->
     <div class="features">
-        <h2>لماذا تختار أداتنا؟</h2>
+        <h2 data-key="featuresTitle"></h2>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-rocket"></i></div>
-                <h3>إرسال فوري</h3>
-                <p>إرسال جماعي أو متسلسل لآلاف الأرقام بسرعة وكفاءة عالية، مع إمكانية إرفاق الصور.</p>
+                <h3 data-key="feature1Title"></h3>
+                <p data-key="feature1Desc"></p>
             </div>
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-file-import"></i></div>
-                <h3>استيراد سهل</h3>
-                <p>استيراد قوائم عملائك بسهولة من ملفات CSV دون الحاجة لإدخال الأرقام يدوياً.</p>
+                <h3 data-key="feature2Title"></h3>
+                <p data-key="feature2Desc"></p>
             </div>
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-shield-alt"></i></div>
-                <h3>تجربة آمنة</h3>
-                <p>نظام تأخير ذكي بين الرسائل لتقليل خطر الحظر، مع لوحة تحكم آمنة ومحمية بكلمة مرور.</p>
+                <h3 data-key="feature3Title"></h3>
+                <p data-key="feature3Desc"></p>
             </div>
         </div>
     </div>
 
-    <!-- ================= FOOTER START (تمت الإضافة هنا) ================= -->
     <footer class="site-footer">
         <div class="footer-links">
-            <a href="about.html">About Us</a>
+            <a href="about.html" data-key="footerAbout"></a>
             <span>|</span>
-            <a href="privacy.html">Privacy Policy</a>
+            <a href="privacy.html" data-key="footerPrivacy"></a>
         </div>
         <div class="footer-copyright">
-            <!-- السنة سيتم إضافتها تلقائياً بواسطة الجافاسكريبت -->
-            &copy; <span id="copyright-year"></span> Autosend Pro. جميع الحقوق محفوظة.
+            &copy; <span id="copyright-year"></span> Autosend Pro. <span data-key="footerRights"></span>
         </div>
     </footer>
-    <!-- ================= FOOTER END ================= -->
 
-    <!-- ================= JavaScript for Dynamic Year (تمت الإضافة هنا) ================= -->
     <script>
-        // هذا السكريبت يضمن أن سنة حقوق النشر تتحدث تلقائياً كل عام
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
     </script>
+    <script src="language.js"></script>
 </body>
 </html>
