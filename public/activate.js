@@ -7,7 +7,7 @@
 
 // المرجو تعديل هذه الروابط بروابط الدفع الخاصة بك من Gumroad
 const paymentLinks = {
-    oneMonth: "https://gumroad.com/l/gddbsb",
+    oneMonth: "https://2802284640767.gumroad.com/l/gddbsb",
     sixMonths: "الرابط-الخاص-بستة-أشهر-هنا", // <-- قم بتغيير هذا الرابط
     oneYear: "الرابط-الخاص-بسنة-واحدة-هنا"    // <-- قم بتغيير هذا الرابط
 };
