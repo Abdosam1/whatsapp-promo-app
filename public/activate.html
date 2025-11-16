@@ -100,7 +100,7 @@
     
     <p id="overlay-message" style="font-size:1.1em; margin-bottom:20px;">المرجو اختيار مدة الاشتراك لإتمام عملية الدفع:</p>
     
-    <!-- تم تعديل الأزرار بإزالة 'onclick' وإضافة 'id' -->
+    <!-- هذه الأزرار سيتم التحكم بها من خلال ملف activate.js -->
     <div id="subscription-options" class="button-group">
         <button id="btn-1-month" class="btn btn-primary" style="background:#2196F3;"><i class="fas fa-calendar-alt"></i> 1 شهر</button>
         <button id="btn-6-months" class="btn btn-primary" style="background:#FF9800;"><i class="fas fa-calendar-alt"></i> 6 أشهر</button>
@@ -110,10 +110,10 @@
     <hr style="margin: 20px 0;">
 
     <p id="activation-status" class="status-msg"></p>
-    <p style="font-size: 0.9em; color: #777; margin-top: 15px;">بعد إتمام الدفع، سيصلك رمز التفعيل على بريدك الإلكتروني.</p>
+    <p style="font-size: 0.9em; color: #777; margin-top: 15px;">سيتم أولاً إرسال طلب التفعيل ثم توجيهك لصفحة الدفع.</p>
   </div>
 
-<!-- ربط ملف الجافاسكريبت الذي سيقوم بعملية التوجيه -->
+<!-- ربط ملف الجافاسكريبت الذي سيقوم بكل العمليات -->
 <script src="activate.js"></script>
 </body>
 </html>
