@@ -1,13 +1,11 @@
-// activate.js - النسخة النهائية والمحدثة
+// activate.js - النسخة النهائية التي تجمع بين طلب الكود والتوجيه لصفحة الدفع
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ===================================================================
     // 1. الكود الخاص بالتحقق من التوكن وزر الخروج (يبقى كما هو)
-    // ===================================================================
     const token = localStorage.getItem('authToken');
     if (!token) {
         window.location.href = 'index.html';
-        return; // نوقف تنفيذ باقي الكود إذا لم يكن هناك توكن
+        return;
     }
 
     const logoutBtn = document.getElementById('logoutBtn');
@@ -19,42 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ===================================================================
-    // 2. الكود الجديد لربط الأزرار بروابط الدفع Gumroad
-    // ===================================================================
-
-    // المرجو تعديل هذه الروابط بروابط الدفع الخاصة بك من Gumroad
-    const paymentLinks = {
-        oneMonth: "https://gumroad.com/checkout?_gl=1*xda7wv*_ga*NjMwNDUxNzI0LjE3NjMzMDA5MTI.*_ga_6LJN6D94N6*czE3NjMzMDA5MTIkbzEkZzEkdDE3NjMzMDA5ODgkajYwJGwwJGgw",
-        sixMonths: "الرابط-الخاص-بستة-أشهر-هنا", // <-- قم بتغيير هذا الرابط
-        oneYear: "الرابط-الخاص-بسنة-واحدة-هنا"    // <-- قم بتغيير هذا الرابط
-    };
-
-    // نحدد الأزرار من الصفحة عن طريق الـ ID
-    const btn1Month = document.getElementById('btn-1-month');
-    const btn6Months = document.getElementById('btn-6-months');
-    const btn1Year = document.getElementById('btn-1-year');
-
-    // نضيف وظيفة النقر لكل زر ليوجه إلى صفحة الدفع
-    if (btn1Month) {
-        btn1Month.addEventListener('click', () => { window.location.href = paymentLinks.oneMonth; });
-    }
-    if (btn6Months) {
-        btn6Months.addEventListener('click', () => { window.location.href = paymentLinks.sixMonths; });
-    }
-    if (btn1Year) {
-        btn1Year.addEventListener('click', () => { window.location.href = paymentLinks.oneYear; });
-    }
-
-    // ===================================================================
-    // 3. التحقق من حالة الاشتراك (يبقى كما هو)
-    // ===================================================================
+    // 2. التحقق من حالة الاشتراك (يبقى كما هو)
     checkSubscriptionStatus();
 });
 
 
+// 3. دالة الاتصال بالـ API (تبقى كما هي)
 async function apiFetch(url, options = {}) {
-    // ... (هذه الدالة تبقى كما هي، لا تغيير)
     const token = localStorage.getItem('authToken');
     const headers = { ...options.headers };
     if (token) { headers['Authorization'] = `Bearer ${token}`; }
@@ -75,8 +44,8 @@ async function apiFetch(url, options = {}) {
 }
 
 
+// 4. دالة التحقق من حالة الاشتراك (تبقى كما هي)
 async function checkSubscriptionStatus() {
-    // ... (هذه الدالة تبقى كما هي، لا تغيير)
     try {
         const status = await apiFetch(`/api/check-status`);
         if (status.active) {
@@ -88,8 +57,29 @@ async function checkSubscriptionStatus() {
 }
 
 
-// ===================================================================
-// ملاحظة هامة: الدالة التالية لم نعد نحتاجها هنا لأن الأزرار
-// أصبحت توجه مباشرة إلى صفحة الدفع. لقد تم حذفها.
-// async function requestActivationCode(...) { ... }
-// ===================================================================
+// 5. تعديل دالة requestActivationCode لتشمل التوجيه بعد النجاح
+// هذه هي الدالة التي سيتم استدعاؤها من HTML
+async function handleSubscriptionRequest(durationName, durationDays, paymentLink) {
+    const statusEl = document.getElementById('activation-status');
+    statusEl.textContent = `...جاري تهيئة طلب اشتراك ${durationName}`;
+    statusEl.style.color = 'orange';
+
+    try {
+        // الخطوة 1: نرسل طلب إنشاء الكود إلى السيرفر
+        await apiFetch('/api/request-code', { 
+            method: 'POST',
+            body: JSON.stringify({ durationName, durationDays }) 
+        });
+        
+        statusEl.textContent = '✅ تم إرسال الطلب بنجاح! جاري توجيهك للدفع...';
+        statusEl.style.color = 'var(--primary-color)';
+
+        // الخطوة 2: بعد نجاح الطلب، نوجه المستخدم لصفحة الدفع
+        window.location.href = paymentLink;
+        
+    } catch (error) {
+        // في حالة فشل طلب إنشاء الكود، نعرض الخطأ ولا نوجه المستخدم
+        statusEl.textContent = `❌ فشل إرسال الطلب: ${error.message}`;
+        statusEl.style.color = 'var(--danger-color)';
+    }
+}
