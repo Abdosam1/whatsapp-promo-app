@@ -5,7 +5,6 @@
     "backToHome": "العودة للصفحة الرئيسية",
     "backToLogin": "العودة لصفحة تسجيل الدخول",
     "logoutBtn": "تسجيل الخروج",
-
     "pageTitleIndex": "أداة إرسال واتساب الاحترافية",
     "heroTitle": "أداة إرسال واتساب الاحترافية",
     "heroSubtitle": "أتمتة حملاتك التسويقية والوصول لآلاف العملاء بضغطة زر. سهل، سريع، وآمن.",
@@ -21,7 +20,6 @@
     "footerAbout": "من نحن",
     "footerPrivacy": "سياسة الخصوصية",
     "footerRights": "جميع الحقوق محفوظة.",
-
     "pageTitleLogin": "تسجيل الدخول",
     "loginTitle": "تسجيل الدخول",
     "loginSubtitle": "أهلاً بعودتك! سجل الدخول للمتابعة.",
@@ -32,7 +30,6 @@
     "loginWithGoogle": "المتابعة بواسطة جوجل",
     "loginNoAccount": "ليس لديك حساب؟",
     "loginCreateOne": "أنشئ واحداً",
-    
     "pageTitleSignup": "إنشاء حساب جديد",
     "signupTitle": "إنشاء حساب جديد",
     "signupSubtitle": "مرحباً بك! أدخل بياناتك للبدء.",
@@ -44,11 +41,9 @@
     "signupWithGoogle": "التسجيل بواسطة جوجل",
     "signupHaveAccount": "لديك حساب بالفعل؟",
     "signupLogin": "سجل الدخول",
-
     "pageTitleEmailConfirm": "تأكيد الإيميل",
     "emailConfirmTitle": "تم إرسال رابط التفعيل",
     "emailConfirmDesc": "تم إرسال رابط تفعيل حسابك إلى بريدك الإلكتروني. يرجى فتح صندوق الوارد (أو مجلد Spam) والنقر على الرابط لإكمال عملية التسجيل.",
-
     "pageTitleActivate": "تفعيل الاشتراك",
     "activateTitle": "تفعيل الاشتراك",
     "activateSubtitle": "المرجو اختيار مدة الاشتراك لإتمام عملية الدفع:",
@@ -56,12 +51,10 @@
     "btn6Months": "6 أشهر",
     "btn1Year": "1 سنة",
     "activateNote": "سيتم أولاً إرسال طلب التفعيل ثم توجيهك لصفحة الدفع.",
-
     "pageTitleValidation": "التحقق من الرمز",
     "validationTitle": "إدخال رمز التفعيل",
     "validationDesc": "المرجو إدخال رمز التفعيل الذي استلمته من المشرف لإتمام عملية تفعيل الاشتراك.",
     "validationBtn": "تفعيل الإشتراك",
-
     "pageTitleDashboard": "لوحة التحكم - نظام إرسال WhatsApp",
     "dashHeaderTitle": "لوحة تحكم إرسال العروض",
     "dashHeaderSubtitle": "من هنا يمكنك إدارة حملاتك التسويقية بسهولة",
@@ -81,7 +74,7 @@
     "dashPhoneLabel": "رقم الهاتف (مع رمز الدولة):",
     "dashSendSelectedBtn": "إرسال للمحدد",
     "dashTestSendBtn": "إرسال تجريبي لرقمك",
-    "dashCardLogsTitle": "السجل (Logs)"
+    "dashCardLogsTitle": "السجل (Logs)",
     "pricingSectionTitle": "أسعار شفافة ومرنة",
     "billed_annually": "تُحتسب سنوياً",
     "billed_monthly": "شهرياً",
@@ -94,7 +87,7 @@
     "planYearlyDesc": "الخيار الأمثل للشركات التي تخطط على المدى الطويل.",
     "planYearlyPricePerMonth": "أقل من 3$ للشهر",
     "getStartedBtn": "اختر الخطة",
-    "mostPopular": "الأكثر شيوعاً",
+    "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
     "lang_ar": "العربية",
@@ -102,7 +95,6 @@
     "backToHome": "Back to Homepage",
     "backToLogin": "Back to Login Page",
     "logoutBtn": "Logout",
-
     "pageTitleIndex": "Professional WhatsApp Sender Tool",
     "heroTitle": "Professional WhatsApp Sender Tool",
     "heroSubtitle": "Automate your marketing campaigns and reach thousands of customers with one click. Easy, fast, and secure.",
@@ -118,7 +110,6 @@
     "footerAbout": "About Us",
     "footerPrivacy": "Privacy Policy",
     "footerRights": "All rights reserved.",
-
     "pageTitleLogin": "Login",
     "loginTitle": "Login",
     "loginSubtitle": "Welcome back! Please login to continue.",
@@ -129,7 +120,6 @@
     "loginWithGoogle": "Continue with Google",
     "loginNoAccount": "Don't have an account?",
     "loginCreateOne": "Create one",
-
     "pageTitleSignup": "Create a New Account",
     "signupTitle": "Create a New Account",
     "signupSubtitle": "Welcome! Enter your details to start.",
@@ -141,11 +131,9 @@
     "signupWithGoogle": "Sign up with Google",
     "signupHaveAccount": "Already have an account?",
     "signupLogin": "Login",
-
     "pageTitleEmailConfirm": "Confirm Your Email",
     "emailConfirmTitle": "Activation Link Sent",
     "emailConfirmDesc": "An activation link has been sent to your email address. Please check your inbox (and spam folder) and click the link to complete your registration.",
-
     "pageTitleActivate": "Activate Subscription",
     "activateTitle": "Activate Subscription",
     "activateSubtitle": "Please choose a subscription duration to complete the payment:",
@@ -153,12 +141,10 @@
     "btn6Months": "6 Months",
     "btn1Year": "1 Year",
     "activateNote": "First, an activation request will be sent, then you will be redirected to the payment page.",
-    
     "pageTitleValidation": "Verify Code",
     "validationTitle": "Enter Activation Code",
     "validationDesc": "Please enter the activation code you received from the administrator to complete the subscription activation.",
     "validationBtn": "Activate Subscription",
-
     "pageTitleDashboard": "Dashboard - WhatsApp Sender System",
     "dashHeaderTitle": "Campaign Control Panel",
     "dashHeaderSubtitle": "Manage your marketing campaigns with ease from here",
@@ -178,9 +164,8 @@
     "dashPhoneLabel": "Phone Number (with country code):",
     "dashSendSelectedBtn": "Send to Selected",
     "dashTestSendBtn": "Send Test to Your Number",
-    "dashCardLogsTitle": "Logs"
-
-     "pricingSectionTitle": "Simple, Flexible Pricing",
+    "dashCardLogsTitle": "Logs",
+    "pricingSectionTitle": "Simple, Flexible Pricing",
     "billed_annually": "billed annually",
     "billed_monthly": "monthly",
     "planMonthlyTitle": "1 Month",
@@ -192,8 +177,6 @@
     "planYearlyDesc": "The ultimate choice for businesses planning for the long term.",
     "planYearlyPricePerMonth": "Less than $3/month",
     "getStartedBtn": "Choose Plan",
-    "mostPopular": "Most Popular",
+    "mostPopular": "Most Popular"
   }
-
 }
-
