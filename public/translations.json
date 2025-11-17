@@ -82,6 +82,19 @@
     "dashSendSelectedBtn": "إرسال للمحدد",
     "dashTestSendBtn": "إرسال تجريبي لرقمك",
     "dashCardLogsTitle": "السجل (Logs)"
+       "pricingSectionTitle": "أسعار شفافة ومرنة",
+    "billed_annually": "تُحتسب سنوياً",
+    "billed_monthly": "شهرياً",
+    "planMonthlyTitle": "شهر واحد",
+    "planMonthlyDesc": "مثالية لتجربة الخدمة أو للحملات الموسمية القصيرة.",
+    "planSemiTitle": "6 أشهر",
+    "planSemiDesc": "أفضل قيمة للحملات المستمرة وتحقيق النمو.",
+    "planSemiPricePerMonth": "فقط 3.33$ للشهر",
+    "planYearlyTitle": "سنة كاملة",
+    "planYearlyDesc": "الخيار الأمثل للشركات التي تخطط على المدى الطويل.",
+    "planYearlyPricePerMonth": "أقل من 3$ للشهر",
+    "getStartedBtn": "اختر الخطة",
+    "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
     "lang_ar": "العربية",
@@ -166,5 +179,20 @@
     "dashSendSelectedBtn": "Send to Selected",
     "dashTestSendBtn": "Send Test to Your Number",
     "dashCardLogsTitle": "Logs"
+
+     "pricingSectionTitle": "Simple, Flexible Pricing",
+    "billed_annually": "billed annually",
+    "billed_monthly": "monthly",
+    "planMonthlyTitle": "1 Month",
+    "planMonthlyDesc": "Perfect for trying out the service or for short seasonal campaigns.",
+    "planSemiTitle": "6 Months",
+    "planSemiDesc": "The best value for ongoing campaigns and achieving growth.",
+    "planSemiPricePerMonth": "Only $3.33/month",
+    "planYearlyTitle": "1 Year",
+    "planYearlyDesc": "The ultimate choice for businesses planning for the long term.",
+    "planYearlyPricePerMonth": "Less than $3/month",
+    "getStartedBtn": "Choose Plan",
+    "mostPopular": "Most Popular"
   }
+
 }
