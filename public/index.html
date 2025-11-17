@@ -49,11 +49,11 @@
             opacity: 0.9;
         }
         
-        /* --- ستايل أزرار اللغة (معدل لاستخدام الخصائص المنطقية) --- */
+        /* --- Language Switcher Styles --- */
         .language-switcher {
             position: absolute;
             top: 20px;
-            inset-inline-start: 20px; /* بديل 'left' ليدعم RTL/LTR */
+            inset-inline-start: 20px;
             z-index: 10;
         }
         .language-switcher button {
@@ -63,7 +63,7 @@
             padding: 5px 10px;
             border-radius: 5px;
             cursor: pointer;
-            margin-inline-start: 5px; /* بديل 'margin-left' */
+            margin-inline-start: 5px;
             font-family: 'Cairo', sans-serif;
             font-weight: 700;
         }
@@ -94,23 +94,89 @@
         .features { padding: 100px 20px 50px; max-width: 1200px; margin: auto; }
         .features h2 { font-size: 2.8em; color: var(--dark-color); margin-bottom: 50px; }
         .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-
-        /* --- Feature Card --- */
         .feature-card { 
             background-color: var(--card-background); 
             padding: 30px; 
             border-radius: var(--border-radius); 
             box-shadow: var(--shadow); 
             transition: transform 0.3s ease; 
-            text-align: start; /* محاذاة النص للبداية (يمين في العربية، يسار في الإنجليزية) */
+            text-align: start;
         }
         .feature-card:hover { transform: translateY(-10px); }
         .feature-card .icon { font-size: 3em; color: var(--primary-color); margin-bottom: 20px; }
         .feature-card h3 { font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px; }
         .feature-card p { color: #555; line-height: 1.6; }
         
+        /* --- CSS for Pricing Section (Added Here) --- */
+        .pricing-section {
+            background-color: var(--card-background);
+            padding: 80px 20px;
+        }
+        .pricing-section h2 {
+            font-size: 2.8em;
+            color: var(--dark-color);
+            margin-bottom: 50px;
+        }
+        .pricing-container {
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .pricing-card {
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid transparent;
+            position: relative;
+            text-align: start;
+        }
+        .pricing-card.popular {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+        .popular-badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 700;
+        }
+        .card-title { font-size: 1.8em; font-weight: 700; color: var(--secondary-color); margin-bottom: 10px; }
+        .card-desc { color: #777; margin-bottom: 30px; min-height: 50px; }
+        .price-amount { font-size: 3em; font-weight: 900; color: var(--dark-color); }
+        .price-amount span { font-size: 0.5em; font-weight: 600; color: #555; }
+        .price-note { color: #555; font-weight: 600; margin-top: -10px; margin-bottom: 30px; }
+        .card-button {
+            background: var(--dark-color);
+            color: white;
+            text-decoration: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1em;
+            display: block;
+            text-align: center;
+            margin-top: auto;
+            transition: background-color 0.3s;
+        }
+        .pricing-card.popular .card-button { background: var(--primary-color); }
+        .card-button:hover { background: var(--secondary-color); }
+
         /* --- Footer CSS --- */
-        .site-footer { background-color: #333; color: #ccc; text-align: center; padding: 25px 0; font-size: 0.9em; width: 100%; margin-top: 50px; }
+        .site-footer { background-color: #333; color: #ccc; text-align: center; padding: 25px 0; font-size: 0.9em; width: 100%; }
         .footer-links a { color: #fff; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
         .footer-links a:hover { color: var(--primary-color); }
         .footer-links span { color: #666; }
@@ -124,7 +190,6 @@
             <button id="lang-ar" data-key="lang_ar"></button>
             <button id="lang-en" data-key="lang_en"></button>
         </div>
-
         <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
         <p data-key="heroSubtitle"></p>
         <div class="cta-buttons">
@@ -150,6 +215,35 @@
                 <div class="icon"><i class="fas fa-shield-alt"></i></div>
                 <h3 data-key="feature3Title"></h3>
                 <p data-key="feature3Desc"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= Pricing Section (Added Here) ======================= -->
+    <div class="pricing-section">
+        <h2 data-key="pricingSectionTitle"></h2>
+        <div class="pricing-container">
+            <div class="pricing-card">
+                <h3 class="card-title" data-key="planMonthlyTitle"></h3>
+                <p class="card-desc" data-key="planMonthlyDesc"></p>
+                <div class="price-amount">$5 <span>/ <span data-key="monthly"></span></span></div>
+                <p class="price-note" style="visibility: hidden;">&nbsp;</p>
+                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
+            </div>
+            <div class="pricing-card popular">
+                <div class="popular-badge" data-key="mostPopular"></div>
+                <h3 class="card-title" data-key="planSemiTitle"></h3>
+                <p class="card-desc" data-key="planSemiDesc"></p>
+                <div class="price-amount">$20 <span>/ 6 <span data-key="monthly"></span></span></div>
+                <p class="price-note" data-key="planSemiPricePerMonth"></p>
+                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
+            </div>
+            <div class="pricing-card">
+                <h3 class="card-title" data-key="planYearlyTitle"></h3>
+                <p class="card-desc" data-key="planYearlyDesc"></p>
+                <div class="price-amount">$35 <span>/ <span data-key="billed_annually"></span></span></div>
+                <p class="price-note" data-key="planYearlyPricePerMonth"></p>
+                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
             </div>
         </div>
     </div>
