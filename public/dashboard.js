@@ -47,7 +47,6 @@ const uiElements = {
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
-    testMessageBtn: document.getElementById('testMessageBtn'),
 };
 
 // ================================================================= //
@@ -65,7 +64,6 @@ function initializeEventListeners() {
     uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
     uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
     uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
-    uiElements.testMessageBtn.addEventListener('click', testMessage);
     if (uiElements.deleteAllImportedBtn) {
         uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     }
@@ -200,7 +198,6 @@ async function deleteAllImported() {
 // ================================================================= //
 function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) { alert('❌ واتساب غير متصل. يرجى الانتظار.'); return; } log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
 function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("الرجاء إدخال رقم هاتف."); if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); sendPromo(phone, selectedPromoId, false); }
-function testMessage() { if (!selectedPromoId) return alert("الرجاء اختيار عرض لإرساله كتجربة."); sendPromo(adminNumber, selectedPromoId, false); }
 async function sendPromoSequentially(list, fromImported) { if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); if (!list || list.length === 0) return alert("القائمة فارغة."); if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً."); if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟`)) return; uiElements.sendSequentiallyClientsBtn.disabled = true; uiElements.sendSequentiallyImportedBtn.disabled = true; log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple'); for (let i = 0; i < list.length; i++) { const client = list[i]; if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; } sendPromo(client.phone, selectedPromoId, fromImported); if (i < list.length - 1) { const delay = 30000 + Math.random() * 30000; log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange"); await new Promise(resolve => setTimeout(resolve, delay)); } } log('🎉 انتهت حملة الإرسال بنجاح.', 'green'); uiElements.sendSequentiallyClientsBtn.disabled = false; uiElements.sendSequentiallyImportedBtn.disabled = false; }
 
 // ================================================================= //
@@ -229,3 +226,4 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
+
