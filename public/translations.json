@@ -87,6 +87,7 @@
     "planYearlyDesc": "الخيار الأمثل للشركات التي تخطط على المدى الطويل.",
     "planYearlyPricePerMonth": "أقل من 3$ للشهر",
     "getStartedBtn": "اختر الخطة",
+     "dashExportBtn": "تصدير CSV",
     "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
@@ -177,6 +178,8 @@
     "planYearlyDesc": "The ultimate choice for businesses planning for the long term.",
     "planYearlyPricePerMonth": "Less than $3/month",
     "getStartedBtn": "Choose Plan",
+    "dashExportBtn": "Export CSV",
     "mostPopular": "Most Popular"
   }
 }
+
