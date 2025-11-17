@@ -90,7 +90,7 @@ async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 
 // ================================================================= //
-// ================= 6. منطق Socket.IO وإدارة واتساب (تم التعديل) ================= //
+// ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
@@ -253,7 +253,6 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// --- مسار تسجيل الخروج الجديد ---
 app.post('/api/auth/logout', authMiddleware, (req, res) => {
     const userId = req.userData.userId;
     const client = whatsappClients[userId];
@@ -319,6 +318,21 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => { const { text } = req.body; const { userId } = req.userData; if (!req.file) return res.status(400).json({ message: "Image file is required." }); const promos = readPromos(userId); const newPromo = { id: Date.now(), text, image: req.file.filename }; promos.push(newPromo); writePromos(userId, promos); res.json({ status: "success", promo: newPromo }); });
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { const promoId = parseInt(req.params.id); const { userId } = req.userData; let promos = readPromos(userId); const promo = promos.find(p => p.id === promoId); if (promo) { const imagePath = path.join(promosUploadFolder, promo.image); if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); writePromos(userId, promos.filter(p => p.id !== promoId)); } res.json({ status: "deleted" }); });
+
+// ============ مسار جديد لحذف جميع العملاء المستوردين (تمت الإضافة هنا) ============ //
+app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => {
+    const { userId } = req.userData;
+    db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
+        if (err) {
+            console.error("Database error while deleting imported clients:", err.message);
+            return res.status(500).json({ message: "حدث خطأ في الخادم أثناء محاولة الحذف." });
+        }
+        res.status(200).json({ 
+            status: "success", 
+            message: `تم حذف ${this.changes} من العملاء المستوردين بنجاح.` 
+        });
+    });
+});
 
 // ================================================================= //
 // ===================== 9. خدمة الملفات الثابتة والتشغيل =================== //
