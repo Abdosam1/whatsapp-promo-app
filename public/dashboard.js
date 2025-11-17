@@ -47,6 +47,7 @@ const uiElements = {
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
+    exportClientsBtn: document.getElementById('exportClientsBtn') // تمت إضافة الزر الجديد هنا
 };
 
 // ================================================================= //
@@ -66,6 +67,10 @@ function initializeEventListeners() {
     uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
     if (uiElements.deleteAllImportedBtn) {
         uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
+    }
+    // تمت إضافة هذا الجزء لربط زر التصدير
+    if (uiElements.exportClientsBtn) {
+        uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
     }
 }
 
@@ -181,16 +186,33 @@ async function addNewPromo() { const text = uiElements.newPromoText.value.trim()
 async function importCSV() { const file = uiElements.csvFileInput.files[0]; if (!file) { return alert('يرجى اختيار ملف CSV.'); } const formData = new FormData(); formData.append('csv', file); try { const result = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} }
 function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
 async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
+async function deleteAllImported() { if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟ لا يمكن التراجع عن هذا الإجراء.")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
 
-async function deleteAllImported() {
-    if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟ لا يمكن التراجع عن هذا الإجراء.")) return;
-    try {
-        const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' });
-        log(`✅ ${result.message}`, 'green');
-        loadImportedClients();
-    } catch(err) {
-        // الخطأ يتم التعامل معه داخل apiFetch
+// --- دالة جديدة لتصدير العملاء ---
+function exportClientsToCSV() {
+    if (!clients || clients.length === 0) {
+        alert("قائمة العملاء الأساسيين فارغة، لا يوجد شيء لتصديره.");
+        return;
     }
+    log('🔄 جاري تحضير ملف CSV للتصدير...', 'blue');
+    const headers = ['phone', 'name'];
+    const csvHeader = headers.join(',') + '\n';
+    const csvRows = clients.map(client => {
+        const phone = client.phone || '';
+        const name = (client.name || '').replace(/,/g, ''); 
+        return [phone, name].join(',');
+    }).join('\n');
+    const csvContent = csvHeader + csvRows;
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "autosendpro_contacts.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    log('✅ تم تصدير ملف CSV بنجاح.', 'green');
 }
 
 // ================================================================= //
@@ -226,4 +248,3 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
-
