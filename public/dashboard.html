@@ -22,7 +22,7 @@
     header h1 i { color: var(--primary-color); }
     header p { color: #666; font-size: 1.1em; }
 
-    .header-controls { position: absolute; top: 10px; inset-inline-start: 10px; display: flex; gap: 10px; }
+    .header-controls { position: absolute; top: 10px; inset-inline-start: 10px; display: flex; gap: 10px; z-index: 10;}
     .language-switcher button {
         background: #fff; border: 1px solid #ddd; color: #555; padding: 5px 10px;
         border-radius: 5px; cursor: pointer;
@@ -77,7 +77,7 @@
     </header>
 
     <div class="card full-width" id="whatsapp-status-card">
-        <h2 data-key="dashCardStatusTitle"><i class="fas fa-sync-alt"></i></h2>
+        <h2><i class="fas fa-sync-alt"></i> <span data-key="dashCardStatusTitle"></span></h2>
         <div id="whatsapp-status" style="text-align: center; padding: 20px;">
             <p id="status-message" style="font-size: 1.2em; font-weight: 600;" data-key="dashStatusMsg"></p>
             <canvas id="qrcode-canvas" style="display:none;"></canvas>
@@ -87,15 +87,19 @@
     <div id="main-content" style="display:none;">
       <div class="main-grid">
         <div class="card">
-          <h2 data-key="dashCardClientsTitle"><i class="fas fa-users"></i></h2>
+          <h2><i class="fas fa-users"></i> <span data-key="dashCardClientsTitle"></span></h2>
           <div class="button-group">
               <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> <span data-key="dashSendAllBtn"></span></button>
+              <!-- الزر الجديد مع دعم الترجمة -->
+              <button type="button" id="exportClientsBtn" class="btn btn-secondary">
+                  <i class="fas fa-download"></i> <span data-key="dashExportBtn"></span>
+              </button>
           </div>
           <div id="clientsList" class="list-box"></div>
         </div>
 
         <div class="card">
-          <h2 data-key="dashCardImportedTitle"><i class="fas fa-file-import"></i></h2>
+          <h2><i class="fas fa-file-import"></i> <span data-key="dashCardImportedTitle"></span></h2>
           <div class="form-group" style="display:flex; gap: 10px; align-items: center;">
               <input type="file" id="csvFileInput" accept=".csv" style="flex-grow: 1;" />
               <button type="button" id="importCsvBtn" class="btn btn-secondary"><i class="fas fa-upload"></i> <span data-key="dashImportBtn"></span></button>
@@ -108,12 +112,12 @@
         </div>
 
         <div class="card full-width">
-          <h2 data-key="dashCardPromosTitle"><i class="fas fa-tags"></i></h2>
+          <h2><i class="fas fa-tags"></i> <span data-key="dashCardPromosTitle"></span></h2>
           <div id="promosList" class="promos-grid"></div>
         </div>
         
         <div class="card">
-          <h2 data-key="dashCardAddPromoTitle"><i class="fas fa-plus-circle"></i></h2>
+          <h2><i class="fas fa-plus-circle"></i> <span data-key="dashCardAddPromoTitle"></span></h2>
           <div class="form-group">
             <label for="newPromoText" data-key="dashPromoTextLabel"></label>
             <textarea id="newPromoText" rows="3" placeholder="..."></textarea>
@@ -126,7 +130,7 @@
         </div>
         
         <div class="card">
-          <h2 data-key="dashCardSingleSendTitle"><i class="fas fa-bullseye"></i></h2>
+          <h2><i class="fas fa-bullseye"></i> <span data-key="dashCardSingleSendTitle"></span></h2>
           <div class="form-group">
             <label for="phoneInput" data-key="dashPhoneLabel"></label>
             <input type="text" id="phoneInput" placeholder="212612345678" />
@@ -135,7 +139,7 @@
         </div>
 
         <div class="card full-width">
-          <h2 data-key="dashCardLogsTitle"><i class="fas fa-history"></i></h2>
+          <h2><i class="fas fa-history"></i> <span data-key="dashCardLogsTitle"></span></h2>
           <div id="logs" class="list-box logs-box"></div>
         </div>
       </div>
