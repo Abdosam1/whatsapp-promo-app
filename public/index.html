@@ -107,7 +107,7 @@
         .feature-card h3 { font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px; }
         .feature-card p { color: #555; line-height: 1.6; }
         
-        /* --- CSS for Pricing Section (Added Here) --- */
+        /* --- CSS for Pricing Section --- */
         .pricing-section {
             background-color: var(--card-background);
             padding: 80px 20px;
@@ -159,22 +159,7 @@
         .price-amount { font-size: 3em; font-weight: 900; color: var(--dark-color); }
         .price-amount span { font-size: 0.5em; font-weight: 600; color: #555; }
         .price-note { color: #555; font-weight: 600; margin-top: -10px; margin-bottom: 30px; }
-        .card-button {
-            background: var(--dark-color);
-            color: white;
-            text-decoration: none;
-            padding: 15px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 1.1em;
-            display: block;
-            text-align: center;
-            margin-top: auto;
-            transition: background-color 0.3s;
-        }
-        .pricing-card.popular .card-button { background: var(--primary-color); }
-        .card-button:hover { background: var(--secondary-color); }
-
+        
         /* --- Footer CSS --- */
         .site-footer { background-color: #333; color: #ccc; text-align: center; padding: 25px 0; font-size: 0.9em; width: 100%; }
         .footer-links a { color: #fff; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
@@ -219,7 +204,6 @@
         </div>
     </div>
 
-    <!-- ======================= Pricing Section (Added Here) ======================= -->
     <div class="pricing-section">
         <h2 data-key="pricingSectionTitle"></h2>
         <div class="pricing-container">
@@ -228,7 +212,7 @@
                 <p class="card-desc" data-key="planMonthlyDesc"></p>
                 <div class="price-amount">$5 <span>/ <span data-key="monthly"></span></span></div>
                 <p class="price-note" style="visibility: hidden;">&nbsp;</p>
-                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
+                <!-- الزر تم حذفه من هنا -->
             </div>
             <div class="pricing-card popular">
                 <div class="popular-badge" data-key="mostPopular"></div>
@@ -236,14 +220,14 @@
                 <p class="card-desc" data-key="planSemiDesc"></p>
                 <div class="price-amount">$20 <span>/ 6 <span data-key="monthly"></span></span></div>
                 <p class="price-note" data-key="planSemiPricePerMonth"></p>
-                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
+                <!-- الزر تم حذفه من هنا -->
             </div>
             <div class="pricing-card">
                 <h3 class="card-title" data-key="planYearlyTitle"></h3>
                 <p class="card-desc" data-key="planYearlyDesc"></p>
                 <div class="price-amount">$35 <span>/ <span data-key="billed_annually"></span></span></div>
                 <p class="price-note" data-key="planYearlyPricePerMonth"></p>
-                <a href="activate.html" class="card-button" data-key="getStartedBtn"></a>
+                <!-- الزر تم حذفه من هنا -->
             </div>
         </div>
     </div>
