@@ -66,6 +66,8 @@ function initializeEventListeners() {
     uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
     uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
     uiElements.testMessageBtn.addEventListener('click', testMessage);
+     if (uiElements.deleteAllImportedBtn) {
+        uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
 }
 
 // ================================================================= //
@@ -188,6 +190,31 @@ async function loadPromos() {
         displayPromos();
     } catch (err) { /* يتم التعامل مع الخطأ داخل apiFetch */ }
 }
+// ================================================================= //
+// ============ دالة جديدة لحذف جميع العملاء المستوردين ============ //
+// ================================================================= //
+
+async function deleteAllImported() {
+    // رسالة تأكيد قبل الحذف، لأن هذا الإجراء لا يمكن التراجع عنه
+    if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟")) {
+        return; // إذا ضغط المستخدم على "Cancel"، نتوقف هنا
+    }
+
+    try {
+        // استدعاء المسار الجديد في السيرفر باستخدام 'DELETE'
+        const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' });
+        
+        // عرض رسالة النجاح التي جاءت من السيرفر في السجل
+        log(`✅ ${result.message}`, 'green');
+        
+        // إعادة تحميل قائمة العملاء المستوردين لتظهر فارغة في الواجهة
+        loadImportedClients();
+
+    } catch (err) {
+        // دالة apiFetch ستقوم بعرض الخطأ في السجل تلقائياً
+        console.error("Failed to delete all imported clients:", err);
+    }
+}
 
 function displayClients(container, list, type) {
     container.innerHTML = "";
@@ -262,3 +289,4 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
+
