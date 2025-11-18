@@ -99,17 +99,26 @@ function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012
 io.on('connection', (socket) => {
     let activeUserId = null;
     let client = null;
+
     socket.on('init-whatsapp', (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
+
             if (whatsappClients[activeUserId]) {
                 client = whatsappClients[activeUserId];
-                if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
+                if (client.info) {
+                    socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
+                }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
-                client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
+                client = new Client({
+                    authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }),
+                    puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+                });
+
                 client.on("qr", (qr) => socket.emit('qr', qr));
+                
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
@@ -132,16 +141,21 @@ io.on('connection', (socket) => {
                         } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
                     });
                 });
+
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
                     delete activeCampaigns[activeUserId];
                 });
+
                 client.initialize();
                 whatsappClients[activeUserId] = client;
             }
-        } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
+        } catch (e) {
+            socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true });
+        }
     });
+
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -154,6 +168,7 @@ io.on('connection', (socket) => {
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
+
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
@@ -181,7 +196,21 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
-    socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
+    
+    // --- تمت إضافة هذا الحدث الجديد ---
+    socket.on('sync-contacts', async () => {
+        if (!activeUserId || !whatsappClients[activeUserId]) {
+            return;
+        }
+        console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
+        const currentClient = whatsappClients[activeUserId];
+        await syncWhatsAppContacts(currentClient, activeUserId);
+        socket.emit('sync-complete');
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`Socket disconnected. WhatsApp session remains active.`);
+    });
 });
 
 // ================================================================= //
