@@ -243,7 +243,6 @@ passport.use(new GoogleStrategy({
 // ================================================================= //
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
-
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
