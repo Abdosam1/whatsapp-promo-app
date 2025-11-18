@@ -99,7 +99,7 @@ async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 
 // ================================================================= //
-// ================= 6. منطق Socket.IO وإدارة واتساب ================= //
+// ================= 6. منطق Socket.IO وإدارة واتساب (معدل بالكامل) ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
