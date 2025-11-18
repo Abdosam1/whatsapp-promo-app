@@ -18,7 +18,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
-const { OpenAI } = require("openai");
+const { OpenAI } = require("openai"); // تمت إضافة OpenAI
 
 // ================================================================= //
 // ========================= 2. المتغيرات العامة والتكوينات ======================= //
@@ -37,10 +37,15 @@ const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const pendingRegistrations = {};
 
+// كائن لتخزين عملاء واتساب النشطين لكل مستخدم
 const whatsappClients = {};
+// كائن لتخزين معلومات الحملات النشطة لكل مستخدم
 const activeCampaigns = {};
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// إعداد OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 // ================================================================= //
 // ================= 3. تهيئة الخدمات وقواعد البيانات ================= //
@@ -64,7 +69,7 @@ db.serialize(() => {
     };
     addColumnIfNotExists('users', 'subscription_status', "TEXT DEFAULT 'trial'");
     addColumnIfNotExists('users', 'activation_code', 'TEXT');
-    addColumnIfNotExists('users', 'chatbot_prompt', 'TEXT');
+    addColumnIfNotExists('users', 'chatbot_prompt', 'TEXT'); // إضافة عمود الشات بوت
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
@@ -94,7 +99,7 @@ async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 
 // ================================================================= //
-// ================= 6. منطق Socket.IO وإدارة واتساب ================= //
+// ================= 6. منطق Socket.IO وإدارة واتساب (معدل بالكامل) ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
@@ -122,12 +127,18 @@ io.on('connection', (socket) => {
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
+
+                    // --- تفعيل مستمع الشات بوت بشكل دائم ---
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
+                        
+                        // نتحقق من وجود الحملة النشطة داخل المستمع مباشرة
                         const campaignInfo = activeCampaigns[activeUserId];
-                        if (!campaignInfo) return;
+                        if (!campaignInfo) return; // لا يرد إلا إذا كانت هناك حملة نشطة
+
                         const userMessage = message.body;
                         const fromNumber = message.from;
+
                         try {
                             const completion = await openai.chat.completions.create({
                                 model: "gpt-3.5-turbo",
@@ -148,7 +159,7 @@ io.on('connection', (socket) => {
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
-                    delete activeCampaigns[activeUserId];
+                    delete activeCampaigns[activeUserId]; // مسح الحملة عند قطع الاتصال
                 });
 
                 client.initialize();
@@ -182,22 +193,12 @@ io.on('connection', (socket) => {
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
-
-        if (!promo) {
-            return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-        }
+        if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
 
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-
-            if (promo.image) {
-                const media = MessageMedia.fromFilePath(path.join(promosUploadFolder, promo.image));
-                await currentClient.sendMessage(numberId, media, { caption: promo.text });
-            } 
-            else if (promo.text) {
-                await currentClient.sendMessage(numberId, promo.text, { linkPreview: true });
-            }
-
+            const media = MessageMedia.fromFilePath(path.join(promosUploadFolder, promo.image));
+            await currentClient.sendMessage(numberId, media, { caption: promo.text });
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
@@ -236,6 +237,8 @@ passport.use(new GoogleStrategy({
 // ================================================================= //
 // ======================= 8. مسارات API (Routes) ======================= //
 // ================================================================= //
+
+// --- 8.1: مسارات المصادقة والتسجيل ---
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
@@ -305,7 +308,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post('/api/auth/logout', authMiddleware, (req, res) => {
     const userId = req.userData.userId;
-    delete activeCampaigns[userId];
+    delete activeCampaigns[userId]; // مسح معلومات الحملة عند الخروج
     const client = whatsappClients[userId];
     if (client) {
         client.destroy().catch(err => console.error(`Error destroying client for user ${userId}:`, err));
@@ -318,6 +321,7 @@ app.post('/api/auth/logout', authMiddleware, (req, res) => {
     res.status(200).json({ message: 'تم تسجيل الخروج بنجاح.' });
 });
 
+// --- 8.2: مسارات تفعيل الاشتراك ---
 app.post("/api/request-code", authMiddleware, async (req, res) => {
     const userId = req.userData.userId;
     const { durationName, durationDays } = req.body;
@@ -361,6 +365,7 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     });
 });
 
+// --- 8.3: المسارات المحمية ---
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { const { userId } = req.userData; if (!req.file) return res.status(400).json({ error: "No file uploaded" }); const results = []; fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 })).on('data', (data) => { const phone = String(data.phone || "").replace(/\D/g, ""); if (phone.length >= 8) results.push(phone); }).on('end', () => { fs.unlinkSync(req.file.path); if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." }); const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`); let importedCount = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); results.forEach(phone => stmt.run(phone, userId, function (err) { if (!err && this.changes > 0) importedCount++; })); stmt.finalize(); db.run("COMMIT", () => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount })); }); }); });
