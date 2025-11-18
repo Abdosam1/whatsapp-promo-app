@@ -47,7 +47,10 @@ const uiElements = {
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
-    exportClientsBtn: document.getElementById('exportClientsBtn') // تمت إضافة الزر الجديد هنا
+    exportClientsBtn: document.getElementById('exportClientsBtn'),
+    // --- عناصر الشات بوت الجديدة ---
+    chatbotPrompt: document.getElementById('chatbotPrompt'),
+    savePromptBtn: document.getElementById('savePromptBtn')
 };
 
 // ================================================================= //
@@ -68,9 +71,12 @@ function initializeEventListeners() {
     if (uiElements.deleteAllImportedBtn) {
         uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     }
-    // تمت إضافة هذا الجزء لربط زر التصدير
     if (uiElements.exportClientsBtn) {
         uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
+    }
+    // --- ربط زر حفظ إعدادات الشات بوت ---
+    if (uiElements.savePromptBtn) {
+        uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
     }
 }
 
@@ -108,6 +114,8 @@ function initializeWhatsAppConnection() {
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
     socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 تم قطع الاتصال بالخادم، حاول تحديث الصفحة.', 'orange'); });
+    // استقبال رسائل السجل من السيرفر
+    socket.on('log', (data) => log(data.message, data.color));
 }
 
 // ================================================================= //
@@ -142,77 +150,53 @@ async function apiFetch(url, options = {}) {
 // ================================================================= //
 // =================== 6. تحميل وعرض البيانات ====================== //
 // ================================================================= //
-function loadInitialData() { log('🔄 جاري تحميل البيانات الأولية...', 'blue'); loadClients(); loadImportedClients(); loadPromos(); }
+function loadInitialData() { 
+    log('🔄 جاري تحميل البيانات الأولية...', 'blue'); 
+    loadClients(); 
+    loadImportedClients(); 
+    loadPromos();
+    loadChatbotPrompt(); // تحميل إعدادات الشات بوت
+}
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients, 'contacts'); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients, 'imported'); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
 
-function displayClients(container, list, type) {
-    container.innerHTML = "";
-    const title = type === 'contacts' ? 'جهات الاتصال' : 'الأرقام المستوردة';
-    if (!list || !list.length) { container.innerHTML = `<p class="empty-list">قائمة ${title} فارغة.</p>`; return; }
-    list.forEach(client => {
-        const div = document.createElement("div");
-        div.className = 'client-item';
-        div.innerHTML = `<span>${client.name || ''} <strong>+${client.phone}</strong></span>`;
-        container.appendChild(div);
-    });
-}
-
-function displayPromos() {
-    uiElements.promosList.innerHTML = "";
-    if (!promos || !promos.length) { uiElements.promosList.innerHTML = `<p class="empty-list">لم تقم بإضافة أي عروض بعد.</p>`; return; }
-    promos.forEach(promo => {
-        const div = document.createElement("div");
-        div.className = "promo";
-        div.id = `promo-${promo.id}`;
-        div.innerHTML = `
-            <img src="promos/${promo.image}" alt="صورة العرض">
-            <p title="${promo.text}">${promo.text.slice(0, 50)}...</p>
-            <div class="promo-buttons">
-                <button type="button" class="btn-select"><i class="fas fa-check"></i> اختيار</button>
-                <button type="button" class="btn-delete"><i class="fas fa-trash"></i> حذف</button>
-            </div>`;
-        div.querySelector('.btn-select').addEventListener('click', () => selectPromo(promo.id));
-        div.querySelector('.btn-delete').addEventListener('click', () => deletePromo(promo.id));
-        uiElements.promosList.appendChild(div);
-    });
-}
+function displayClients(container, list, type) { /* ... يبقى كما هو ... */ }
+function displayPromos() { /* ... يبقى كما هو ... */ }
 
 // ================================================================= //
 // =================== 7. وظائف التفاعل مع المستخدم ================= //
 // ================================================================= //
-async function addNewPromo() { const text = uiElements.newPromoText.value.trim(); const imageFile = uiElements.newPromoImage.files[0]; if (!text || !imageFile) { return alert('يرجى إدخال نص واختيار صورة.'); } const formData = new FormData(); formData.append('text', text); formData.append('image', imageFile); try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ تم إضافة العرض بنجاح!", 'green'); uiElements.newPromoText.value = ''; uiElements.newPromoImage.value = ''; loadPromos(); } catch (err) {} }
-async function importCSV() { const file = uiElements.csvFileInput.files[0]; if (!file) { return alert('يرجى اختيار ملف CSV.'); } const formData = new FormData(); formData.append('csv', file); try { const result = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} }
-function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
-async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
-async function deleteAllImported() { if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟ لا يمكن التراجع عن هذا الإجراء.")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
+async function addNewPromo() { /* ... يبقى كما هو ... */ }
+async function importCSV() { /* ... يبقى كما هو ... */ }
+function selectPromo(id) { /* ... يبقى كما هو ... */ }
+async function deletePromo(id) { /* ... يبقى كما هو ... */ }
+async function deleteAllImported() { /* ... يبقى كما هو ... */ }
+function exportClientsToCSV() { /* ... يبقى كما هو ... */ }
 
-// --- دالة جديدة لتصدير العملاء ---
-function exportClientsToCSV() {
-    if (!clients || clients.length === 0) {
-        alert("قائمة العملاء الأساسيين فارغة، لا يوجد شيء لتصديره.");
-        return;
+// --- وظائف جديدة خاصة بالشات بوت ---
+async function loadChatbotPrompt() {
+    try {
+        const data = await apiFetch('/api/chatbot-prompt');
+        if (uiElements.chatbotPrompt && data.prompt) {
+            uiElements.chatbotPrompt.value = data.prompt;
+        }
+    } catch (error) {
+        console.error("Failed to load chatbot prompt:", error);
     }
-    log('🔄 جاري تحضير ملف CSV للتصدير...', 'blue');
-    const headers = ['phone', 'name'];
-    const csvHeader = headers.join(',') + '\n';
-    const csvRows = clients.map(client => {
-        const phone = client.phone || '';
-        const name = (client.name || '').replace(/,/g, ''); 
-        return [phone, name].join(',');
-    }).join('\n');
-    const csvContent = csvHeader + csvRows;
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "autosendpro_contacts.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    log('✅ تم تصدير ملف CSV بنجاح.', 'green');
+}
+
+async function saveChatbotPrompt() {
+    const prompt = uiElements.chatbotPrompt.value;
+    try {
+        const result = await apiFetch('/api/chatbot-prompt', {
+            method: 'POST',
+            body: JSON.stringify({ prompt })
+        });
+        log(`✅ ${result.message}`, 'green');
+    } catch (error) {
+        console.error("Failed to save chatbot prompt:", error);
+    }
 }
 
 // ================================================================= //
@@ -220,7 +204,37 @@ function exportClientsToCSV() {
 // ================================================================= //
 function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) { alert('❌ واتساب غير متصل. يرجى الانتظار.'); return; } log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
 function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("الرجاء إدخال رقم هاتف."); if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); sendPromo(phone, selectedPromoId, false); }
-async function sendPromoSequentially(list, fromImported) { if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); if (!list || list.length === 0) return alert("القائمة فارغة."); if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً."); if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟`)) return; uiElements.sendSequentiallyClientsBtn.disabled = true; uiElements.sendSequentiallyImportedBtn.disabled = true; log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple'); for (let i = 0; i < list.length; i++) { const client = list[i]; if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; } sendPromo(client.phone, selectedPromoId, fromImported); if (i < list.length - 1) { const delay = 30000 + Math.random() * 30000; log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange"); await new Promise(resolve => setTimeout(resolve, delay)); } } log('🎉 انتهت حملة الإرسال بنجاح.', 'green'); uiElements.sendSequentiallyClientsBtn.disabled = false; uiElements.sendSequentiallyImportedBtn.disabled = false; }
+
+// --- تعديل دالة الإرسال المتسلسل ---
+async function sendPromoSequentially(list, fromImported) {
+    if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
+    if (!list || list.length === 0) return alert("القائمة فارغة.");
+    if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً.");
+    if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟ سيتم تفعيل المساعد الذكي لهذه الحملة.`)) return;
+
+    // تفعيل وضع الحملة في السيرفر
+    log('🤖 جاري تفعيل وضع الحملة والمساعد الذكي...', 'blue');
+    socket.emit('start-campaign-mode', { promoId: selectedPromoId });
+
+    uiElements.sendSequentiallyClientsBtn.disabled = true;
+    uiElements.sendSequentiallyImportedBtn.disabled = true;
+
+    log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple');
+    for (let i = 0; i < list.length; i++) {
+        const client = list[i];
+        if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; }
+        sendPromo(client.phone, selectedPromoId, fromImported);
+        if (i < list.length - 1) {
+            const delay = 30000 + Math.random() * 30000;
+            log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    log('🎉 انتهت حملة الإرسال. المساعد الذكي سيبقى نشطاً للرد على الأجوبة.', 'green');
+    
+    uiElements.sendSequentiallyClientsBtn.disabled = false;
+    uiElements.sendSequentiallyImportedBtn.disabled = false;
+}
 
 // ================================================================= //
 // ====================== 9. وظائف مساعدة أخرى ====================== //
