@@ -196,7 +196,36 @@ function displayPromos() {
 // ================================================================= //
 // =================== 7. وظائف التفاعل مع المستخدم ================= //
 // ================================================================= //
-async function addNewPromo() { const text = uiElements.newPromoText.value.trim(); const imageFile = uiElements.newPromoImage.files[0]; if (!text || !imageFile) { return alert('يرجى إدخال نص واختيار صورة.'); } const formData = new FormData(); formData.append('text', text); formData.append('image', imageFile); try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ تم إضافة العرض بنجاح!", 'green'); uiElements.newPromoText.value = ''; uiElements.newPromoImage.value = ''; loadPromos(); } catch (err) {} }
+// استبدل الدالة القديمة بهذه النسخة
+async function addNewPromo() {
+    const text = uiElements.newPromoText.value.trim();
+    const imageFile = uiElements.newPromoImage.files[0];
+
+    // --- التغيير هنا: نتأكد فقط من أن أحدهما على الأقل موجود ---
+    if (!text && !imageFile) {
+        return alert('يرجى إدخال نص أو اختيار صورة على الأقل.');
+    }
+
+    const formData = new FormData();
+    
+    // نضيف النص دائماً، حتى لو كان فارغاً
+    formData.append('text', text);
+
+    // نضيف الصورة فقط إذا تم اختيارها
+    if (imageFile) {
+        formData.append('image', imageFile);
+    }
+
+    try {
+        await apiFetch('/addPromo', { method: 'POST', body: formData });
+        log("✅ تم إضافة العرض بنجاح!", 'green');
+        uiElements.newPromoText.value = '';
+        uiElements.newPromoImage.value = '';
+        loadPromos();
+    } catch (err) {
+        // الخطأ يتم التعامل معه في apiFetch
+    }
+}
 async function importCSV() { const file = uiElements.csvFileInput.files[0]; if (!file) { return alert('يرجى اختيار ملف CSV.'); } const formData = new FormData(); formData.append('csv', file); try { const result = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ ${result.message} (تم استيراد ${result.imported} رقم جديد).`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} }
 function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
 async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
@@ -303,3 +332,4 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
+
