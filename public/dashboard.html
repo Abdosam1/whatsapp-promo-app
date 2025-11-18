@@ -108,7 +108,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="main-content" style="display:none;">
       <div class="main-grid">
         <div class="card">
-          <h2><i class="fas fa-users"></i> <span data-key="dashCardClientsTitle"></span></h2>
+          <h2 style="display: flex; justify-content: space-between; align-items: center;">
+              <span><i class="fas fa-users"></i> <span data-key="dashCardClientsTitle"></span></span>
+              <button type="button" id="syncContactsBtn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;">
+                  <i class="fas fa-sync-alt"></i> <span data-key="dashSyncBtn"></span>
+              </button>
+          </h2>
           <div class="button-group">
               <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> <span data-key="dashSendAllBtn"></span></button>
               <button type="button" id="exportClientsBtn" class="btn btn-secondary">
@@ -158,9 +163,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> <span data-key="dashSendSelectedBtn"></span></button>
         </div>
 
-        <!-- ======================================================= -->
-        <!-- ========== بطاقة جديدة لإعدادات الشات بوت الذكي ========== -->
-        <!-- ======================================================= -->
         <div class="card">
             <h2><i class="fas fa-robot"></i> <span data-key="dashCardChatbotTitle"></span></h2>
             <div class="form-group">
