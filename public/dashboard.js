@@ -48,7 +48,7 @@ const uiElements = {
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
     exportClientsBtn: document.getElementById('exportClientsBtn'),
-    // --- عناصر الشات بوت الجديدة ---
+    // --- عناصر الشات بوت ---
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn')
 };
@@ -74,7 +74,6 @@ function initializeEventListeners() {
     if (uiElements.exportClientsBtn) {
         uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
     }
-    // --- ربط زر حفظ إعدادات الشات بوت ---
     if (uiElements.savePromptBtn) {
         uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
     }
@@ -114,7 +113,6 @@ function initializeWhatsAppConnection() {
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
     socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 تم قطع الاتصال بالخادم، حاول تحديث الصفحة.', 'orange'); });
-    // استقبال رسائل السجل من السيرفر
     socket.on('log', (data) => log(data.message, data.color));
 }
 
@@ -155,24 +153,35 @@ function loadInitialData() {
     loadClients(); 
     loadImportedClients(); 
     loadPromos();
-    loadChatbotPrompt(); // تحميل إعدادات الشات بوت
+    loadChatbotPrompt();
 }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients, 'contacts'); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients, 'imported'); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
 
-function displayClients(container, list, type) { /* ... يبقى كما هو ... */ }
-function displayPromos() { /* ... يبقى كما هو ... */ }
+function displayClients(container, list, type) {
+    container.innerHTML = "";
+    const title = type === 'contacts' ? 'جهات الاتصال' : 'الأرقام المستوردة';
+    if (!list || !list.length) { container.innerHTML = `<p class="empty-list">قائمة ${title} فارغة.</p>`; return; }
+    list.forEach(client => {
+        const div = document.createElement("div");
+        div.className = 'client-item';
+        div.innerHTML = `<span>${client.name || ''} <strong>+${client.phone}</strong></span>`;
+        container.appendChild(div);
+    });
+}
+
+function displayPromos() { /* ... الكود الأصلي يبقى كما هو ... */ }
 
 // ================================================================= //
 // =================== 7. وظائف التفاعل مع المستخدم ================= //
 // ================================================================= //
-async function addNewPromo() { /* ... يبقى كما هو ... */ }
-async function importCSV() { /* ... يبقى كما هو ... */ }
-function selectPromo(id) { /* ... يبقى كما هو ... */ }
-async function deletePromo(id) { /* ... يبقى كما هو ... */ }
-async function deleteAllImported() { /* ... يبقى كما هو ... */ }
-function exportClientsToCSV() { /* ... يبقى كما هو ... */ }
+async function addNewPromo() { /* ... الكود الأصلي يبقى كما هو ... */ }
+async function importCSV() { /* ... الكود الأصلي يبقى كما هو ... */ }
+function selectPromo(id) { /* ... الكود الأصلي يبقى كما هو ... */ }
+async function deletePromo(id) { /* ... الكود الأصلي يبقى كما هو ... */ }
+async function deleteAllImported() { if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
+function exportClientsToCSV() { /* ... الكود الأصلي يبقى كما هو ... */ }
 
 // --- وظائف جديدة خاصة بالشات بوت ---
 async function loadChatbotPrompt() {
@@ -181,9 +190,7 @@ async function loadChatbotPrompt() {
         if (uiElements.chatbotPrompt && data.prompt) {
             uiElements.chatbotPrompt.value = data.prompt;
         }
-    } catch (error) {
-        console.error("Failed to load chatbot prompt:", error);
-    }
+    } catch (error) { console.error("Failed to load chatbot prompt:", error); }
 }
 
 async function saveChatbotPrompt() {
@@ -194,25 +201,21 @@ async function saveChatbotPrompt() {
             body: JSON.stringify({ prompt })
         });
         log(`✅ ${result.message}`, 'green');
-    } catch (error) {
-        console.error("Failed to save chatbot prompt:", error);
-    }
+    } catch (error) { console.error("Failed to save chatbot prompt:", error); }
 }
 
 // ================================================================= //
 // ========================= 8. وظائف الإرسال ======================= //
 // ================================================================= //
-function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) { alert('❌ واتساب غير متصل. يرجى الانتظار.'); return; } log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
+function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) return; log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
 function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("الرجاء إدخال رقم هاتف."); if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); sendPromo(phone, selectedPromoId, false); }
 
-// --- تعديل دالة الإرسال المتسلسل ---
 async function sendPromoSequentially(list, fromImported) {
     if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
     if (!list || list.length === 0) return alert("القائمة فارغة.");
     if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً.");
     if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟ سيتم تفعيل المساعد الذكي لهذه الحملة.`)) return;
 
-    // تفعيل وضع الحملة في السيرفر
     log('🤖 جاري تفعيل وضع الحملة والمساعد الذكي...', 'blue');
     socket.emit('start-campaign-mode', { promoId: selectedPromoId });
 
@@ -241,9 +244,8 @@ async function sendPromoSequentially(list, fromImported) {
 // ================================================================= //
 async function handleLogout(isForced = false) {
     if (!isForced && !confirm("هل أنت متأكد من رغبتك في تسجيل الخروج؟")) return;
-    if (isForced) {
-        alert("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
-    } else {
+    if (isForced) { alert("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً."); } 
+    else {
         log('🔒 جاري تسجيل الخروج وتدمير جلسة واتساب...', 'orange');
         try {
             await apiFetch('/api/auth/logout', { method: 'POST' });
