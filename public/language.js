@@ -14,9 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             // دمج الترجمات المحملة في الكائن الرئيسي
             Object.assign(translations, data);
-        } catch (error)
-        
-        {
+        } catch (error) {
             console.error("Could not load translations file:", error);
         }
     }
@@ -29,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // التأكد من أن الترجمات لهذه اللغة موجودة
         if (!translations[lang]) return;
 
-        // تحديث جميع العناصر التي تحتوي على السمة 'data-key'
+        // تحديث النصوص العادية (innerHTML)
         document.querySelectorAll('[data-key]').forEach(element => {
             const key = element.getAttribute('data-key');
             if (translations[lang][key]) {
@@ -37,12 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // ======================== التغيير الأهم ========================
-        // تحديث لغة واتجاه الصفحة الرئيسية (<html>). 
-        // هذا السطر هو الذي يسمح لخصائص CSS المنطقية بالعمل بشكل صحيح.
+        // --- الجزء المضاف: تحديث نصوص الـ placeholder ---
+        document.querySelectorAll('[data-key-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-key-placeholder');
+            if (translations[lang][key]) {
+                element.placeholder = translations[lang][key];
+            }
+        });
+        // ---------------------------------------------
+
+        // تحديث لغة واتجاه الصفحة الرئيسية (<html>)
         document.documentElement.lang = lang;
         document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        // =============================================================
 
         // تحديث حالة الأزرار (إظهار الزر النشط)
         const langArBtn = document.getElementById('lang-ar');
