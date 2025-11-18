@@ -99,26 +99,17 @@ function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012
 io.on('connection', (socket) => {
     let activeUserId = null;
     let client = null;
-
     socket.on('init-whatsapp', (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
-
             if (whatsappClients[activeUserId]) {
                 client = whatsappClients[activeUserId];
-                if (client.info) {
-                    socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
-                }
+                if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
-                client = new Client({
-                    authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }),
-                    puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-                });
-
+                client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
                 client.on("qr", (qr) => socket.emit('qr', qr));
-                
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
@@ -132,10 +123,7 @@ io.on('connection', (socket) => {
                             const completion = await openai.chat.completions.create({
                                 model: "gpt-3.5-turbo",
                                 messages: [
-                                    {
-                                        role: "system",
-                                        content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.`
-                                    },
+                                    { role: "system", content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.` },
                                     { role: "user", content: userMessage }
                                 ]
                             });
@@ -144,21 +132,16 @@ io.on('connection', (socket) => {
                         } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
                     });
                 });
-
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
                     delete activeCampaigns[activeUserId];
                 });
-
                 client.initialize();
                 whatsappClients[activeUserId] = client;
             }
-        } catch (e) {
-            socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true });
-        }
+        } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
-
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -166,45 +149,31 @@ io.on('connection', (socket) => {
         if (!selectedPromo) return;
         db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
             if (err || !user) return;
-            activeCampaigns[activeUserId] = {
-                promoText: selectedPromo.text,
-                businessPrompt: user.chatbot_prompt || "متجر عام"
-            };
+            activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
             console.log(`[Campaign Mode] Activated for user ${activeUserId}`);
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
-
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
-        
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
-
-        if (!promo) {
-            return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-        }
-
+        if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
                 if (fs.existsSync(imagePath)) {
                     const media = MessageMedia.fromFilePath(imagePath);
                     await currentClient.sendMessage(numberId, media, { caption: promo.text || "" });
                 } else {
-                    if (promo.text) {
-                        await currentClient.sendMessage(numberId, promo.text, { linkPreview: true });
-                    }
+                    if (promo.text) { await currentClient.sendMessage(numberId, promo.text, { linkPreview: true }); }
                 }
-            } 
-            else if (promo.text) {
+            } else if (promo.text) {
                 await currentClient.sendMessage(numberId, promo.text, { linkPreview: true });
             }
-
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
@@ -212,10 +181,7 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
-    
-    socket.on('disconnect', () => {
-        console.log(`Socket disconnected. WhatsApp session remains active.`);
-    });
+    socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
 });
 
 // ================================================================= //
@@ -335,11 +301,7 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = {
-                    from: SENDER_EMAIL, to: ADMIN_EMAIL,
-                    subject: `طلب تفعيل اشتراك جديد من ${user.email}`,
-                    html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>`
-                };
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
                 await transporter.sendMail(mailOptions);
                 res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
             }
@@ -359,12 +321,10 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
         const { durationDays } = activationRequest;
         const newSubscriptionEndDate = new Date();
         newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
-        db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?",
-            [newSubscriptionEndDate.toISOString(), userId], (err) => {
-                if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
-                res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
-            }
-        );
+        db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => {
+            if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
+            res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
+        });
     });
 });
 
@@ -376,20 +336,30 @@ app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(rea
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
     const { text } = req.body;
     const { userId } = req.userData;
-    
     const promos = readPromos(userId);
-    const newPromo = { 
-        id: Date.now(), 
-        text: text || "", 
-        image: req.file ? req.file.filename : null
-    };
-
+    const newPromo = { id: Date.now(), text: text || "", image: req.file ? req.file.filename : null };
     promos.push(newPromo);
     writePromos(userId, promos);
     res.json({ status: "success", promo: newPromo });
 });
 
-app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { const promoId = parseInt(req.params.id); const { userId } = req.userData; let promos = readPromos(userId); const promo = promos.find(p => p.id === promoId); if (promo) { const imagePath = path.join(promosUploadFolder, promo.image); if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); writePromos(userId, promos.filter(p => p.id !== promoId)); } res.json({ status: "deleted" }); });
+app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+    const promoId = parseInt(req.params.id);
+    const { userId } = req.userData;
+    let promos = readPromos(userId);
+    const promo = promos.find(p => p.id === promoId);
+    if (promo) {
+        if (promo.image && typeof promo.image === 'string') {
+            const imagePath = path.join(promosUploadFolder, promo.image);
+            if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+            }
+        }
+        writePromos(userId, promos.filter(p => p.id !== promoId));
+    }
+    res.json({ status: "deleted" });
+});
+
 app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => {
     const { userId } = req.userData;
     db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
