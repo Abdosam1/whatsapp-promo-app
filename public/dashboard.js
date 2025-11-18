@@ -48,9 +48,9 @@ const uiElements = {
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
     exportClientsBtn: document.getElementById('exportClientsBtn'),
-    // --- عناصر الشات بوت الجديدة ---
     chatbotPrompt: document.getElementById('chatbotPrompt'),
-    savePromptBtn: document.getElementById('savePromptBtn')
+    savePromptBtn: document.getElementById('savePromptBtn'),
+    syncContactsBtn: document.getElementById('syncContactsBtn') // تمت إضافة الزر الجديد هنا
 };
 
 // ================================================================= //
@@ -74,9 +74,11 @@ function initializeEventListeners() {
     if (uiElements.exportClientsBtn) {
         uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
     }
-    // --- ربط زر حفظ إعدادات الشات بوت ---
     if (uiElements.savePromptBtn) {
         uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
+    }
+    if (uiElements.syncContactsBtn) {
+        uiElements.syncContactsBtn.addEventListener('click', requestContactSync);
     }
 }
 
@@ -114,8 +116,12 @@ function initializeWhatsAppConnection() {
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
     socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 تم قطع الاتصال بالخادم، حاول تحديث الصفحة.', 'orange'); });
-    // استقبال رسائل السجل من السيرفر
     socket.on('log', (data) => log(data.message, data.color));
+    socket.on('sync-complete', () => {
+        log('✅ اكتمل تحديث القائمة. جاري إعادة تحميل العملاء.', 'green');
+        loadClients();
+        if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false;
+    });
 }
 
 // ================================================================= //
@@ -155,7 +161,7 @@ function loadInitialData() {
     loadClients(); 
     loadImportedClients(); 
     loadPromos();
-    loadChatbotPrompt(); // تحميل إعدادات الشات بوت
+    loadChatbotPrompt();
 }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients, 'contacts'); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients, 'imported'); } catch (err) {} }
@@ -180,8 +186,9 @@ function displayPromos() {
         const div = document.createElement("div");
         div.className = "promo";
         div.id = `promo-${promo.id}`;
+        const imageHtml = promo.image ? `<img src="promos/${promo.image}" alt="صورة العرض">` : '';
         div.innerHTML = `
-            <img src="promos/${promo.image}" alt="صورة العرض">
+            ${imageHtml}
             <p title="${promo.text}">${promo.text.slice(0, 50)}...</p>
             <div class="promo-buttons">
                 <button type="button" class="btn-select"><i class="fas fa-check"></i> اختيار</button>
@@ -199,18 +206,10 @@ function displayPromos() {
 async function addNewPromo() {
     const text = uiElements.newPromoText.value.trim();
     const imageFile = uiElements.newPromoImage.files[0];
-
-    if (!text && !imageFile) {
-        return alert('يرجى إدخال نص أو اختيار صورة على الأقل.');
-    }
-
+    if (!text && !imageFile) { return alert('يرجى إدخال نص أو اختيار صورة على الأقل.'); }
     const formData = new FormData();
     formData.append('text', text);
-
-    if (imageFile) {
-        formData.append('image', imageFile);
-    }
-
+    if (imageFile) { formData.append('image', imageFile); }
     try {
         await apiFetch('/addPromo', { method: 'POST', body: formData });
         log("✅ تم إضافة العرض بنجاح!", 'green');
@@ -241,26 +240,14 @@ function exportClientsToCSV() {
     document.body.removeChild(link);
     log('✅ تم تصدير ملف CSV بنجاح.', 'green');
 }
+async function loadChatbotPrompt() { try { const data = await apiFetch('/api/chatbot-prompt'); if (uiElements.chatbotPrompt && data.prompt) { uiElements.chatbotPrompt.value = data.prompt; } } catch (error) { console.error("Failed to load chatbot prompt:", error); } }
+async function saveChatbotPrompt() { const prompt = uiElements.chatbotPrompt.value; try { const result = await apiFetch('/api/chatbot-prompt', { method: 'POST', body: JSON.stringify({ prompt }) }); log(`✅ ${result.message}`, 'green'); } catch (error) { console.error("Failed to save chatbot prompt:", error); } }
 
-// --- وظائف جديدة خاصة بالشات بوت ---
-async function loadChatbotPrompt() {
-    try {
-        const data = await apiFetch('/api/chatbot-prompt');
-        if (uiElements.chatbotPrompt && data.prompt) {
-            uiElements.chatbotPrompt.value = data.prompt;
-        }
-    } catch (error) { console.error("Failed to load chatbot prompt:", error); }
-}
-
-async function saveChatbotPrompt() {
-    const prompt = uiElements.chatbotPrompt.value;
-    try {
-        const result = await apiFetch('/api/chatbot-prompt', {
-            method: 'POST',
-            body: JSON.stringify({ prompt })
-        });
-        log(`✅ ${result.message}`, 'green');
-    } catch (error) { console.error("Failed to save chatbot prompt:", error); }
+function requestContactSync() {
+    if (!isWhatsappReady || !socket) { return alert('واتساب غير متصل. يرجى الانتظار.'); }
+    log('🔄 جاري طلب تحديث قائمة العملاء من واتساب...', 'blue');
+    if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = true;
+    socket.emit('sync-contacts');
 }
 
 // ================================================================= //
@@ -268,21 +255,15 @@ async function saveChatbotPrompt() {
 // ================================================================= //
 function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady || !socket) return; log(`⏳ جاري إرسال العرض إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
 function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("الرجاء إدخال رقم هاتف."); if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً."); sendPromo(phone, selectedPromoId, false); }
-
-// --- تعديل دالة الإرسال المتسلسل ---
 async function sendPromoSequentially(list, fromImported) {
     if (!selectedPromoId) return alert("الرجاء اختيار عرض أولاً.");
     if (!list || list.length === 0) return alert("القائمة فارغة.");
     if (!isWhatsappReady) return alert("يرجى انتظار اتصال واتساب أولاً.");
     if (!confirm(`هل أنت متأكد من إرسال العرض لـ ${list.length} رقم؟ سيتم تفعيل المساعد الذكي لهذه الحملة.`)) return;
-
-    // تفعيل وضع الحملة في السيرفر
     log('🤖 جاري تفعيل وضع الحملة والمساعد الذكي...', 'blue');
     socket.emit('start-campaign-mode', { promoId: selectedPromoId });
-
     uiElements.sendSequentiallyClientsBtn.disabled = true;
     uiElements.sendSequentiallyImportedBtn.disabled = true;
-
     log(`🚀 بدأت حملة الإرسال لـ ${list.length} رقم.`, 'purple');
     for (let i = 0; i < list.length; i++) {
         const client = list[i];
@@ -295,7 +276,6 @@ async function sendPromoSequentially(list, fromImported) {
         }
     }
     log('🎉 انتهت حملة الإرسال. المساعد الذكي سيبقى نشطاً للرد على الأجوبة.', 'green');
-    
     uiElements.sendSequentiallyClientsBtn.disabled = false;
     uiElements.sendSequentiallyImportedBtn.disabled = false;
 }
