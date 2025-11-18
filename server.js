@@ -18,6 +18,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
+const { OpenAI } = require("openai"); // تمت إضافة OpenAI
 
 // ================================================================= //
 // ========================= 2. المتغيرات العامة والتكوينات ======================= //
@@ -38,6 +39,13 @@ const pendingRegistrations = {};
 
 // كائن لتخزين عملاء واتساب النشطين لكل مستخدم
 const whatsappClients = {};
+// كائن لتخزين معلومات الحملات النشطة لكل مستخدم
+const activeCampaigns = {};
+
+// إعداد OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 // ================================================================= //
 // ================= 3. تهيئة الخدمات وقواعد البيانات ================= //
@@ -61,6 +69,7 @@ db.serialize(() => {
     };
     addColumnIfNotExists('users', 'subscription_status', "TEXT DEFAULT 'trial'");
     addColumnIfNotExists('users', 'activation_code', 'TEXT');
+    addColumnIfNotExists('users', 'chatbot_prompt', 'TEXT'); // إضافة عمود الشات بوت
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
@@ -90,7 +99,7 @@ async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 
 // ================================================================= //
-// ================= 6. منطق Socket.IO وإدارة واتساب (تم التعديل) ================= //
+// ================= 6. منطق Socket.IO وإدارة واتساب ================= //
 // ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
@@ -118,11 +127,39 @@ io.on('connection', (socket) => {
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
+
+                    // --- تفعيل مستمع الشات بوت بشكل دائم ---
+                    client.on('message', async (message) => {
+                        if (message.fromMe || message.isGroup) return;
+                        
+                        // نتحقق من وجود الحملة النشطة داخل المستمع مباشرة
+                        const campaignInfo = activeCampaigns[activeUserId];
+                        if (!campaignInfo) return; // لا يرد إلا إذا كانت هناك حملة نشطة
+
+                        const userMessage = message.body;
+                        const fromNumber = message.from;
+
+                        try {
+                            const completion = await openai.chat.completions.create({
+                                model: "gpt-3.5-turbo",
+                                messages: [
+                                    {
+                                        role: "system",
+                                        content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.`
+                                    },
+                                    { role: "user", content: userMessage }
+                                ]
+                            });
+                            const replyText = completion.choices[0].message.content;
+                            await client.sendMessage(fromNumber, replyText);
+                        } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
+                    });
                 });
 
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
+                    delete activeCampaigns[activeUserId]; // مسح الحملة عند قطع الاتصال
                 });
 
                 client.initialize();
@@ -131,6 +168,23 @@ io.on('connection', (socket) => {
         } catch (e) {
             socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true });
         }
+    });
+
+    socket.on('start-campaign-mode', async ({ promoId }) => {
+        if (!activeUserId) return;
+        const promos = readPromos(activeUserId);
+        const selectedPromo = promos.find(p => p.id === promoId);
+        if (!selectedPromo) return;
+
+        db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
+            if (err || !user) return;
+            activeCampaigns[activeUserId] = {
+                promoText: selectedPromo.text,
+                businessPrompt: user.chatbot_prompt || "متجر عام"
+            };
+            console.log(`[Campaign Mode] Activated for user ${activeUserId}`);
+            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
+        });
     });
 
     socket.on('send-promo', async (data) => {
@@ -155,7 +209,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('disconnect', () => {
-        console.log(`Socket disconnected for user: ${activeUserId}. WhatsApp session remains active.`);
+        console.log(`Socket disconnected. WhatsApp session remains active.`);
     });
 });
 
@@ -253,9 +307,9 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// --- مسار تسجيل الخروج الجديد ---
 app.post('/api/auth/logout', authMiddleware, (req, res) => {
     const userId = req.userData.userId;
+    delete activeCampaigns[userId]; // مسح معلومات الحملة عند الخروج
     const client = whatsappClients[userId];
     if (client) {
         client.destroy().catch(err => console.error(`Error destroying client for user ${userId}:`, err));
@@ -319,34 +373,38 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => { const { text } = req.body; const { userId } = req.userData; if (!req.file) return res.status(400).json({ message: "Image file is required." }); const promos = readPromos(userId); const newPromo = { id: Date.now(), text, image: req.file.filename }; promos.push(newPromo); writePromos(userId, promos); res.json({ status: "success", promo: newPromo }); });
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { const promoId = parseInt(req.params.id); const { userId } = req.userData; let promos = readPromos(userId); const promo = promos.find(p => p.id === promoId); if (promo) { const imagePath = path.join(promosUploadFolder, promo.image); if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); writePromos(userId, promos.filter(p => p.id !== promoId)); } res.json({ status: "deleted" }); });
-// ====================================================================================
-// ============ مسار جديد لحذف جميع العملاء المستوردين (تمت الإضافة هنا) ============ //
-// ====================================================================================
 app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => {
-    const { userId } = req.userData; // نحصل على معرف المستخدم من التوكن
-
-    // نقوم بتنفيذ أمر الحذف في قاعدة البيانات للعملاء المستوردين فقط
+    const { userId } = req.userData;
     db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
         if (err) {
             console.error("Database error while deleting imported clients:", err.message);
             return res.status(500).json({ message: "حدث خطأ في الخادم أثناء محاولة الحذف." });
         }
-
-        // نرسل رسالة نجاح مع عدد الصفوف التي تم حذفها
-        res.status(200).json({ 
-            status: "success", 
-            message: `تم حذف ${this.changes} من العملاء المستوردين بنجاح.` 
-        });
+        res.status(200).json({ status: "success", message: `تم حذف ${this.changes} من العملاء المستوردين بنجاح.` });
     });
 });
+
+// --- مسارات جديدة لإدارة Prompt الشات بوت ---
+app.get("/api/chatbot-prompt", authMiddleware, (req, res) => {
+    db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [req.userData.userId], (err, row) => {
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        res.json({ prompt: row ? row.chatbot_prompt : "" });
+    });
+});
+app.post("/api/chatbot-prompt", authMiddleware, (req, res) => {
+    const { prompt } = req.body;
+    db.run("UPDATE users SET chatbot_prompt = ? WHERE id = ?", [prompt, req.userData.userId], (err) => {
+        if (err) return res.status(500).json({ message: "فشل حفظ الإعدادات." });
+        res.json({ message: "تم حفظ الإعدادات بنجاح!" });
+    });
+});
+
 // ================================================================= //
 // ===================== 9. خدمة الملفات الثابتة والتشغيل =================== //
 // ================================================================= //
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
-
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
