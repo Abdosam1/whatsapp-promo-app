@@ -88,6 +88,10 @@
     "planYearlyPricePerMonth": "أقل من 3$ للشهر",
     "getStartedBtn": "اختر الخطة",
      "dashExportBtn": "تصدير CSV",
+    "dashCardChatbotTitle": "إعدادات المساعد الذكي",
+"dashChatbotPromptLabel": "صف عملك هنا (كلما كانت التفاصيل أكثر، كان الجواب أفضل):",
+"dashChatbotPromptPlaceholder": "مثال: أنا محل أبيع الهواتف المستعملة. أوقات العمل من 10 صباحاً إلى 9 مساءً. لا نقوم بالتوصيل خارج مدينة الرباط...",
+"dashSavePromptBtn": "حفظ الإعدادات",
     "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
@@ -179,7 +183,12 @@
     "planYearlyPricePerMonth": "Less than $3/month",
     "getStartedBtn": "Choose Plan",
     "dashExportBtn": "Export CSV",
+    "dashCardChatbotTitle": "AI Assistant Settings",
+"dashChatbotPromptLabel": "Describe your business here (The more details, the better the replies):",
+"dashChatbotPromptPlaceholder": "Example: I own a shop that sells used phones. We are open from 10 AM to 9 PM. We only deliver within Rabat...",
+"dashSavePromptBtn": "Save Settings",
     "mostPopular": "Most Popular"
   }
 }
+
 
