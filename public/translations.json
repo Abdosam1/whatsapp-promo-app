@@ -92,6 +92,7 @@
 "dashChatbotPromptLabel": "صف عملك هنا (كلما كانت التفاصيل أكثر، كان الجواب أفضل):",
 "dashChatbotPromptPlaceholder": "مثال: أنا محل أبيع الهواتف المستعملة. أوقات العمل من 10 صباحاً إلى 9 مساءً. لا نقوم بالتوصيل خارج مدينة الرباط...",
 "dashSavePromptBtn": "حفظ الإعدادات",
+    "dashSyncBtn": "تحديث",
     "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
@@ -187,8 +188,10 @@
 "dashChatbotPromptLabel": "Describe your business here (The more details, the better the replies):",
 "dashChatbotPromptPlaceholder": "Example: I own a shop that sells used phones. We are open from 10 AM to 9 PM. We only deliver within Rabat...",
 "dashSavePromptBtn": "Save Settings",
+    "dashSyncBtn": "Refresh",
     "mostPopular": "Most Popular"
   }
 }
+
 
 
