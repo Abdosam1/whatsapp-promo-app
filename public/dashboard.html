@@ -111,7 +111,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h2><i class="fas fa-users"></i> <span data-key="dashCardClientsTitle"></span></h2>
           <div class="button-group">
               <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> <span data-key="dashSendAllBtn"></span></button>
-              <!-- الزر الجديد مع دعم الترجمة -->
               <button type="button" id="exportClientsBtn" class="btn btn-secondary">
                   <i class="fas fa-download"></i> <span data-key="dashExportBtn"></span>
               </button>
@@ -141,7 +140,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h2><i class="fas fa-plus-circle"></i> <span data-key="dashCardAddPromoTitle"></span></h2>
           <div class="form-group">
             <label for="newPromoText" data-key="dashPromoTextLabel"></label>
-            <textarea id="newPromoText" rows="3" placeholder="..."></textarea>
+            <textarea id="newPromoText" rows="3" data-key-placeholder="dashPromoTextPlaceholder"></textarea>
           </div>
           <div class="form-group">
             <label for="newPromoImage" data-key="dashPromoImageLabel"></label>
@@ -157,6 +156,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="text" id="phoneInput" placeholder="212612345678" />
           </div>
           <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> <span data-key="dashSendSelectedBtn"></span></button>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- ========== بطاقة جديدة لإعدادات الشات بوت الذكي ========== -->
+        <!-- ======================================================= -->
+        <div class="card">
+            <h2><i class="fas fa-robot"></i> <span data-key="dashCardChatbotTitle"></span></h2>
+            <div class="form-group">
+                <label for="chatbotPrompt" data-key="dashChatbotPromptLabel"></label>
+                <textarea id="chatbotPrompt" rows="6" data-key-placeholder="dashChatbotPromptPlaceholder"></textarea>
+            </div>
+            <button type="button" id="savePromptBtn" class="btn btn-primary" style="width:100%;">
+                <i class="fas fa-save"></i> <span data-key="dashSavePromptBtn"></span>
+            </button>
         </div>
 
         <div class="card full-width">
