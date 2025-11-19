@@ -50,7 +50,8 @@ const uiElements = {
     exportClientsBtn: document.getElementById('exportClientsBtn'),
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
-    syncContactsBtn: document.getElementById('syncContactsBtn') // تمت إضافة الزر الجديد هنا
+    syncContactsBtn: document.getElementById('syncContactsBtn'),
+    chatbotStatusToggle: document.getElementById('chatbotStatusToggle')
 };
 
 // ================================================================= //
@@ -79,6 +80,9 @@ function initializeEventListeners() {
     }
     if (uiElements.syncContactsBtn) {
         uiElements.syncContactsBtn.addEventListener('click', requestContactSync);
+    }
+    if (uiElements.chatbotStatusToggle) {
+        uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
     }
 }
 
@@ -162,6 +166,7 @@ function loadInitialData() {
     loadImportedClients(); 
     loadPromos();
     loadChatbotPrompt();
+    loadChatbotStatus();
 }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients, 'contacts'); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients, 'imported'); } catch (err) {} }
@@ -242,12 +247,29 @@ function exportClientsToCSV() {
 }
 async function loadChatbotPrompt() { try { const data = await apiFetch('/api/chatbot-prompt'); if (uiElements.chatbotPrompt && data.prompt) { uiElements.chatbotPrompt.value = data.prompt; } } catch (error) { console.error("Failed to load chatbot prompt:", error); } }
 async function saveChatbotPrompt() { const prompt = uiElements.chatbotPrompt.value; try { const result = await apiFetch('/api/chatbot-prompt', { method: 'POST', body: JSON.stringify({ prompt }) }); log(`✅ ${result.message}`, 'green'); } catch (error) { console.error("Failed to save chatbot prompt:", error); } }
-
 function requestContactSync() {
     if (!isWhatsappReady || !socket) { return alert('واتساب غير متصل. يرجى الانتظار.'); }
     log('🔄 جاري طلب تحديث قائمة العملاء من واتساب...', 'blue');
     if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = true;
     socket.emit('sync-contacts');
+}
+async function loadChatbotStatus() {
+    try {
+        const data = await apiFetch('/api/chatbot-status');
+        if (uiElements.chatbotStatusToggle) {
+            uiElements.chatbotStatusToggle.checked = data.isActive;
+        }
+    } catch (error) { console.error("Failed to load chatbot status:", error); }
+}
+async function toggleChatbotStatus() {
+    const isActive = uiElements.chatbotStatusToggle.checked;
+    try {
+        const result = await apiFetch('/api/chatbot-status', {
+            method: 'POST',
+            body: JSON.stringify({ isActive })
+        });
+        log(`✅ ${result.message}`, 'green');
+    } catch (error) { console.error("Failed to toggle chatbot status:", error); }
 }
 
 // ================================================================= //
