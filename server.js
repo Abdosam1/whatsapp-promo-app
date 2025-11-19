@@ -19,7 +19,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const { OpenAI } = require("openai");
-const axios = require('axios'); // للتأكد من وجوده
+const axios = require('axios');
 
 // ================================================================= //
 // ========================= 2. المتغيرات العامة والتكوينات ======================= //
