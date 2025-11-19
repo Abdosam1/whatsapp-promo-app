@@ -62,6 +62,8 @@
     "dashStatusMsg": "في انتظار الاتصال...",
     "dashCardClientsTitle": "العملاء الأساسيون",
     "dashSendAllBtn": "إرسال للكل",
+    "dashSyncBtn": "تحديث",
+    "dashExportBtn": "تصدير CSV",
     "dashCardImportedTitle": "العملاء المستوردون",
     "dashImportBtn": "استيراد",
     "dashDeleteAllBtn": "حذف الكل",
@@ -75,6 +77,11 @@
     "dashSendSelectedBtn": "إرسال للمحدد",
     "dashTestSendBtn": "إرسال تجريبي لرقمك",
     "dashCardLogsTitle": "السجل (Logs)",
+    "dashCardChatbotTitle": "إعدادات المساعد الذكي",
+    "dashChatbotStatusLabel": "حالة المساعد الذكي:",
+    "dashChatbotPromptLabel": "صف عملك هنا (كلما كانت التفاصيل أكثر، كان الجواب أفضل):",
+    "dashChatbotPromptPlaceholder": "مثال: أنا محل أبيع الهواتف المستعملة. أوقات العمل من 10 صباحاً إلى 9 مساءً. لا نقوم بالتوصيل خارج مدينة الرباط...",
+    "dashSavePromptBtn": "حفظ الإعدادات",
     "pricingSectionTitle": "أسعار شفافة ومرنة",
     "billed_annually": "تُحتسب سنوياً",
     "billed_monthly": "شهرياً",
@@ -87,12 +94,6 @@
     "planYearlyDesc": "الخيار الأمثل للشركات التي تخطط على المدى الطويل.",
     "planYearlyPricePerMonth": "أقل من 3$ للشهر",
     "getStartedBtn": "اختر الخطة",
-     "dashExportBtn": "تصدير CSV",
-    "dashCardChatbotTitle": "إعدادات المساعد الذكي",
-"dashChatbotPromptLabel": "صف عملك هنا (كلما كانت التفاصيل أكثر، كان الجواب أفضل):",
-"dashChatbotPromptPlaceholder": "مثال: أنا محل أبيع الهواتف المستعملة. أوقات العمل من 10 صباحاً إلى 9 مساءً. لا نقوم بالتوصيل خارج مدينة الرباط...",
-"dashSavePromptBtn": "حفظ الإعدادات",
-    "dashSyncBtn": "تحديث",
     "mostPopular": "الأكثر شيوعاً"
   },
   "en": {
@@ -158,6 +159,8 @@
     "dashStatusMsg": "Waiting for connection...",
     "dashCardClientsTitle": "Primary Clients",
     "dashSendAllBtn": "Send to All",
+    "dashSyncBtn": "Refresh",
+    "dashExportBtn": "Export CSV",
     "dashCardImportedTitle": "Imported Clients",
     "dashImportBtn": "Import",
     "dashDeleteAllBtn": "Delete All",
@@ -171,6 +174,11 @@
     "dashSendSelectedBtn": "Send to Selected",
     "dashTestSendBtn": "Send Test to Your Number",
     "dashCardLogsTitle": "Logs",
+    "dashCardChatbotTitle": "AI Assistant Settings",
+    "dashChatbotStatusLabel": "AI Assistant Status:",
+    "dashChatbotPromptLabel": "Describe your business here (The more details, the better the replies):",
+    "dashChatbotPromptPlaceholder": "Example: I own a shop that sells used phones. We are open from 10 AM to 9 PM. We only deliver within Rabat...",
+    "dashSavePromptBtn": "Save Settings",
     "pricingSectionTitle": "Simple, Flexible Pricing",
     "billed_annually": "billed annually",
     "billed_monthly": "monthly",
@@ -183,15 +191,6 @@
     "planYearlyDesc": "The ultimate choice for businesses planning for the long term.",
     "planYearlyPricePerMonth": "Less than $3/month",
     "getStartedBtn": "Choose Plan",
-    "dashExportBtn": "Export CSV",
-    "dashCardChatbotTitle": "AI Assistant Settings",
-"dashChatbotPromptLabel": "Describe your business here (The more details, the better the replies):",
-"dashChatbotPromptPlaceholder": "Example: I own a shop that sells used phones. We are open from 10 AM to 9 PM. We only deliver within Rabat...",
-"dashSavePromptBtn": "Save Settings",
-    "dashSyncBtn": "Refresh",
     "mostPopular": "Most Popular"
   }
 }
-
-
-
