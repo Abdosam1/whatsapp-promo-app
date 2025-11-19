@@ -75,6 +75,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .promo .promo-buttons .btn-select { background-color: var(--secondary-color); }
     .promo .promo-buttons .btn-delete { background-color: var(--danger-color); }
     .promo.selected { border-color: var(--primary-color); box-shadow: 0 0 10px rgba(37, 211, 102, 0.5); }
+    
+    /* --- ستايل جديد لزر التفعيل --- */
+    .toggle-switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch label {
+        position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #ccc; transition: .4s; border-radius: 28px;
+    }
+    .toggle-switch label:before {
+        position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px;
+        background-color: white; transition: .4s; border-radius: 50%;
+    }
+    .toggle-switch input:checked + label { background-color: var(--primary-color); }
+    .toggle-switch input:checked + label:before { transform: translateX(22px); }
   </style>
 </head>
 <body>
@@ -165,6 +179,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <div class="card">
             <h2><i class="fas fa-robot"></i> <span data-key="dashCardChatbotTitle"></span></h2>
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+                <label for="chatbotStatusToggle" style="margin-bottom: 0;" data-key="dashChatbotStatusLabel"></label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="chatbotStatusToggle">
+                    <label for="chatbotStatusToggle"></label>
+                </div>
+            </div>
             <div class="form-group">
                 <label for="chatbotPrompt" data-key="dashChatbotPromptLabel"></label>
                 <textarea id="chatbotPrompt" rows="6" data-key-placeholder="dashChatbotPromptPlaceholder"></textarea>
