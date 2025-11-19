@@ -94,14 +94,11 @@ function readPromos(userId) { const userPromoPath = path.join(__dirname, 'user_d
 function writePromos(userId, promos) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2)); }
 async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats = await whatsappClient.getChats(); const privateChats = chats.filter(chat => !chat.isGroup && chat.id.user); if (privateChats.length === 0) return; const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`); db.serialize(() => { db.run("BEGIN TRANSACTION"); privateChats.forEach(chat => { const phone = chat.id.user; const name = chat.name || chat.contact?.pushname || `+${phone}`; stmt.run(name, phone, ownerId); }); stmt.finalize(); db.run("COMMIT"); }); } catch (err) { console.error(`[Sync] Error for user ${ownerId}:`, err); } }
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
-
 function processSpintax(text) {
     if (!text) return "";
     let processedText = text;
     const spintaxRegex = /\{([^{}]+)\}/g;
     let match;
-    
-    // نستمر في التكرار حتى لا نجد أي تطابق لضمان معالجة Spintax المتداخلة
     while ((match = spintaxRegex.exec(processedText))) {
         const options = match[1].split('|');
         const randomChoice = options[Math.floor(Math.random() * options.length)];
@@ -174,20 +171,16 @@ io.on('connection', (socket) => {
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
-
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
-        
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
         if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-        
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-            const processedText = processSpintax(promo.text); // <--- تم نقلها إلى هنا
-            
+            const processedText = processSpintax(promo.text);
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
                 if (fs.existsSync(imagePath)) {
@@ -199,7 +192,6 @@ io.on('connection', (socket) => {
             } else if (processedText) {
                 await currentClient.sendMessage(numberId, processedText, { linkPreview: true });
             }
-            
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
@@ -207,7 +199,6 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
-
     socket.on('sync-contacts', async () => {
         if (!activeUserId || !whatsappClients[activeUserId]) { return; }
         console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
@@ -215,7 +206,6 @@ io.on('connection', (socket) => {
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
     });
-    
     socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
 });
 
