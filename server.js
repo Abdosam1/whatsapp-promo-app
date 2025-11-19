@@ -65,6 +65,7 @@ db.serialize(() => {
     addColumnIfNotExists('users', 'subscription_status', "TEXT DEFAULT 'trial'");
     addColumnIfNotExists('users', 'activation_code', 'TEXT');
     addColumnIfNotExists('users', 'chatbot_prompt', 'TEXT');
+    addColumnIfNotExists('users', 'is_chatbot_active', "INTEGER DEFAULT 1"); // 1 = true, 0 = false
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
@@ -124,21 +125,29 @@ io.on('connection', (socket) => {
                     await syncWhatsAppContacts(client, activeUserId);
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
+                        
                         const campaignInfo = activeCampaigns[activeUserId];
                         if (!campaignInfo) return;
-                        const userMessage = message.body;
-                        const fromNumber = message.from;
-                        try {
-                            const completion = await openai.chat.completions.create({
-                                model: "gpt-3.5-turbo",
-                                messages: [
-                                    { role: "system", content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.` },
-                                    { role: "user", content: userMessage }
-                                ]
-                            });
-                            const replyText = completion.choices[0].message.content;
-                            await client.sendMessage(fromNumber, replyText);
-                        } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
+
+                        db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [activeUserId], async (err, user) => {
+                            if (err || !user || !user.is_chatbot_active) {
+                                return;
+                            }
+
+                            const userMessage = message.body;
+                            const fromNumber = message.from;
+                            try {
+                                const completion = await openai.chat.completions.create({
+                                    model: "gpt-3.5-turbo",
+                                    messages: [
+                                        { role: "system", content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.` },
+                                        { role: "user", content: userMessage }
+                                    ]
+                                });
+                                const replyText = completion.choices[0].message.content;
+                                await client.sendMessage(fromNumber, replyText);
+                            } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
+                        });
                     });
                 });
 
@@ -197,17 +206,14 @@ io.on('connection', (socket) => {
         }
     });
     
-    // --- تمت إضافة هذا الحدث الجديد ---
     socket.on('sync-contacts', async () => {
-        if (!activeUserId || !whatsappClients[activeUserId]) {
-            return;
-        }
+        if (!activeUserId || !whatsappClients[activeUserId]) { return; }
         console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
         const currentClient = whatsappClients[activeUserId];
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
     });
-
+    
     socket.on('disconnect', () => {
         console.log(`Socket disconnected. WhatsApp session remains active.`);
     });
@@ -411,6 +417,21 @@ app.post("/api/chatbot-prompt", authMiddleware, (req, res) => {
     db.run("UPDATE users SET chatbot_prompt = ? WHERE id = ?", [prompt, req.userData.userId], (err) => {
         if (err) return res.status(500).json({ message: "فشل حفظ الإعدادات." });
         res.json({ message: "تم حفظ الإعدادات بنجاح!" });
+    });
+});
+
+app.get("/api/chatbot-status", authMiddleware, (req, res) => {
+    db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [req.userData.userId], (err, row) => {
+        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
+        res.json({ isActive: row ? !!row.is_chatbot_active : true });
+    });
+});
+app.post("/api/chatbot-status", authMiddleware, (req, res) => {
+    const { isActive } = req.body;
+    const statusValue = isActive ? 1 : 0;
+    db.run("UPDATE users SET is_chatbot_active = ? WHERE id = ?", [statusValue, req.userData.userId], (err) => {
+        if (err) return res.status(500).json({ message: "فشل تحديث الحالة." });
+        res.json({ message: `تم ${isActive ? 'تفعيل' : 'إلغاء تفعيل'} المساعد الذكي بنجاح!` });
     });
 });
 
