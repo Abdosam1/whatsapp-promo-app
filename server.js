@@ -97,9 +97,11 @@ function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012
 
 function processSpintax(text) {
     if (!text) return "";
-    const spintaxRegex = /\{([^{}]+)\}/g;
     let processedText = text;
+    const spintaxRegex = /\{([^{}]+)\}/g;
     let match;
+    
+    // نستمر في التكرار حتى لا نجد أي تطابق لضمان معالجة Spintax المتداخلة
     while ((match = spintaxRegex.exec(processedText))) {
         const options = match[1].split('|');
         const randomChoice = options[Math.floor(Math.random() * options.length)];
@@ -172,16 +174,20 @@ io.on('connection', (socket) => {
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
+
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
+        
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
         if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
+        
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-            const processedText = processSpintax(promo.text);
+            const processedText = processSpintax(promo.text); // <--- تم نقلها إلى هنا
+            
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
                 if (fs.existsSync(imagePath)) {
@@ -193,6 +199,7 @@ io.on('connection', (socket) => {
             } else if (processedText) {
                 await currentClient.sendMessage(numberId, processedText, { linkPreview: true });
             }
+            
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
@@ -200,6 +207,7 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
+
     socket.on('sync-contacts', async () => {
         if (!activeUserId || !whatsappClients[activeUserId]) { return; }
         console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
@@ -207,6 +215,7 @@ io.on('connection', (socket) => {
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
     });
+    
     socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
 });
 
@@ -425,7 +434,7 @@ app.post("/api/chatbot-status", authMiddleware, (req, res) => {
         res.json({ message: `تم ${isActive ? 'تفعيل' : 'إلغاء تفعيل'} المساعد الذكي بنجاح!` });
     });
 });
-// استبدل المسار القديم بهذا
+
 app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
     const { text } = req.body;
     if (!text) {
@@ -437,15 +446,11 @@ app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: `Your mission is to act as a Moroccan marketing copywriter. You will receive a promotional text in Darija. Your task is to rewrite it in 5 different variations while strictly following these rules:
-1.  **Preserve Core Information:** Do NOT summarize or shorten the text. All original information, numbers, and offers must be present in each variation.
-2.  **Maintain Similar Length:** Each variation must have a similar length to the original text.
-3.  **Creative Paraphrasing:** Change the wording, sentence structure, and tone to make each version unique and persuasive. Use synonyms and different marketing angles.
-4.  **Format:** The final output MUST be a single line of text in Spintax format: {variation 1|variation 2|variation 3|variation 4|variation 5}. Do not add any text before or after this string.`
+                    content: "You are a creative marketing assistant. Your task is to take a simple promotional phrase and generate 5 creative, persuasive variations of it in Moroccan Darija. The variations must be separated by the '|' symbol and enclosed in curly braces '{}' to form a valid spintax string. For example, if the input is '30% discount', the output should be '{استفد من تخفيض 30%|همزة: 30% ناقصة|كلشي ب 30% أقل|لا تفوت فرصة التخفيض|تخفيضات حصرية ب 30%}'. Do not add any text before or after the spintax string."
                 },
                 {
                     role: "user",
-                    content: `Here is the text to paraphrase: "${text}"`
+                    content: text
                 }
             ]
         });
