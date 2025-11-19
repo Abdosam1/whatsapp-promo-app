@@ -51,7 +51,8 @@ const uiElements = {
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
     syncContactsBtn: document.getElementById('syncContactsBtn'),
-    chatbotStatusToggle: document.getElementById('chatbotStatusToggle')
+    chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
+    generateSpintaxBtn: document.getElementById('generateSpintaxBtn') // تمت إضافة الزر الجديد هنا
 };
 
 // ================================================================= //
@@ -83,6 +84,10 @@ function initializeEventListeners() {
     }
     if (uiElements.chatbotStatusToggle) {
         uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
+    }
+    // --- ربط زر إنشاء الصيغ ---
+    if (uiElements.generateSpintaxBtn) {
+        uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
     }
 }
 
@@ -270,6 +275,33 @@ async function toggleChatbotStatus() {
         });
         log(`✅ ${result.message}`, 'green');
     } catch (error) { console.error("Failed to toggle chatbot status:", error); }
+}
+
+// --- دالة جديدة لإنشاء صيغ Spintax ---
+async function generateSpintax() {
+    const originalText = uiElements.newPromoText.value.trim();
+    if (!originalText) {
+        return alert("يرجى كتابة فكرة العرض أولاً.");
+    }
+
+    log('🤖 المساعد الذكي يقوم بإنشاء صيغ جديدة...', 'purple');
+    if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = true;
+
+    try {
+        const result = await apiFetch('/api/generate-spintax', {
+            method: 'POST',
+            body: JSON.stringify({ text: originalText })
+        });
+
+        if (result.spintax) {
+            uiElements.newPromoText.value = result.spintax;
+            log('✅ تم إنشاء الصيغ بنجاح!', 'green');
+        }
+    } catch (error) {
+        console.error("Failed to generate spintax:", error);
+    } finally {
+        if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = false;
+    }
 }
 
 // ================================================================= //
