@@ -65,7 +65,7 @@ db.serialize(() => {
     addColumnIfNotExists('users', 'subscription_status', "TEXT DEFAULT 'trial'");
     addColumnIfNotExists('users', 'activation_code', 'TEXT');
     addColumnIfNotExists('users', 'chatbot_prompt', 'TEXT');
-    addColumnIfNotExists('users', 'is_chatbot_active', "INTEGER DEFAULT 1"); // 1 = true, 0 = false
+    addColumnIfNotExists('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
@@ -125,14 +125,11 @@ io.on('connection', (socket) => {
                     await syncWhatsAppContacts(client, activeUserId);
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
-                        
                         const campaignInfo = activeCampaigns[activeUserId];
                         if (!campaignInfo) return;
 
                         db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [activeUserId], async (err, user) => {
-                            if (err || !user || !user.is_chatbot_active) {
-                                return;
-                            }
+                            if (err || !user || !user.is_chatbot_active) { return; }
 
                             const userMessage = message.body;
                             const fromNumber = message.from;
@@ -181,12 +178,18 @@ io.on('connection', (socket) => {
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
+        
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
-        if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
+
+        if (!promo) {
+            return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
+        }
+
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
+
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
                 if (fs.existsSync(imagePath)) {
@@ -198,6 +201,7 @@ io.on('connection', (socket) => {
             } else if (promo.text) {
                 await currentClient.sendMessage(numberId, promo.text, { linkPreview: true });
             }
+
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
@@ -336,7 +340,11 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
+                const mailOptions = {
+                    from: SENDER_EMAIL, to: ADMIN_EMAIL,
+                    subject: `طلب تفعيل اشتراك جديد من ${user.email}`,
+                    html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>`
+                };
                 await transporter.sendMail(mailOptions);
                 res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
             }
