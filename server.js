@@ -425,7 +425,7 @@ app.post("/api/chatbot-status", authMiddleware, (req, res) => {
         res.json({ message: `تم ${isActive ? 'تفعيل' : 'إلغاء تفعيل'} المساعد الذكي بنجاح!` });
     });
 });
-
+// استبدل المسار القديم بهذا
 app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
     const { text } = req.body;
     if (!text) {
@@ -437,11 +437,15 @@ app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: "You are a creative marketing assistant. Your task is to take a simple promotional phrase and generate 5 creative, persuasive variations of it in Moroccan Darija. The variations must be separated by the '|' symbol and enclosed in curly braces '{}' to form a valid spintax string. For example, if the input is '30% discount', the output should be '{استفد من تخفيض 30%|همزة: 30% ناقصة|كلشي ب 30% أقل|لا تفوت فرصة التخفيض|تخفيضات حصرية ب 30%}'. Do not add any text before or after the spintax string."
+                    content: `Your mission is to act as a Moroccan marketing copywriter. You will receive a promotional text in Darija. Your task is to rewrite it in 5 different variations while strictly following these rules:
+1.  **Preserve Core Information:** Do NOT summarize or shorten the text. All original information, numbers, and offers must be present in each variation.
+2.  **Maintain Similar Length:** Each variation must have a similar length to the original text.
+3.  **Creative Paraphrasing:** Change the wording, sentence structure, and tone to make each version unique and persuasive. Use synonyms and different marketing angles.
+4.  **Format:** The final output MUST be a single line of text in Spintax format: {variation 1|variation 2|variation 3|variation 4|variation 5}. Do not add any text before or after this string.`
                 },
                 {
                     role: "user",
-                    content: text
+                    content: `Here is the text to paraphrase: "${text}"`
                 }
             ]
         });
