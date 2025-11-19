@@ -19,7 +19,6 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const { OpenAI } = require("openai");
-const axios = require('axios');
 
 // ================================================================= //
 // ========================= 2. المتغيرات العامة والتكوينات ======================= //
@@ -94,17 +93,6 @@ function readPromos(userId) { const userPromoPath = path.join(__dirname, 'user_d
 function writePromos(userId, promos) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2)); }
 async function syncWhatsAppContacts(whatsappClient, ownerId) { try { const chats = await whatsappClient.getChats(); const privateChats = chats.filter(chat => !chat.isGroup && chat.id.user); if (privateChats.length === 0) return; const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`); db.serialize(() => { db.run("BEGIN TRANSACTION"); privateChats.forEach(chat => { const phone = chat.id.user; const name = chat.name || chat.contact?.pushname || `+${phone}`; stmt.run(name, phone, ownerId); }); stmt.finalize(); db.run("COMMIT"); }); } catch (err) { console.error(`[Sync] Error for user ${ownerId}:`, err); } }
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
-function processSpintax(text) {
-    const spintaxRegex = /\{([^{}]+)\}/g;
-    let processedText = text;
-    let match;
-    while ((match = spintaxRegex.exec(processedText))) {
-        const options = match[1].split('|');
-        const randomChoice = options[Math.floor(Math.random() * options.length)];
-        processedText = processedText.replace(match[0], randomChoice);
-    }
-    return processedText;
-}
 
 // ================================================================= //
 // ================= 6. منطق Socket.IO وإدارة واتساب ================= //
@@ -112,26 +100,40 @@ function processSpintax(text) {
 io.on('connection', (socket) => {
     let activeUserId = null;
     let client = null;
+
     socket.on('init-whatsapp', (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
+
             if (whatsappClients[activeUserId]) {
                 client = whatsappClients[activeUserId];
-                if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
+                if (client.info) {
+                    socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
+                }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
-                client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
+                client = new Client({
+                    authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }),
+                    puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+                });
+
                 client.on("qr", (qr) => socket.emit('qr', qr));
+                
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
+                        
                         const campaignInfo = activeCampaigns[activeUserId];
                         if (!campaignInfo) return;
+
                         db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [activeUserId], async (err, user) => {
-                            if (err || !user || !user.is_chatbot_active) { return; }
+                            if (err || !user || !user.is_chatbot_active) {
+                                return;
+                            }
+
                             const userMessage = message.body;
                             const fromNumber = message.from;
                             try {
@@ -148,16 +150,21 @@ io.on('connection', (socket) => {
                         });
                     });
                 });
+
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
                     delete activeCampaigns[activeUserId];
                 });
+
                 client.initialize();
                 whatsappClients[activeUserId] = client;
             }
-        } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
+        } catch (e) {
+            socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true });
+        }
     });
+
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -170,26 +177,28 @@ io.on('connection', (socket) => {
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
+
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
+        
         const currentClient = whatsappClients[activeUserId];
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
         if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
+
         try {
             const numberId = `${phone.replace(/\D/g, "")}@c.us`;
-            const processedText = promo.text ? processSpintax(promo.text) : "";
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
                 if (fs.existsSync(imagePath)) {
                     const media = MessageMedia.fromFilePath(imagePath);
-                    await currentClient.sendMessage(numberId, media, { caption: processedText });
-                } else if (processedText) {
-                    await currentClient.sendMessage(numberId, processedText, { linkPreview: true });
+                    await currentClient.sendMessage(numberId, media, { caption: promo.text || "" });
+                } else {
+                    if (promo.text) { await currentClient.sendMessage(numberId, promo.text, { linkPreview: true }); }
                 }
-            } else if (processedText) {
-                await currentClient.sendMessage(numberId, processedText, { linkPreview: true });
+            } else if (promo.text) {
+                await currentClient.sendMessage(numberId, promo.text, { linkPreview: true });
             }
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
@@ -198,6 +207,7 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
+    
     socket.on('sync-contacts', async () => {
         if (!activeUserId || !whatsappClients[activeUserId]) { return; }
         console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
@@ -205,6 +215,7 @@ io.on('connection', (socket) => {
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
     });
+    
     socket.on('disconnect', () => {
         console.log(`Socket disconnected. WhatsApp session remains active.`);
     });
