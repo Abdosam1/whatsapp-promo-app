@@ -436,7 +436,7 @@
   <script src="dashboard.js"></script>
   <script src="language.js"></script>
 
-  <!-- UI Logic Script (Tabs & Real-time Stats - SMART VERSION) -->
+  <!-- UI Logic Script (Tabs & Real-time Stats - FIXED VERSION) -->
   <script>
     // 1. Tab Switching Logic
     function switchTab(tabName) {
@@ -461,38 +461,42 @@
       document.getElementById('page-title').innerText = titles[tabName] || 'Dashboard';
     }
 
-    // 2. Real-time Stats Updater (FILTERED VERSION)
+    // 2. Real-time Stats Updater (SEMI-SMART FILTER)
     function updateDashboardStats() {
         // Update Status Text
         const statusMsg = document.getElementById('status-message').innerText;
         const statusDisplay = document.getElementById('status-message-display');
         if(statusDisplay) statusDisplay.innerText = statusMsg;
 
-        // Count Contacts (Saved + Imported)
+        // Count Contacts
         const savedClients = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
         const importedClients = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
         document.getElementById('stat-total-contacts').innerText = savedClients + importedClients;
 
-        // --- SMART LOGIC FIX ---
-        // Get full log content
+        // --- LOGIC FIX (المنطق المصحح) ---
         const logsContent = document.getElementById('logs') ? document.getElementById('logs').innerText : "";
-        
-        // Split by lines to filter specific messages
-        const lines = logsContent.split('\n');
+        const lines = logsContent.split('\n'); // نقسمو النص لسطور
         
         let successCount = 0;
         let failCount = 0;
 
         lines.forEach(line => {
-            const lowerLine = line.toLowerCase();
-            
-            // Strict conditions for Success: Must be an actual message sent
-            if (lowerLine.includes("message sent") || lowerLine.includes("sent to") || lowerLine.includes("تم الإرسال")) {
+            // كنحيدو الفراغات ونردوه صغير باش نسهلو المقارنة
+            const text = line.toLowerCase().trim();
+            if(text.length < 5) return; // نتجاهلو السطور الخاوية والصغيرة بزاف
+
+            // --- شروط النجاح (Success Conditions) ---
+            // 1. خاص تكون فيه كلمة تدل على النجاح (Sent, Success, تم)
+            // 2. وفي نفس الوقت مايكونش ديال الكونيكسيون (Connect, Auth, Ready)
+            const isSuccessWord = text.includes("sent") || text.includes("success") || text.includes("تم") || text.includes("ok");
+            const isNotSystem   = !text.includes("connect") && !text.includes("auth") && !text.includes("ready") && !text.includes("start") && !text.includes("init");
+
+            if (isSuccessWord && isNotSystem) {
                 successCount++;
             }
             
-            // Strict conditions for Failure
-            if (lowerLine.includes("failed to") || lowerLine.includes("error sending") || lowerLine.includes("فشل الإرسال")) {
+            // --- شروط الفشل (Fail Conditions) ---
+            if (text.includes("fail") || text.includes("error") || text.includes("err") || text.includes("فشل") || text.includes("خطأ")) {
                 failCount++;
             }
         });
@@ -501,8 +505,8 @@
         document.getElementById('stat-sent-failed').innerText = failCount;
     }
 
-    // Update stats every 2 seconds
-    setInterval(updateDashboardStats, 2000);
+    // Update stats every 1 second (سرعناها شوية)
+    setInterval(updateDashboardStats, 1000);
   </script>
 </body>
 </html>
