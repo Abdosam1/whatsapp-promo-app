@@ -10,12 +10,10 @@
     "footerPrivacy": "سياسة الخصوصية",
     "footerRights": "جميع الحقوق محفوظة.",
 
-    // --- Navigation (New for Index & How-to) ---
     "navHome": "الرئيسية",
     "navLogin": "دخول",
     "navStartFree": "ابدأ مجاناً",
 
-    // --- Home Page (Index) ---
     "pageTitleIndex": "أداة إرسال واتساب الاحترافية",
     "heroTitle": "أداة إرسال واتساب الاحترافية",
     "heroSubtitle": "أتمتة حملاتك التسويقية والوصول لآلاف العملاء بضغطة زر. سهل، سريع، وآمن.",
@@ -42,7 +40,6 @@
     "getStartedBtn": "اختر الخطة",
     "mostPopular": "الأكثر شيوعاً",
 
-    // --- How it Works Page (NEW ADDITION) ---
     "howWorksPageTitle": "كيفية العمل - دليل الاستخدام",
     "howWorksTitle": "كيف يعمل النظام؟",
     "howWorksSubtitle": "دليل بسيط يشرح لك كيفية إطلاق حملتك الإعلانية الأولى في أقل من 5 دقائق.",
@@ -59,7 +56,6 @@
     "howWorksCtaTitle": "جاهز لتجربة النظام؟",
     "howWorksCtaBtn": "ابدأ تجربتك المجانية الآن",
 
-    // --- Login Page ---
     "pageTitleLogin": "تسجيل الدخول",
     "loginTitle": "تسجيل الدخول",
     "loginSubtitle": "أهلاً بعودتك! سجل الدخول للمتابعة.",
@@ -71,7 +67,6 @@
     "loginNoAccount": "ليس لديك حساب؟",
     "loginCreateOne": "أنشئ واحداً",
 
-    // --- Signup Page ---
     "pageTitleSignup": "إنشاء حساب جديد",
     "signupTitle": "إنشاء حساب جديد",
     "signupSubtitle": "مرحباً بك! أدخل بياناتك للبدء.",
@@ -84,7 +79,6 @@
     "signupHaveAccount": "لديك حساب بالفعل؟",
     "signupLogin": "سجل الدخول",
 
-    // --- Activation Pages ---
     "pageTitleEmailConfirm": "تأكيد الإيميل",
     "emailConfirmTitle": "تم إرسال رابط التفعيل",
     "emailConfirmDesc": "تم إرسال رابط تفعيل حسابك إلى بريدك الإلكتروني. يرجى فتح صندوق الوارد (أو مجلد Spam) والنقر على الرابط لإكمال عملية التسجيل.",
@@ -100,7 +94,6 @@
     "validationDesc": "المرجو إدخال رمز التفعيل الذي استلمته من المشرف لإتمام عملية تفعيل الاشتراك.",
     "validationBtn": "تفعيل الإشتراك",
 
-    // --- Dashboard ---
     "pageTitleDashboard": "لوحة التحكم - نظام إرسال WhatsApp",
     "dashHeaderTitle": "لوحة تحكم إرسال العروض",
     "dashHeaderSubtitle": "من هنا يمكنك إدارة حملاتك التسويقية بسهولة",
@@ -134,7 +127,6 @@
     "menuSupport": "الدعم الفني"
   },
   "en": {
-    // --- General ---
     "lang_ar": "العربية",
     "lang_en": "English",
     "backToHome": "Back to Homepage",
@@ -144,12 +136,10 @@
     "footerPrivacy": "Privacy Policy",
     "footerRights": "All rights reserved.",
 
-    // --- Navigation (New) ---
     "navHome": "Home",
     "navLogin": "Login",
     "navStartFree": "Start Free",
 
-    // --- Home Page (Index) ---
     "pageTitleIndex": "Professional WhatsApp Sender Tool",
     "heroTitle": "Professional WhatsApp Sender Tool",
     "heroSubtitle": "Automate your marketing campaigns and reach thousands of customers with one click. Easy, fast, and secure.",
@@ -193,7 +183,6 @@
     "howWorksCtaTitle": "Ready to try it?",
     "howWorksCtaBtn": "Start Your Free Trial Now",
 
-    // --- Login Page ---
     "pageTitleLogin": "Login",
     "loginTitle": "Login",
     "loginSubtitle": "Welcome back! Please login to continue.",
@@ -205,7 +194,6 @@
     "loginNoAccount": "Don't have an account?",
     "loginCreateOne": "Create one",
 
-    // --- Signup Page ---
     "pageTitleSignup": "Create a New Account",
     "signupTitle": "Create a New Account",
     "signupSubtitle": "Welcome! Enter your details to start.",
@@ -218,7 +206,6 @@
     "signupHaveAccount": "Already have an account?",
     "signupLogin": "Login",
 
-    // --- Activation Pages ---
     "pageTitleEmailConfirm": "Confirm Your Email",
     "emailConfirmTitle": "Activation Link Sent",
     "emailConfirmDesc": "An activation link has been sent to your email address. Please check your inbox (and spam folder) and click the link to complete your registration.",
@@ -234,7 +221,6 @@
     "validationDesc": "Please enter the activation code you received from the administrator to complete the subscription activation.",
     "validationBtn": "Activate Subscription",
 
-    // --- Dashboard ---
     "pageTitleDashboard": "Dashboard - WhatsApp Sender System",
     "dashHeaderTitle": "Campaign Control Panel",
     "dashHeaderSubtitle": "Manage your marketing campaigns with ease from here",
@@ -281,3 +267,4 @@
     "mostPopular": "Most Popular"
   }
 }
+
