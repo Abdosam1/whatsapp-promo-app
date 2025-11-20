@@ -424,7 +424,7 @@ app.post("/api/chatbot-status", authMiddleware, (req, res) => {
         res.json({ message: `تم ${isActive ? 'تفعيل' : 'إلغاء تفعيل'} المساعد الذكي بنجاح!` });
     });
 });
-
+// استبدل المسار القديم بهذا الكود المحسن
 app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
     const { text } = req.body;
     if (!text) {
@@ -432,15 +432,25 @@ app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
     }
     try {
         const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o-mini", // نموذج أحدث وأكثر إبداعاً
+            temperature: 0.8,    // زيادة درجة الإبداع قليلاً
             messages: [
                 {
                     role: "system",
-                    content: "You are a creative marketing assistant. Your task is to take a simple promotional phrase and generate 5 creative, persuasive variations of it in Moroccan Darija. The variations must be separated by the '|' symbol and enclosed in curly braces '{}' to form a valid spintax string. For example, if the input is '30% discount', the output should be '{استفد من تخفيض 30%|همزة: 30% ناقصة|كلشي ب 30% أقل|لا تفوت فرصة التخفيض|تخفيضات حصرية ب 30%}'. Do not add any text before or after the spintax string."
+                    content: `Your persona is a world-class Moroccan marketing copywriter. You are an expert in writing persuasive, engaging, and creative ad copy in Moroccan Darija.
+
+Your task is to take a core promotional message and transform it into 5 distinct, high-impact variations.
+
+**CRITICAL RULES:**
+1.  **Do Not Summarize:** You must paraphrase, not summarize. All key information (like percentages, product names, etc.) from the original text MUST be included in every variation.
+2.  **Maintain Length & Detail:** Each variation should be roughly the same length as the original text and contain the same level of detail.
+3.  **Be Creative & Use Emojis:** Each variation must have a different tone and angle. Use persuasive language, marketing hooks, and relevant emojis (🚀, 🔥, ✨, 🎁, 💯) to make the copy visually appealing and engaging.
+4.  **Language:** Write exclusively in authentic Moroccan Darija.
+5.  **Final Format:** The entire output MUST be a single line of text in Spintax format: {variation 1|variation 2|variation 3|variation 4|variation 5}. Do not add any introductions, explanations, or text before or after the spintax string.`
                 },
                 {
                     role: "user",
-                    content: text
+                    content: `Paraphrase this promotional message into 5 variations: "${text}"`
                 }
             ]
         });
