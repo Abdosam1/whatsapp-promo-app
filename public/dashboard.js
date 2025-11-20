@@ -315,7 +315,7 @@ async function sendPromoSequentially(list, fromImported) {
         if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; }
         sendPromo(client.phone, selectedPromoId, fromImported);
         if (i < list.length - 1) {
-            const delay = 30000 + Math.random() * 30000;
+            const delay = 10000 + Math.random() * 10000;
             log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
             await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -350,3 +350,4 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
+
