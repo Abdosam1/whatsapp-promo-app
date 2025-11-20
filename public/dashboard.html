@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <!-- Google Tags and other meta tags -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -39,9 +38,14 @@
         .sidebar {
             width: 260px; background: var(--card-background); border-inline-end: 1px solid var(--light-gray);
             height: 100vh; padding: 25px; display: flex; flex-direction: column; position: fixed;
+            opacity: 0; transform: translateX(-100%); /* For animation */
         }
+        [dir="ltr"] .sidebar { transform: translateX(-100%); }
+        [dir="rtl"] .sidebar { transform: translateX(100%); }
+
         .main-container {
-            flex-grow: 1; padding: 30px 40px; margin-inline-start: 260px;
+            flex-grow: 1; padding: 30px 40px; 
+            margin-inline-start: 260px;
         }
         .sidebar-header { text-align: center; margin-bottom: 40px; }
         .sidebar-header h1 { font-size: 1.8em; color: var(--dark-color); margin: 0; }
@@ -58,9 +62,13 @@
         }
         .sidebar-footer { margin-top: auto; text-align: center; }
         
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
-        .header-title h1 { font-size: 2.2em; margin: 0; }
-        .header-title p { margin: 5px 0 0; color: #777; }
+        header { 
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--light-gray);
+            opacity: 0; transform: translateY(-30px); /* For animation */
+        }
+        .header-title h1 { font-size: 2.2em; margin: 0; text-align: start; }
+        .header-title p { margin: 5px 0 0; color: #777; text-align: start; }
         
         .header-controls { display: flex; align-items: center; gap: 15px; }
         .language-switcher button {
@@ -81,31 +89,22 @@
         .card.full-width { grid-column: 1 / -1; }
         .card h2 {
             font-size: 1.3em; font-weight: 700; color: var(--dark-color); margin: 0 0 20px 0;
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between; text-align: start;
         }
         .card h2 i { color: var(--secondary-color); }
-        
         .btn {
             padding: 12px 25px; font-size: 1em; font-weight: 700;
             border-radius: var(--border-radius-md); transition: all 0.3s ease;
         }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .btn-primary { background-color: var(--primary-color); color: white; }
-        .btn-secondary { background-color: var(--dark-color); color: white; }
-        
-        label { text-align: start; }
-        .logs-box { border: 1px solid var(--light-gray); }
-        .promo img { border-radius: var(--border-radius-md); }
-        .promo { border: 1px solid var(--light-gray); box-shadow: none; }
-        .promo.selected { border-color: var(--primary-color); box-shadow: 0 0 15px rgba(37, 211, 102, 0.4); }
+        .btn-secondary { background-color: #e9ecef; color: #333; }
+        .btn-secondary:hover { background-color: #d1d9e2; }
         
         #whatsapp-status-card { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 50vh; text-align: center; }
         #main-content { display: none; opacity: 0; }
-        
     </style>
 </head>
-<body class="dashboard-page">
-    <!-- Google Tag Manager (noscript) -->
+<body>
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     
@@ -114,9 +113,9 @@
             <h1><i class="fab fa-whatsapp"></i> AutoSend Pro</h1>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="#" class="active"><i class="fas fa-tachometer-alt fa-fw"></i> <span data-key="menuDashboard">لوحة التحكم</span></a></li>
-            <li><a href="#"><i class="fas fa-cog fa-fw"></i> <span data-key="menuSettings">الإعدادات</span></a></li>
-            <li><a href="#"><i class="fas fa-question-circle fa-fw"></i> <span data-key="menuSupport">الدعم الفني</span></a></li>
+            <li><a href="#" class="active"><i class="fas fa-tachometer-alt fa-fw"></i> <span data-key="menuDashboard"></span></a></li>
+            <li><a href="#"><i class="fas fa-cog fa-fw"></i> <span data-key="menuSettings"></span></a></li>
+            <li><a href="#"><i class="fas fa-question-circle fa-fw"></i> <span data-key="menuSupport"></span></a></li>
         </ul>
         <div class="sidebar-footer">
             <div class="language-switcher">
@@ -138,7 +137,7 @@
         </header>
 
         <div class="card full-width" id="whatsapp-status-card">
-            <h2 data-key="dashCardStatusTitle"><i class="fas fa-sync-alt"></i></h2>
+            <h2><i class="fas fa-sync-alt"></i> <span data-key="dashCardStatusTitle"></span></h2>
             <div id="whatsapp-status">
                 <p id="status-message" style="font-size: 1.2em; font-weight: 600;" data-key="dashStatusMsg"></p>
                 <canvas id="qrcode-canvas" style="display:none;"></canvas>
@@ -215,7 +214,7 @@
                         <i class="fas fa-save"></i> <span data-key="dashSavePromptBtn"></span>
                     </button>
                 </div>
-
+                
                 <div class="card full-width">
                   <h2><i class="fas fa-history"></i> <span data-key="dashCardLogsTitle"></span></h2>
                   <div id="logs" class="list-box logs-box"></div>
@@ -228,16 +227,5 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <script src="dashboard.js"></script>
     <script src="language.js"></script>
-    <script>
-        // Script بسيط لإضافة الحركات
-        document.addEventListener('DOMContentLoaded', () => {
-            // حركة ظهور الشريط الجانبي والرأس
-            gsap.from(".sidebar", { duration: 1, x: -260, ease: "power3.out" });
-            gsap.from("header", { duration: 0.8, y: -50, opacity: 0, ease: "power3.out", delay: 0.3 });
-            
-            // حركة بطاقة الحالة
-            gsap.from("#whatsapp-status-card", { duration: 0.8, y: 50, opacity: 0, ease: "power3.out", delay: 0.5 });
-        });
-    </script>
 </body>
 </html>
