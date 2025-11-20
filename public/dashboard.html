@@ -436,9 +436,9 @@
   <script src="dashboard.js"></script>
   <script src="language.js"></script>
 
-  <!-- UI Logic Script (Tabs & Real-time Stats - FIXED VERSION) -->
+  <!-- UI Logic Script with MutationObserver (The "Link" to Dashboard.js) -->
   <script>
-    // 1. Tab Switching Logic
+    // 1. UI Tabs Logic
     function switchTab(tabName) {
       const items = document.querySelectorAll('.nav-item');
       items.forEach(item => item.classList.remove('active'));
@@ -447,7 +447,6 @@
       if (items[indexMap[tabName]]) items[indexMap[tabName]].classList.add('active');
 
       document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active-section'));
-
       const selectedTab = document.getElementById('tab-' + tabName);
       if(selectedTab) selectedTab.classList.add('active-section');
 
@@ -461,52 +460,55 @@
       document.getElementById('page-title').innerText = titles[tabName] || 'Dashboard';
     }
 
-    // 2. Real-time Stats Updater (SEMI-SMART FILTER)
-    function updateDashboardStats() {
-        // Update Status Text
-        const statusMsg = document.getElementById('status-message').innerText;
-        const statusDisplay = document.getElementById('status-message-display');
-        if(statusDisplay) statusDisplay.innerText = statusMsg;
+    // 2. REAL-TIME LINK with dashboard.js using MutationObserver
+    // This watches for *new* logs appearing in the div, exactly as they arrive.
+    let globalSuccessCount = 0;
+    let globalFailCount = 0;
 
-        // Count Contacts
-        const savedClients = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
-        const importedClients = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
-        document.getElementById('stat-total-contacts').innerText = savedClients + importedClients;
-
-        // --- LOGIC FIX (المنطق المصحح) ---
-        const logsContent = document.getElementById('logs') ? document.getElementById('logs').innerText : "";
-        const lines = logsContent.split('\n'); // نقسمو النص لسطور
+    document.addEventListener('DOMContentLoaded', () => {
+        const logsContainer = document.getElementById('logs');
         
-        let successCount = 0;
-        let failCount = 0;
+        if(logsContainer) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        // Only process element nodes (divs, p, etc)
+                        if (node.nodeType === 1) { 
+                             const text = node.innerText.toLowerCase();
+                             
+                             // Condition: Must imply "sending" AND NOT be "connecting"
+                             const isSending = text.includes('sent') || text.includes('success') || text.includes('تم');
+                             const isNotConnecting = !text.includes('connect') && !text.includes('auth') && !text.includes('ready') && !text.includes('start');
+                             
+                             if (isSending && isNotConnecting) {
+                                 globalSuccessCount++;
+                                 document.getElementById('stat-sent-success').innerText = globalSuccessCount;
+                             }
 
-        lines.forEach(line => {
-            // كنحيدو الفراغات ونردوه صغير باش نسهلو المقارنة
-            const text = line.toLowerCase().trim();
-            if(text.length < 5) return; // نتجاهلو السطور الخاوية والصغيرة بزاف
-
-            // --- شروط النجاح (Success Conditions) ---
-            // 1. خاص تكون فيه كلمة تدل على النجاح (Sent, Success, تم)
-            // 2. وفي نفس الوقت مايكونش ديال الكونيكسيون (Connect, Auth, Ready)
-            const isSuccessWord = text.includes("sent") || text.includes("success") || text.includes("تم") || text.includes("ok");
-            const isNotSystem   = !text.includes("connect") && !text.includes("auth") && !text.includes("ready") && !text.includes("start") && !text.includes("init");
-
-            if (isSuccessWord && isNotSystem) {
-                successCount++;
-            }
+                             if (text.includes('fail') || text.includes('error') || text.includes('err') || text.includes('فشل')) {
+                                 globalFailCount++;
+                                 document.getElementById('stat-sent-failed').innerText = globalFailCount;
+                             }
+                        }
+                    });
+                });
+            });
             
-            // --- شروط الفشل (Fail Conditions) ---
-            if (text.includes("fail") || text.includes("error") || text.includes("err") || text.includes("فشل") || text.includes("خطأ")) {
-                failCount++;
-            }
-        });
+            // Start watching the logs div
+            observer.observe(logsContainer, { childList: true });
+        }
 
-        document.getElementById('stat-sent-success').innerText = successCount;
-        document.getElementById('stat-sent-failed').innerText = failCount;
-    }
+        // Simple interval just for Contact count and Status text (safe to poll)
+        setInterval(() => {
+            const saved = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
+            const imported = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
+            document.getElementById('stat-total-contacts').innerText = saved + imported;
 
-    // Update stats every 1 second (سرعناها شوية)
-    setInterval(updateDashboardStats, 1000);
+            const statusMsg = document.getElementById('status-message').innerText;
+            const statusDisplay = document.getElementById('status-message-display');
+            if(statusDisplay) statusDisplay.innerText = statusMsg;
+        }, 1000);
+    });
   </script>
 </body>
 </html>
