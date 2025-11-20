@@ -26,12 +26,12 @@
   <style>
     :root {
       /* Pro SaaS Theme Colors */
-      --bg-main: #0f111a;       /* Very Dark Blue/Grey */
-      --bg-sidebar: #161b28;    /* Slightly lighter for sidebar */
-      --bg-card: #1e2330;       /* Card Background */
-      --primary: #00d26a;       /* WhatsApp Green Modern */
+      --bg-main: #0f111a;       
+      --bg-sidebar: #161b28;    
+      --bg-card: #1e2330;       
+      --primary: #00d26a;       
       --primary-glow: rgba(0, 210, 106, 0.3);
-      --secondary: #3b82f6;     /* Action Blue */
+      --secondary: #3b82f6;     
       --text-main: #ffffff;
       --text-muted: #9ca3af;
       --border: #2d3748;
@@ -117,7 +117,7 @@
     .content-area::-webkit-scrollbar { width: 6px; }
     .content-area::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
 
-    /* --- TABS SYSTEM (JS Driven Logic visually) --- */
+    /* --- TABS SYSTEM --- */
     .tab-section { display: none; animation: fadeEffect 0.4s ease; }
     .tab-section.active-section { display: block; }
 
@@ -138,6 +138,19 @@
       border-bottom: 1px solid var(--border);
     }
     .card h2 i { color: var(--secondary); }
+
+    /* Stats Cards (New) */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { display: flex; align-items: center; padding: 25px; position: relative; overflow: hidden; border: none; margin-bottom: 0; }
+    .stat-card::before { content: ''; position: absolute; top:0; bottom:0; left:0; width: 4px; }
+    
+    .stat-icon { 
+        width: 50px; height: 50px; border-radius: 12px; 
+        display: flex; align-items: center; justify-content: center; 
+        font-size: 1.5rem; margin-inline-end: 15px; 
+    }
+    .stat-info h3 { margin: 0; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+    .stat-info span { font-size: 1.8rem; font-weight: 700; color: white; display: block; margin-top: 5px; }
 
     /* Buttons Pro */
     .btn {
@@ -175,8 +188,8 @@
     .promo img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
 
     /* Status Connection */
-    #whatsapp-status { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; }
-    #qrcode-canvas { border: 8px solid white; border-radius: 8px; margin-top: 20px; }
+    #whatsapp-status { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #qrcode-canvas { border: 8px solid white; border-radius: 8px; margin-top: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
 
     /* Toggle */
     .toggle-switch { position: relative; display: inline-block; width: 46px; height: 24px; }
@@ -253,18 +266,62 @@
     <!-- Scrollable Content -->
     <div class="content-area">
       
-      <!-- TAB 1: DASHBOARD (Status + Overview) -->
+      <!-- TAB 1: DASHBOARD (Stats + Status) -->
       <div id="tab-dashboard" class="tab-section active-section">
-        <div class="card" id="whatsapp-status-card">
-          <h2><i class="fas fa-wifi"></i> <span data-key="dashCardStatusTitle">Connection Status</span></h2>
+        
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <!-- Total Contacts -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #3b82f6;">
+                <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 data-key="dashCardClientsTitle">Contacts</h3>
+                    <span id="stat-total-contacts">0</span>
+                </div>
+            </div>
+
+            <!-- Sent Success -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #22c55e;">
+                <div class="stat-icon" style="background: rgba(34, 197, 94, 0.2); color: #22c55e;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Successful</h3>
+                    <span id="stat-sent-success">0</span>
+                </div>
+            </div>
+
+            <!-- Sent Failed -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #ef4444;">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Failed</h3>
+                    <span id="stat-sent-failed">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status (Always Visible) -->
+        <div class="card" id="whatsapp-status-card" style="text-align: center; padding: 40px;">
+          <h2 style="justify-content: center; border: none; font-size: 1.5rem; margin-bottom: 10px;">
+            <i class="fab fa-whatsapp" style="font-size: 2.5rem; color: var(--primary);"></i>
+          </h2>
+          <h3 data-key="dashCardStatusTitle" style="margin: 0 0 20px 0; color: var(--text-muted); text-align: center;">Connection Status</h3>
+          
           <div id="whatsapp-status">
-            <!-- QR Code Canvas will appear here -->
-            <canvas id="qrcode-canvas" style="display:none;"></canvas>
+            <!-- Status Text -->
+            <p id="status-message-display" style="font-size: 1.4rem; font-weight: bold; margin: 10px 0; color: var(--primary);">Initializing...</p>
+            <!-- QR Code Canvas -->
+            <canvas id="qrcode-canvas" style="display:none; margin: 0 auto;"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- WRAPPER FOR DYNAMIC CONTENT (Original ID maintained) -->
+      <!-- WRAPPER FOR DYNAMIC CONTENT (Original IDs preserved) -->
       <div id="main-content" style="display:none;"> 
         
         <!-- TAB 2: CONTACTS -->
@@ -379,34 +436,22 @@
   <script src="dashboard.js"></script>
   <script src="language.js"></script>
 
-  <!-- UI Logic Script (For Tabs Only) -->
+  <!-- UI Logic Script (Tabs & Real-time Stats) -->
   <script>
+    // 1. Tab Switching Logic
     function switchTab(tabName) {
-      // 1. Remove active class from sidebar items
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      
-      // 2. Add active class to clicked item (Simple logic based on index or event)
-      // Note: In a real app, you'd pass 'this' or use IDs. Here we just approximate for simplicity or user can tweak.
-      // Let's find the button that was clicked by text content or icon class match roughly, 
-      // OR simpler: Just set the active class on the clicked element in HTML if using 'this'.
-      // Better approach for this static code:
       const items = document.querySelectorAll('.nav-item');
-      if(tabName === 'dashboard') items[0].classList.add('active');
-      if(tabName === 'contacts') items[1].classList.add('active');
-      if(tabName === 'campaigns') items[2].classList.add('active');
-      if(tabName === 'tools') items[3].classList.add('active');
-      if(tabName === 'logs') items[4].classList.add('active');
+      items.forEach(item => item.classList.remove('active'));
+      
+      // Add active class based on index mapping
+      const indexMap = { 'dashboard': 0, 'contacts': 1, 'campaigns': 2, 'tools': 3, 'logs': 4 };
+      if (items[indexMap[tabName]]) items[indexMap[tabName]].classList.add('active');
 
-      // 3. Hide all tabs
       document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active-section'));
 
-      // 4. Show selected tab
       const selectedTab = document.getElementById('tab-' + tabName);
-      if(selectedTab) {
-          selectedTab.classList.add('active-section');
-      }
+      if(selectedTab) selectedTab.classList.add('active-section');
 
-      // 5. Update Header Title
       const titles = {
         'dashboard': 'Dashboard Overview',
         'contacts': 'Contact Management',
@@ -414,11 +459,32 @@
         'tools': 'Utilities & Automation',
         'logs': 'Activity Logs'
       };
-      document.getElementById('page-title').innerText = titles[tabName];
+      document.getElementById('page-title').innerText = titles[tabName] || 'Dashboard';
     }
-    
-    // Ensure Dashboard tab shows Status even if #main-content is hidden initially
-    // This UI script runs purely on frontend click events.
+
+    // 2. Real-time Stats Updater (Reads from DOM)
+    function updateDashboardStats() {
+        // Get Status Text
+        const statusMsg = document.getElementById('status-message').innerText;
+        const statusDisplay = document.getElementById('status-message-display');
+        if(statusDisplay) statusDisplay.innerText = statusMsg;
+
+        // Count Contacts (Saved + Imported)
+        const savedClients = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
+        const importedClients = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
+        document.getElementById('stat-total-contacts').innerText = savedClients + importedClients;
+
+        // Count Logs for Success/Fail
+        const logsText = document.getElementById('logs') ? document.getElementById('logs').innerText.toLowerCase() : "";
+        const successCount = (logsText.match(/sent|success|تم|نجاح/g) || []).length;
+        const failCount = (logsText.match(/fail|error|فشل|خطأ/g) || []).length;
+
+        document.getElementById('stat-sent-success').innerText = successCount;
+        document.getElementById('stat-sent-failed').innerText = failCount;
+    }
+
+    // Update stats every 2 seconds
+    setInterval(updateDashboardStats, 2000);
   </script>
 </body>
 </html>
