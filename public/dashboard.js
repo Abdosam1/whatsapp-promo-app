@@ -28,8 +28,7 @@ let isWhatsappReady = false;
 const adminNumber = "212619145177";
 
 const uiElements = {
-    // تم تحديث القائمة لتشمل العناصر من التصميم الجديد
-    logoutBtn: document.getElementById('logoutBtn'), // موجود في الشريط الجانبي
+    logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
     mainContent: document.getElementById('main-content'),
     statusMessage: document.getElementById('status-message'),
@@ -46,35 +45,46 @@ const uiElements = {
     newPromoText: document.getElementById('newPromoText'),
     newPromoImage: document.getElementById('newPromoImage'),
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
-    generateSpintaxBtn: document.getElementById('generateSpintaxBtn'),
+    phoneInput: document.getElementById('phoneInput'),
+    sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
+    exportClientsBtn: document.getElementById('exportClientsBtn'),
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
-    chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
     syncContactsBtn: document.getElementById('syncContactsBtn'),
-    exportClientsBtn: document.getElementById('exportClientsBtn')
+    chatbotStatusToggle: document.getElementById('chatbotStatusToggle') // تمت إضافة الزر الجديد هنا
 };
 
 // ================================================================= //
 // ==================== 3. نقطة انطلاق التطبيق ===================== //
 // ================================================================= //
 document.addEventListener('DOMContentLoaded', () => {
-    animateInitialLayout(); // تشغيل الحركات الأولية
     initializeEventListeners();
     initializeWhatsAppConnection();
 });
 
 function initializeEventListeners() {
-    if (uiElements.logoutBtn) uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
-    if (uiElements.addNewPromoBtn) uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
-    if (uiElements.importCsvBtn) uiElements.importCsvBtn.addEventListener('click', importCSV);
-    if (uiElements.sendSequentiallyClientsBtn) uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
-    if (uiElements.sendSequentiallyImportedBtn) uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
-    if (uiElements.deleteAllImportedBtn) uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
-    if (uiElements.exportClientsBtn) uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
-    if (uiElements.savePromptBtn) uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
-    if (uiElements.syncContactsBtn) uiElements.syncContactsBtn.addEventListener('click', requestContactSync);
-    if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
-    if (uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
+    uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
+    uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
+    uiElements.importCsvBtn.addEventListener('click', importCSV);
+    uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
+    uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
+    uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
+    if (uiElements.deleteAllImportedBtn) {
+        uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
+    }
+    if (uiElements.exportClientsBtn) {
+        uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
+    }
+    if (uiElements.savePromptBtn) {
+        uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
+    }
+    if (uiElements.syncContactsBtn) {
+        uiElements.syncContactsBtn.addEventListener('click', requestContactSync);
+    }
+    // --- ربط زر تفعيل الشات بوت ---
+    if (uiElements.chatbotStatusToggle) {
+        uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
+    }
 }
 
 // ================================================================= //
@@ -94,30 +104,16 @@ function initializeWhatsAppConnection() {
         if (status.ready) {
             isWhatsappReady = true;
             uiElements.qrcodeCanvas.style.display = 'none';
-            uiElements.statusMessage.textContent = '✅ تم الاتصال بنجاح! جاري تحميل بياناتك...';
+            uiElements.statusCard.style.backgroundColor = '#d4edda';
+            log('✅ تم الاتصال بواتساب بنجاح! سيتم تحميل بياناتك.', 'green');
             setTimeout(() => {
-                // استخدام GSAP لإخفاء بطاقة الحالة وإظهار المحتوى الرئيسي بحركة
-                gsap.to(uiElements.statusCard, { 
-                    duration: 0.5, 
-                    opacity: 0, 
-                    onComplete: () => {
-                        uiElements.statusCard.style.display = 'none';
-                        uiElements.mainContent.style.display = 'block';
-                        gsap.to(uiElements.mainContent, { duration: 0.8, opacity: 1 });
-                        loadInitialData();
-                        // حركة ظهور البطاقات
-                        gsap.from(".card", {
-                            duration: 0.7,
-                            y: 30,
-                            opacity: 0,
-                            ease: "power2.out",
-                            stagger: 0.1
-                        });
-                    }
-                });
+                uiElements.statusCard.style.display = 'none';
+                uiElements.mainContent.style.display = 'block';
+                loadInitialData();
             }, 1500);
         } else {
             isWhatsappReady = false;
+            if (status.error) uiElements.statusCard.style.backgroundColor = '#f8d7da';
         }
     });
     socket.on('send-promo-status', (status) => {
@@ -278,7 +274,9 @@ async function toggleChatbotStatus() {
 }
 async function generateSpintax() {
     const originalText = uiElements.newPromoText.value.trim();
-    if (!originalText) { return alert("يرجى كتابة فكرة العرض أولاً."); }
+    if (!originalText) {
+        return alert("يرجى كتابة فكرة العرض أولاً.");
+    }
     log('🤖 المساعد الذكي يقوم بإنشاء صيغ جديدة...', 'purple');
     if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = true;
     try {
@@ -351,15 +349,4 @@ function log(message, color = "black") {
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
-}
-
-// --- دالة جديدة لتشغيل الحركات ---
-function animateInitialLayout() {
-    // حركة ظهور الشريط الجانبي والرأس
-    const sidebarDir = document.documentElement.dir === 'rtl' ? 100 : -100;
-    gsap.to(".sidebar", { duration: 1, xPercent: sidebarDir * -1, opacity: 1, ease: "power3.out" });
-    gsap.from("header", { duration: 0.8, y: -50, opacity: 0, ease: "power3.out", delay: 0.3 });
-    
-    // حركة بطاقة الحالة
-    gsap.from("#whatsapp-status-card", { duration: 0.8, y: 50, opacity: 0, ease: "power3.out", delay: 0.5 });
 }
