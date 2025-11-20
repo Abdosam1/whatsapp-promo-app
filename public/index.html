@@ -1,209 +1,230 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <!-- Meta & Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
 
-  gtag('config', 'G-Z3N357ZJ1W');
-</script>
-
-    <!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-TT65MB24');</script>
-<!-- End Google Tag Manager -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-key="pageTitleIndex">أداة إرسال واتساب الاحترافية</title>
+    <title data-key="pageTitleIndex">WA Pro Suite - Marketing Automation</title>
+    
+    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+
     <style>
-        /* --- Google Font & Theme Variables --- */
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
         :root {
-            --primary-color: #25D366;
-            --secondary-color: #128C7E;
-            --dark-color: #075E54;
-            --background-color: #f0f2f5;
-            --card-background: #ffffff;
-            --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            --border-radius: 8px;
+            /* Same Theme as Dashboard */
+            --bg-main: #0f111a;       
+            --bg-card: rgba(30, 41, 59, 0.5);       
+            --primary: #00d26a;       
+            --primary-glow: rgba(0, 210, 106, 0.4);
+            --secondary: #3b82f6;     
+            --text-main: #ffffff;
+            --text-muted: #9ca3af;
+            --border: rgba(255, 255, 255, 0.1);
+            
+            --font-main: 'Cairo', 'Inter', sans-serif;
         }
 
-        /* --- General Body Styles --- */
         body {
-            font-family: 'Cairo', sans-serif;
+            font-family: var(--font-main);
             margin: 0;
-            background-color: var(--background-color);
-            text-align: center;
+            background-color: var(--bg-main);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 210, 106, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.08), transparent 25%);
+            color: var(--text-main);
+            overflow-x: hidden;
         }
 
-        /* --- Hero Section (Top Banner) --- */
-        .hero {
-            position: relative; 
-            background: var(--dark-color);
-            background: linear-gradient(135deg, var(--dark-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 80px 20px;
-            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
-            margin-bottom: -50px;
-        }
-        .hero h1 {
-            font-size: 3.2em;
-            font-weight: 900;
-            margin: 0 0 10px;
-            text-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-        }
-        .hero p {
-            font-size: 1.3em;
-            max-width: 600px;
-            margin: 10px auto 30px;
-            opacity: 0.9;
-        }
-        
-        /* --- Language Switcher Styles --- */
-        .language-switcher {
-            position: absolute;
-            top: 20px;
-            inset-inline-start: 20px;
-            z-index: 10;
+        /* --- Navigation --- */
+        .nav-container {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 40px;
+            position: absolute; top: 0; width: 100%; box-sizing: border-box; z-index: 10;
         }
         .language-switcher button {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid white;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-inline-start: 5px;
-            font-family: 'Cairo', sans-serif;
-            font-weight: 700;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: var(--text-muted); padding: 6px 12px; border-radius: 8px;
+            cursor: pointer; margin-inline-end: 8px; font-family: inherit; transition: 0.3s;
         }
-        .language-switcher button.active {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
+        .language-switcher button:hover, .language-switcher button.active {
+            border-color: var(--primary); color: var(--primary); background: rgba(0, 210, 106, 0.1);
         }
 
-        /* --- Call-to-Action Buttons --- */
-        .cta-buttons a {
-            text-decoration: none;
-            color: white;
-            padding: 14px 32px;
-            border-radius: 50px;
-            font-size: 1.1em;
-            font-weight: 700;
-            margin: 0 10px;
-            transition: all 0.3s ease;
-            display: inline-block;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        /* --- Hero Section --- */
+        .hero {
+            position: relative;
+            padding: 180px 20px 120px;
+            text-align: center;
+            max-width: 900px; margin: 0 auto;
         }
-        .btn-main { background-color: var(--primary-color); border: 2px solid var(--primary-color); }
-        .btn-main:hover { background-color: #20c35b; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
-        .btn-secondary { background-color: transparent; border: 2px solid white; }
-        .btn-secondary:hover { background-color: white; color: var(--dark-color); }
+        .hero h1 {
+            font-size: 3.5rem; font-weight: 900; line-height: 1.2; margin-bottom: 20px;
+            background: linear-gradient(to right, #fff, #9ca3af);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero h1 i { -webkit-text-fill-color: var(--primary); filter: drop-shadow(0 0 20px var(--primary-glow)); }
+        
+        .hero p {
+            font-size: 1.2rem; color: var(--text-muted); margin-bottom: 40px; line-height: 1.6;
+        }
+
+        /* Buttons */
+        .cta-buttons { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .btn {
+            text-decoration: none; padding: 15px 35px; border-radius: 50px;
+            font-size: 1.1rem; font-weight: 700; transition: all 0.3s ease;
+            display: inline-flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+        .btn-main {
+            background: var(--primary); color: #000;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 10px 30px var(--primary-glow); }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: white; }
 
         /* --- Features Section --- */
-        .features { padding: 100px 20px 50px; max-width: 1200px; margin: auto; }
-        .features h2 { font-size: 2.8em; color: var(--dark-color); margin-bottom: 50px; }
+        .features { padding: 80px 20px; max-width: 1200px; margin: auto; }
+        .features h2, .pricing-section h2 { 
+            font-size: 2.5rem; text-align: center; margin-bottom: 60px; 
+            color: white;
+        }
         .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-        .feature-card { 
-            background-color: var(--card-background); 
-            padding: 30px; 
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow); 
-            transition: transform 0.3s ease; 
-            text-align: start;
-        }
-        .feature-card:hover { transform: translateY(-10px); }
-        .feature-card .icon { font-size: 3em; color: var(--primary-color); margin-bottom: 20px; }
-        .feature-card h3 { font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px; }
-        .feature-card p { color: #555; line-height: 1.6; }
         
-        /* --- CSS for Pricing Section --- */
-        .pricing-section {
-            background-color: var(--card-background);
-            padding: 80px 20px;
+        .feature-card { 
+            background: var(--bg-card); 
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 40px; border-radius: 20px; 
+            transition: 0.3s; text-align: start;
         }
-        .pricing-section h2 {
-            font-size: 2.8em;
-            color: var(--dark-color);
-            margin-bottom: 50px;
+        .feature-card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5); }
+        .feature-card .icon { 
+            font-size: 2.5rem; color: var(--primary); margin-bottom: 25px; 
+            background: rgba(0, 210, 106, 0.1); width: 70px; height: 70px;
+            display: flex; align-items: center; justify-content: center; border-radius: 15px;
         }
+        .feature-card h3 { font-size: 1.4rem; color: white; margin: 0 0 15px 0; }
+        .feature-card p { color: var(--text-muted); line-height: 1.6; margin: 0; }
+
+        /* --- Pricing Section --- */
+        .pricing-section { padding: 80px 20px; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.3)); }
         .pricing-container {
-            display: flex;
-            justify-content: center;
-            align-items: stretch;
-            flex-wrap: wrap;
-            gap: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
+            display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; max-width: 1200px; margin: 0 auto;
         }
         .pricing-card {
-            background: var(--background-color);
-            border-radius: var(--border-radius);
-            padding: 30px;
-            flex: 1;
-            min-width: 300px;
-            display: flex;
-            flex-direction: column;
-            border: 2px solid transparent;
-            position: relative;
-            text-align: start;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 40px; flex: 1; min-width: 300px; max-width: 380px;
+            text-align: start; position: relative; transition: 0.3s;
         }
         .pricing-card.popular {
-            border-color: var(--primary-color);
-            transform: scale(1.05);
+            border-color: var(--primary); background: rgba(0, 210, 106, 0.03);
+            transform: scale(1.05); z-index: 2;
+            box-shadow: 0 0 40px rgba(0, 210, 106, 0.1);
         }
         .popular-badge {
-            position: absolute;
-            top: -15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary-color);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 700;
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            background: var(--primary); color: #000; padding: 6px 20px;
+            border-radius: 20px; font-size: 0.85rem; font-weight: 700;
+            box-shadow: 0 5px 15px var(--primary-glow);
         }
-        .card-title { font-size: 1.8em; font-weight: 700; color: var(--secondary-color); margin-bottom: 10px; }
-        .card-desc { color: #777; margin-bottom: 30px; min-height: 50px; }
-        .price-amount { font-size: 3em; font-weight: 900; color: var(--dark-color); }
-        .price-amount span { font-size: 0.5em; font-weight: 600; color: #555; }
-        .price-note { color: #555; font-weight: 600; margin-top: -10px; margin-bottom: 30px; }
+        .card-title { font-size: 1.5rem; color: white; margin: 0 0 10px 0; }
+        .card-desc { color: var(--text-muted); margin-bottom: 30px; min-height: 50px; font-size: 0.95rem; }
+        .price-amount { font-size: 3.5rem; font-weight: 700; color: white; margin-bottom: 5px; }
+        .price-amount span { font-size: 1rem; font-weight: 400; color: var(--text-muted); }
+        .price-note { color: var(--primary); font-size: 0.9rem; margin-bottom: 0; }
+
+        /* --- Footer --- */
+        .site-footer { 
+            border-top: 1px solid var(--border); 
+            padding: 40px 20px; text-align: center; 
+            color: var(--text-muted); font-size: 0.9rem;
+            margin-top: 50px;
+        }
+        .footer-links a { color: white; text-decoration: none; margin: 0 15px; transition: 0.2s; }
+        .footer-links a:hover { color: var(--primary); }
+
+        /* --- Page Transition Animation Overlay --- */
+        #transition-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-main);
+            z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #transition-overlay.active { opacity: 1; pointer-events: all; }
         
-        /* --- Footer CSS --- */
-        .site-footer { background-color: #333; color: #ccc; text-align: center; padding: 25px 0; font-size: 0.9em; width: 100%; }
-        .footer-links a { color: #fff; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
-        .footer-links a:hover { color: var(--primary-color); }
-        .footer-links span { color: #666; }
-        .footer-copyright { margin-top: 15px; font-size: 0.8em; color: #aaa; }
+        /* Loader Spinner */
+        .loader {
+            width: 50px; height: 50px;
+            border: 3px solid rgba(0, 210, 106, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        .loader-text { font-weight: 600; color: white; letter-spacing: 1px; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.5rem; }
+            .pricing-card.popular { transform: scale(1); }
+            .nav-container { padding: 20px; }
+        }
     </style>
 </head>
 <body>
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-    <div class="hero">
+    <!-- Transition Overlay -->
+    <div id="transition-overlay">
+        <div class="loader"></div>
+        <div class="loader-text">LOADING...</div>
+    </div>
+
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <!-- Navigation -->
+    <div class="nav-container">
         <div class="language-switcher">
             <button id="lang-ar" data-key="lang_ar"></button>
             <button id="lang-en" data-key="lang_en"></button>
         </div>
-        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+        <h1><i class="fab fa-whatsapp"></i> <br> <span data-key="heroTitle"></span></h1>
         <p data-key="heroSubtitle"></p>
         <div class="cta-buttons">
-            <a href="signup.html" class="btn-main" data-key="ctaStart"></a>
-            <a href="login.html" class="btn-secondary" data-key="ctaLogin"></a>
+            <!-- Class 'nav-link' used for JS animation hook -->
+            <a href="signup.html" class="btn btn-main nav-link" data-key="ctaStart"></a>
+            <a href="login.html" class="btn btn-secondary nav-link" data-key="ctaLogin"></a>
         </div>
     </div>
 
+    <!-- Features -->
     <div class="features">
         <h2 data-key="featuresTitle"></h2>
         <div class="features-grid">
@@ -225,6 +246,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </div>
 
+    <!-- Pricing -->
     <div class="pricing-section">
         <h2 data-key="pricingSectionTitle"></h2>
         <div class="pricing-container">
@@ -232,8 +254,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <h3 class="card-title" data-key="planMonthlyTitle"></h3>
                 <p class="card-desc" data-key="planMonthlyDesc"></p>
                 <div class="price-amount">$5 <span>/ <span data-key="monthly"></span></span></div>
-                <p class="price-note" style="visibility: hidden;">&nbsp;</p>
-                <!-- الزر تم حذفه من هنا -->
             </div>
             <div class="pricing-card popular">
                 <div class="popular-badge" data-key="mostPopular"></div>
@@ -241,18 +261,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <p class="card-desc" data-key="planSemiDesc"></p>
                 <div class="price-amount">$20 <span>/ 6 <span data-key="monthly"></span></span></div>
                 <p class="price-note" data-key="planSemiPricePerMonth"></p>
-                <!-- الزر تم حذفه من هنا -->
             </div>
             <div class="pricing-card">
                 <h3 class="card-title" data-key="planYearlyTitle"></h3>
                 <p class="card-desc" data-key="planYearlyDesc"></p>
                 <div class="price-amount">$35 <span>/ <span data-key="billed_annually"></span></span></div>
                 <p class="price-note" data-key="planYearlyPricePerMonth"></p>
-                <!-- الزر تم حذفه من هنا -->
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-links">
             <a href="about.html" data-key="footerAbout"></a>
@@ -264,8 +283,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </footer>
 
+    <!-- Scripts -->
     <script>
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
+        // Animation Logic for Login/Signup
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault(); // Stop immediate jump
+                const targetUrl = this.getAttribute('href');
+                
+                // Show Overlay
+                const overlay = document.getElementById('transition-overlay');
+                overlay.classList.add('active');
+
+                // Wait 1 second then go
+                setTimeout(() => {
+                    window.location.href = targetUrl;
+                }, 800);
+            });
+        });
     </script>
     <script src="language.js"></script>
 </body>
