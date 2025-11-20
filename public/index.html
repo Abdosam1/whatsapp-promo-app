@@ -1,24 +1,22 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-Z3N357ZJ1W');
-</script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
 
     <!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-TT65MB24');</script>
-<!-- End Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,247 +26,179 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
-        /* --- Modern Dark Theme Variables --- */
+        /* --- 1. Dark Theme Variables --- */
         :root {
-            --bg-main: #0f111a;       
-            --bg-card: rgba(30, 41, 59, 0.5);       
-            --primary: #00d26a;       
-            --primary-glow: rgba(0, 210, 106, 0.4);
-            --secondary: #3b82f6;     
+            --bg-main: #0f172a;         /* لون الخلفية الرئيسي (Slate Dark) */
+            --bg-hero-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --bg-card: #1e293b;         /* لون البطاقات */
+            --primary: #00d26a;         /* أخضر واتساب */
+            --primary-hover: #00b359;
             --text-main: #ffffff;
-            --text-muted: #9ca3af;
-            --border: rgba(255, 255, 255, 0.1);
+            --text-muted: #94a3b8;
+            --border-color: #334155;
         }
 
-        /* --- General Body Styles --- */
+        /* --- 2. General Styles --- */
         body {
             font-family: 'Cairo', sans-serif;
             margin: 0;
             background-color: var(--bg-main);
-            background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15), transparent 50%);
             color: var(--text-main);
             text-align: center;
-            overflow-x: hidden;
+            overflow-x: hidden; /* ضروري عشان الانيمشن */
+            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
         }
 
-        /* --- Hero Section --- */
+        /* Class to trigger slide out animation */
+        body.slide-out {
+            transform: translateX(100%); /* يزلق لليمين حيت العربية RTL */
+            opacity: 0;
+        }
+
+        /* --- 3. Hero Section (The Angled Header) --- */
         .hero {
-            position: relative; 
-            padding: 120px 20px 80px;
-            background: transparent;
+            position: relative;
+            background: var(--bg-hero-gradient);
+            padding: 120px 20px 150px; /* مسافة زايدة لتحت عشان القص */
+            /* هذا هو الكود اللي كيدير الميلان فالتصويرة ديالك */
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        
-        .hero h1 {
-            font-size: 3.5em;
-            font-weight: 900;
-            margin: 0 0 20px;
-            background: linear-gradient(to right, #fff, #a5f3fc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.3));
-        }
-        .hero h1 i { -webkit-text-fill-color: var(--primary); }
 
-        .hero p {
-            font-size: 1.3em;
-            max-width: 700px;
-            margin: 10px auto 40px;
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-        
-        /* --- Language Switcher --- */
+        /* Language Switcher */
         .language-switcher {
-            position: absolute;
-            top: 30px;
-            inset-inline-start: 30px;
-            z-index: 10;
+            position: absolute; top: 20px; inset-inline-start: 20px; z-index: 10;
         }
         .language-switcher button {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-inline-start: 5px;
-            font-family: 'Cairo', sans-serif;
-            font-weight: 700;
-            transition: 0.3s;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-muted); padding: 6px 12px; border-radius: 6px;
+            cursor: pointer; transition: 0.3s; font-family: inherit; font-weight: bold;
         }
         .language-switcher button:hover, .language-switcher button.active {
-            background: rgba(0, 210, 106, 0.1);
-            border-color: var(--primary);
-            color: var(--primary);
+            background: var(--primary); color: #fff; border-color: var(--primary);
         }
 
-        /* --- Call-to-Action Buttons (Neon Style) --- */
+        .hero h1 {
+            font-size: 3.2em; font-weight: 900; margin: 0 0 20px;
+            color: white; text-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .hero h1 i { color: var(--primary); }
+        
+        .hero p {
+            font-size: 1.3em; color: var(--text-muted); max-width: 700px; margin: 0 auto 40px; line-height: 1.6;
+        }
+
+        /* CTA Buttons */
         .cta-buttons a {
-            text-decoration: none;
-            padding: 14px 40px;
-            border-radius: 50px;
-            font-size: 1.1em;
-            font-weight: 700;
-            margin: 10px;
-            transition: all 0.3s ease;
-            display: inline-block;
-            position: relative;
-            overflow: hidden;
+            text-decoration: none; padding: 14px 40px; border-radius: 50px;
+            font-size: 1.1em; font-weight: 700; margin: 10px;
+            display: inline-block; transition: all 0.3s ease;
         }
-        .btn-main { 
-            background-color: var(--primary); 
-            color: #000;
-            box-shadow: 0 0 20px var(--primary-glow);
+        .btn-main {
+            background-color: var(--primary); color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 210, 106, 0.4);
         }
-        .btn-main:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 10px 40px var(--primary-glow); 
+        .btn-main:hover { transform: translateY(-3px); background-color: var(--primary-hover); }
+        
+        .btn-secondary {
+            background: transparent; border: 2px solid white; color: white;
         }
-        .btn-secondary { 
-            background-color: transparent; 
-            border: 1px solid var(--border);
-            color: white; 
-        }
-        .btn-secondary:hover { 
-            background-color: rgba(255,255,255,0.1); 
-            border-color: white; 
-        }
+        .btn-secondary:hover { background: white; color: #0f172a; }
 
-        /* --- Features Section --- */
-        .features { padding: 80px 20px; max-width: 1200px; margin: auto; }
-        .features h2, .pricing-section h2 { 
-            font-size: 2.5em; color: white; margin-bottom: 60px; 
-            text-shadow: 0 0 30px rgba(0,0,0,0.5);
-        }
+        /* --- 4. Features Section --- */
+        .features { padding: 40px 20px 80px; max-width: 1200px; margin: auto; }
+        .features h2 { font-size: 2.5em; color: white; margin-bottom: 60px; }
+
         .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
         
         .feature-card { 
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
             padding: 40px; 
             border-radius: 16px; 
             transition: transform 0.3s ease; 
-            text-align: start;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
-        .feature-card:hover { 
-            transform: translateY(-10px); 
-            border-color: var(--primary);
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-        }
-        .feature-card .icon { 
-            font-size: 2.5em; color: var(--primary); margin-bottom: 20px; 
-            background: rgba(0, 210, 106, 0.1); width: 60px; height: 60px;
-            display: flex; align-items: center; justify-content: center; border-radius: 12px;
-        }
-        .feature-card h3 { font-size: 1.4em; color: white; margin-bottom: 10px; }
-        .feature-card p { color: var(--text-muted); line-height: 1.6; }
+        .feature-card:hover { transform: translateY(-10px); border-color: var(--primary); }
         
-        /* --- Pricing Section --- */
-        .pricing-section { padding: 80px 20px; }
-        .pricing-container {
-            display: flex; justify-content: center; align-items: stretch; flex-wrap: wrap; gap: 30px; max-width: 1200px; margin: 0 auto;
+        .feature-card .icon { 
+            font-size: 3em; color: var(--primary); margin-bottom: 25px; 
+            display: inline-block;
         }
+        .feature-card h3 { font-size: 1.5em; color: white; margin-bottom: 15px; }
+        .feature-card p { color: var(--text-muted); line-height: 1.6; }
+
+        /* --- 5. Pricing Section --- */
+        .pricing-section { padding: 60px 20px; background: rgba(0,0,0,0.2); }
+        .pricing-container { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: 0 auto; }
+        
         .pricing-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 40px;
-            flex: 1; min-width: 300px;
-            display: flex; flex-direction: column;
-            position: relative; text-align: start;
-            transition: 0.3s;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 35px; flex: 1; min-width: 300px;
+            text-align: center; position: relative; transition: 0.3s;
         }
         .pricing-card.popular {
-            border-color: var(--primary);
-            background: rgba(0, 210, 106, 0.05);
-            transform: scale(1.05);
-            z-index: 2;
-            box-shadow: 0 0 30px rgba(0, 210, 106, 0.1);
+            border-color: var(--primary); background: rgba(0, 210, 106, 0.05); transform: scale(1.05); z-index: 2;
         }
         .popular-badge {
             position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
-            background: var(--primary); color: #000; padding: 5px 20px;
-            border-radius: 20px; font-size: 0.9em; font-weight: 700;
-            box-shadow: 0 0 15px var(--primary-glow);
+            background: var(--primary); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.9em; font-weight: bold;
         }
-        .card-title { font-size: 1.6em; font-weight: 700; color: white; margin-bottom: 10px; }
-        .card-desc { color: var(--text-muted); margin-bottom: 30px; min-height: 50px; font-size: 0.95em; }
-        .price-amount { font-size: 3em; font-weight: 900; color: white; }
-        .price-amount span { font-size: 0.4em; font-weight: 600; color: var(--text-muted); }
-        .price-note { color: var(--primary); font-weight: 600; margin-top: 5px; margin-bottom: 20px; font-size: 0.9em; }
-        
-        /* --- Footer --- */
-        .site-footer { 
-            background-color: #05060a; border-top: 1px solid var(--border);
-            color: var(--text-muted); padding: 30px 0; font-size: 0.9em; width: 100%; margin-top: 50px;
-        }
-        .footer-links a { color: white; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
-        .footer-links a:hover { color: var(--primary); }
-        .footer-links span { color: #444; }
-        .footer-copyright { margin-top: 15px; font-size: 0.8em; color: #666; }
+        .price-amount { font-size: 2.5em; font-weight: 900; color: white; margin: 20px 0; }
+        .card-title { color: white; font-size: 1.5em; margin-bottom: 10px; font-weight: 700; }
+        .card-desc { color: var(--text-muted); }
 
-        /* --- Loading Animation Overlay --- */
-        #transition-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-main);
-            z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.5s ease;
+        /* --- 6. Footer --- */
+        .site-footer { 
+            border-top: 1px solid var(--border-color); background: #0b1120;
+            padding: 40px 0; color: var(--text-muted); font-size: 0.9em; margin-top: 50px;
         }
-        #transition-overlay.active { opacity: 1; pointer-events: all; }
-        
-        .spinner {
-            width: 50px; height: 50px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-left-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .footer-links a { color: white; text-decoration: none; margin: 0 10px; transition: 0.3s; }
+        .footer-links a:hover { color: var(--primary); }
 
     </style>
 </head>
 <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
-<!-- Loading Overlay -->
-<div id="transition-overlay">
-    <div class="spinner"></div>
-</div>
-
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-
+    <!-- Hero Section -->
     <div class="hero">
         <div class="language-switcher">
             <button id="lang-ar" data-key="lang_ar"></button>
             <button id="lang-en" data-key="lang_en"></button>
         </div>
+        
         <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
         <p data-key="heroSubtitle"></p>
+        
         <div class="cta-buttons">
-            <!-- Added class 'anim-link' for animation -->
-            <a href="signup.html" class="btn-main anim-link" data-key="ctaStart"></a>
-            <a href="login.html" class="btn-secondary anim-link" data-key="ctaLogin"></a>
+            <!-- Class 'slide-link' used for JS animation -->
+            <a href="signup.html" class="btn-main slide-link" data-key="ctaStart"></a>
+            <a href="login.html" class="btn-secondary slide-link" data-key="ctaLogin"></a>
         </div>
     </div>
 
+    <!-- Features Section -->
     <div class="features">
         <h2 data-key="featuresTitle"></h2>
         <div class="features-grid">
+            <!-- Card 1 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-rocket"></i></div>
                 <h3 data-key="feature1Title"></h3>
                 <p data-key="feature1Desc"></p>
             </div>
+            <!-- Card 2 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-file-import"></i></div>
                 <h3 data-key="feature2Title"></h3>
                 <p data-key="feature2Desc"></p>
             </div>
+            <!-- Card 3 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-shield-alt"></i></div>
                 <h3 data-key="feature3Title"></h3>
@@ -277,38 +207,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </div>
 
+    <!-- Pricing Section -->
     <div class="pricing-section">
         <h2 data-key="pricingSectionTitle"></h2>
         <div class="pricing-container">
             <div class="pricing-card">
                 <h3 class="card-title" data-key="planMonthlyTitle"></h3>
                 <p class="card-desc" data-key="planMonthlyDesc"></p>
-                <div class="price-amount">$5 <span>/ <span data-key="monthly"></span></span></div>
-                <p class="price-note" style="visibility: hidden;">&nbsp;</p>
+                <div class="price-amount">$5</div>
             </div>
             <div class="pricing-card popular">
                 <div class="popular-badge" data-key="mostPopular"></div>
                 <h3 class="card-title" data-key="planSemiTitle"></h3>
                 <p class="card-desc" data-key="planSemiDesc"></p>
-                <div class="price-amount">$20 <span>/ 6 <span data-key="monthly"></span></span></div>
-                <p class="price-note" data-key="planSemiPricePerMonth"></p>
+                <div class="price-amount">$20</div>
             </div>
             <div class="pricing-card">
                 <h3 class="card-title" data-key="planYearlyTitle"></h3>
                 <p class="card-desc" data-key="planYearlyDesc"></p>
-                <div class="price-amount">$35 <span>/ <span data-key="billed_annually"></span></span></div>
-                <p class="price-note" data-key="planYearlyPricePerMonth"></p>
+                <div class="price-amount">$35</div>
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-links">
-            <a href="about.html" data-key="footerAbout"></a>
-            <span>|</span>
+            <a href="about.html" data-key="footerAbout"></a> | 
             <a href="privacy.html" data-key="footerPrivacy"></a>
         </div>
-        <div class="footer-copyright">
+        <div style="margin-top: 15px;">
             &copy; <span id="copyright-year"></span> Autosend Pro. <span data-key="footerRights"></span>
         </div>
     </footer>
@@ -316,22 +244,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <script>
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
 
-        // Animation Logic: Intercept clicks on login/signup buttons
-        const links = document.querySelectorAll('.anim-link');
-        const overlay = document.getElementById('transition-overlay');
-
-        links.forEach(link => {
+        // --- SLIDE ANIMATION LOGIC ---
+        // هاد السكريبت كيشد النقر على الليان، كيحرك الصفحة لليمين، عاد كيمشي للصفحة التالية
+        document.querySelectorAll('.slide-link').forEach(link => {
             link.addEventListener('click', function(e) {
-                e.preventDefault(); // Prevent immediate navigation
-                const href = this.getAttribute('href');
+                e.preventDefault(); // وقف الانتقال الفوري
+                const target = this.getAttribute('href');
 
-                // Show the loading overlay
-                overlay.classList.add('active');
+                // زيد كلاس فالـ Body باش تبدا الحركة
+                document.body.classList.add('slide-out');
 
-                // Wait 800ms (0.8 seconds) then navigate
+                // تسنى نص ثانية (500ms) عاد سير للصفحة
                 setTimeout(() => {
-                    window.location.href = href;
-                }, 800);
+                    window.location.href = target;
+                }, 500);
             });
         });
     </script>
