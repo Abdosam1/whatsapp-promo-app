@@ -288,7 +288,7 @@
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="stat-info">
-                    <h3>Successful</h3>
+                    <h3>تم بنجاح</h3>
                     <span id="stat-sent-success">0</span>
                 </div>
             </div>
@@ -299,7 +299,7 @@
                     <i class="fas fa-times-circle"></i>
                 </div>
                 <div class="stat-info">
-                    <h3>Failed</h3>
+                    <h3>فشل الإرسال</h3>
                     <span id="stat-sent-failed">0</span>
                 </div>
             </div>
@@ -436,14 +436,13 @@
   <script src="dashboard.js"></script>
   <script src="language.js"></script>
 
-  <!-- UI Logic Script (Tabs & Real-time Stats) -->
+  <!-- UI Logic Script (Tabs & Real-time Stats - SMART VERSION) -->
   <script>
     // 1. Tab Switching Logic
     function switchTab(tabName) {
       const items = document.querySelectorAll('.nav-item');
       items.forEach(item => item.classList.remove('active'));
       
-      // Add active class based on index mapping
       const indexMap = { 'dashboard': 0, 'contacts': 1, 'campaigns': 2, 'tools': 3, 'logs': 4 };
       if (items[indexMap[tabName]]) items[indexMap[tabName]].classList.add('active');
 
@@ -462,9 +461,9 @@
       document.getElementById('page-title').innerText = titles[tabName] || 'Dashboard';
     }
 
-    // 2. Real-time Stats Updater (Reads from DOM)
+    // 2. Real-time Stats Updater (FILTERED VERSION)
     function updateDashboardStats() {
-        // Get Status Text
+        // Update Status Text
         const statusMsg = document.getElementById('status-message').innerText;
         const statusDisplay = document.getElementById('status-message-display');
         if(statusDisplay) statusDisplay.innerText = statusMsg;
@@ -474,10 +473,29 @@
         const importedClients = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
         document.getElementById('stat-total-contacts').innerText = savedClients + importedClients;
 
-        // Count Logs for Success/Fail
-        const logsText = document.getElementById('logs') ? document.getElementById('logs').innerText.toLowerCase() : "";
-        const successCount = (logsText.match(/sent|success|تم|نجاح/g) || []).length;
-        const failCount = (logsText.match(/fail|error|فشل|خطأ/g) || []).length;
+        // --- SMART LOGIC FIX ---
+        // Get full log content
+        const logsContent = document.getElementById('logs') ? document.getElementById('logs').innerText : "";
+        
+        // Split by lines to filter specific messages
+        const lines = logsContent.split('\n');
+        
+        let successCount = 0;
+        let failCount = 0;
+
+        lines.forEach(line => {
+            const lowerLine = line.toLowerCase();
+            
+            // Strict conditions for Success: Must be an actual message sent
+            if (lowerLine.includes("message sent") || lowerLine.includes("sent to") || lowerLine.includes("تم الإرسال")) {
+                successCount++;
+            }
+            
+            // Strict conditions for Failure
+            if (lowerLine.includes("failed to") || lowerLine.includes("error sending") || lowerLine.includes("فشل الإرسال")) {
+                failCount++;
+            }
+        });
 
         document.getElementById('stat-sent-success').innerText = successCount;
         document.getElementById('stat-sent-failed').innerText = failCount;
