@@ -49,17 +49,23 @@
             transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
         }
 
+        /* Slide Animation Class */
         body.slide-out {
             transform: translateX(100%);
             opacity: 0;
         }
+        
+        /* Fix for LTR slide out */
+        html[dir="ltr"] body.slide-out {
+            transform: translateX(-100%);
+        }
 
-        /* --- 3. Header Navigation (New) --- */
+        /* --- 3. Header Navigation --- */
         .header-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 30px;
+            padding: 20px 40px;
             position: absolute;
             top: 0;
             width: 100%;
@@ -76,12 +82,12 @@
             background: var(--primary); color: #fff; border-color: var(--primary);
         }
 
-        /* Link "How it works" Style */
+        /* How it Works Link */
         .nav-link-item {
             color: #e2e8f0;
             text-decoration: none;
             font-weight: 700;
-            font-size: 1.1em;
+            font-size: 1em;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -101,13 +107,13 @@
         .hero {
             position: relative;
             background: var(--bg-hero-gradient);
-            padding: 140px 20px 150px; /* زدت شوية فالبادينغ الفوقاني باش مايجيش النص لاصق فالهيدر */
+            padding: 160px 20px 160px;
             clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
         .hero h1 {
-            font-size: 3.2em; font-weight: 900; margin: 0 0 20px;
+            font-size: 3.5em; font-weight: 900; margin: 0 0 20px;
             color: white; text-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         .hero h1 i { color: var(--primary); }
@@ -188,7 +194,7 @@
         /* Mobile Responsive Header */
         @media (max-width: 600px) {
             .header-nav { padding: 15px; }
-            .nav-link-item span { display: none; } /* Hide text, show only icon on small screens */
+            .nav-link-item span { display: none; } /* Hide text on mobile */
             .hero h1 { font-size: 2.5em; }
         }
 
@@ -203,18 +209,18 @@
     <!-- Hero Section -->
     <div class="hero">
         
-        <!-- Top Navbar (Language + How it works) -->
+        <!-- Top Navbar -->
         <div class="header-nav">
-            <!-- Language Switcher (Right side) -->
+            <!-- Language Switcher -->
             <div class="language-switcher">
                 <button id="lang-ar" data-key="lang_ar"></button>
                 <button id="lang-en" data-key="lang_en"></button>
             </div>
 
-            <!-- New Link: How it Works (Left side) -->
+            <!-- Link to How it Works (With Translate Key) -->
             <a href="how-it-works.html" class="nav-link-item slide-link">
                 <i class="fas fa-info-circle"></i> 
-                <span>كيف يعمل النظام؟</span>
+                <span data-key="navHowItWorks">كيف يعمل النظام؟</span>
             </a>
         </div>
         
