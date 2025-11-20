@@ -26,61 +26,230 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;500;700&family=Poppins:wght@300;500;700&display=swap');
+
     :root {
-      --primary-color: #25D366; --secondary-color: #128C7E; --dark-color: #075E54;
-      --background-color: #f0f2f5; --card-background: #ffffff; --text-color: #333;
-      --light-gray: #e9e9e9; --danger-color: #e74c3c;
-      --shadow: 0 4px 8px rgba(0, 0, 0, 0.1); --border-radius: 8px;
+      /* Modern Dark Palette */
+      --bg-body: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7); /* Glass effect */
+      --border-card: rgba(255, 255, 255, 0.08);
+      
+      --primary-color: #22c55e; /* Vivid Green */
+      --primary-hover: #16a34a;
+      --secondary-color: #3b82f6; /* Modern Blue */
+      --secondary-hover: #2563eb;
+      --danger-color: #ef4444; /* Soft Red */
+      --danger-hover: #dc2626;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --input-bg: #1e293b;
+      --input-border: #334155;
+      
+      --shadow-soft: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.15);
+      --radius: 16px;
+      --font-main: 'Cairo', sans-serif;
     }
-    body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; padding: 20px; }
-    .container { max-width: 1200px; margin: 0 auto; }
-    header { position: relative; text-align: center; margin-bottom: 30px; }
-    header h1 { color: var(--dark-color); font-size: 2.5em; }
-    header h1 i { color: var(--primary-color); }
-    header p { color: #666; font-size: 1.1em; }
 
-    .header-controls { position: absolute; top: 10px; inset-inline-start: 10px; display: flex; gap: 10px; z-index: 10;}
+    * { box-sizing: border-box; outline: none; }
+
+    body { 
+      font-family: var(--font-main); 
+      background-color: var(--bg-body); 
+      background-image: radial-gradient(circle at 10% 20%, rgba(37, 211, 102, 0.05) 0%, transparent 20%),
+                        radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 20%);
+      color: var(--text-main); 
+      margin: 0; 
+      padding: 30px 20px; 
+      min-height: 100vh;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-body); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary-color); }
+
+    .container { max-width: 1280px; margin: 0 auto; animation: fadeIn 0.8s ease-out; }
+
+    /* Header Styling */
+    header { position: relative; text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--border-card); }
+    header h1 { 
+        color: var(--text-main); 
+        font-size: 2.8em; 
+        font-weight: 700; 
+        letter-spacing: -1px;
+        text-shadow: 0 0 30px rgba(37, 211, 102, 0.3);
+    }
+    header h1 i { color: var(--primary-color); filter: drop-shadow(0 0 10px var(--primary-color)); }
+    header p { color: var(--text-muted); font-size: 1.1em; font-weight: 300; }
+
+    .header-controls { position: absolute; top: 0; inset-inline-start: 0; display: flex; gap: 15px; z-index: 10; align-items: center; }
+    
     .language-switcher button {
-        background: #fff; border: 1px solid #ddd; color: #555; padding: 5px 10px;
-        border-radius: 5px; cursor: pointer;
+        background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-muted); padding: 8px 15px;
+        border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-family: inherit;
     }
-    .language-switcher button.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
+    .language-switcher button:hover { border-color: var(--primary-color); color: var(--text-main); }
+    .language-switcher button.active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; box-shadow: var(--shadow-glow); }
 
-    .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-    .card { background: var(--card-background); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 20px; transition: transform 0.2s ease-in-out; text-align: start; }
-    .card:hover { transform: translateY(-5px); }
+    /* Grid System */
+    .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 25px; }
+
+    /* Cards - Glassmorphism */
+    .card { 
+        background: var(--bg-card); 
+        backdrop-filter: blur(12px); 
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border-card);
+        border-radius: var(--radius); 
+        box-shadow: var(--shadow-soft); 
+        padding: 25px; 
+        transition: transform 0.3s ease, box-shadow 0.3s ease; 
+        position: relative;
+        overflow: hidden;
+    }
+    .card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+        opacity: 0.5;
+    }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6); border-color: rgba(255,255,255,0.15); }
     .card.full-width { grid-column: 1 / -1; }
-    .card h2 { font-size: 1.5em; color: var(--secondary-color); margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid var(--light-gray); padding-bottom: 10px; }
-    .card h2 i { margin-inline-end: 10px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: none; border-radius: var(--border-radius); font-family: 'Cairo', sans-serif; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
-    .btn:disabled { background-color: #ccc; cursor: not-allowed; }
-    .btn-primary { background-color: var(--primary-color); color: white; }
-    .btn-secondary { background-color: var(--secondary-color); color: white; }
-    .btn-danger { background-color: var(--danger-color); color: white; }
-    .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; }
-    input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--light-gray); border-radius: var(--border-radius); box-sizing: border-box; font-family: 'Cairo', sans-serif; }
-    textarea { resize: vertical; }
-    .list-box { background-color: #f9f9f9; border: 1px solid var(--light-gray); border-radius: var(--border-radius); padding: 15px; min-height: 150px; max-height: 250px; overflow-y: auto; }
-    .logs-box { font-family: monospace; font-size: 0.9em; color: #555; text-align: start; }
-    .promos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-    .promo { display: flex; flex-direction: column; align-items: center; border: 2px solid transparent; border-radius: var(--border-radius); padding: 10px; background-color: #fff; text-align: center; transition: all 0.2s ease; box-shadow: var(--shadow); }
-    .promo:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-    .promo img { width: 90px; height: 90px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
-    .promo p { font-size: 0.9em; color: #555; margin: 0 0 10px 0; flex-grow: 1; min-height: 40px; }
-    .promo .promo-buttons { display: flex; gap: 5px; width: 100%; }
-    .promo .promo-buttons button { flex-grow: 1; padding: 5px 8px; font-size: 0.8em; border: none; color: white; cursor: pointer; border-radius: 5px; }
-    .promo .promo-buttons .btn-select { background-color: var(--secondary-color); }
-    .promo .promo-buttons .btn-delete { background-color: var(--danger-color); }
-    .promo.selected { border-color: var(--primary-color); box-shadow: 0 0 10px rgba(37, 211, 102, 0.5); }
-    .toggle-switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    
+    /* Card Headings */
+    .card h2 { 
+        font-size: 1.4em; color: var(--text-main); margin-top: 0; margin-bottom: 25px; 
+        border-bottom: 1px solid var(--border-card); padding-bottom: 15px; 
+        display: flex; align-items: center;
+    }
+    .card h2 i { margin-inline-end: 12px; color: var(--primary-color); background: rgba(34, 197, 94, 0.1); padding: 8px; border-radius: 8px; }
+
+    /* Buttons */
+    .btn { 
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px; 
+        padding: 12px 24px; border: none; border-radius: 10px; 
+        font-family: inherit; font-size: 0.95em; font-weight: 600; 
+        cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        position: relative; overflow: hidden;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { background: #334155 !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; }
+
+    .btn-primary { 
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)); 
+        color: #fff; 
+        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5); filter: brightness(1.1); }
+
+    .btn-secondary { 
+        background: rgba(59, 130, 246, 0.1); 
+        color: var(--secondary-color); 
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .btn-secondary:hover { background: var(--secondary-color); color: white; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+
+    .btn-danger { 
+        background: rgba(239, 68, 68, 0.1); 
+        color: var(--danger-color);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .btn-danger:hover { background: var(--danger-color); color: white; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); }
+
+    .button-group { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+
+    /* Inputs & Forms */
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-muted); font-size: 0.9em; }
+    
+    input[type="text"], input[type="file"], textarea, select { 
+        width: 100%; padding: 12px 15px; 
+        background: var(--input-bg); 
+        border: 1px solid var(--input-border); 
+        border-radius: 10px; 
+        color: white; 
+        font-family: inherit; 
+        transition: 0.3s;
+    }
+    input:focus, textarea:focus, select:focus { 
+        border-color: var(--primary-color); 
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); 
+        background: #243042;
+    }
+    textarea { resize: vertical; min-height: 100px; }
+    
+    /* Lists */
+    .list-box { 
+        background-color: rgba(15, 23, 42, 0.5); 
+        border: 1px solid var(--border-card); 
+        border-radius: 10px; 
+        padding: 15px; 
+        min-height: 150px; max-height: 250px; 
+        overflow-y: auto; 
+        color: var(--text-muted);
+    }
+    .list-box::-webkit-scrollbar-track { background: transparent; }
+
+    /* Logs Terminal Style */
+    .logs-box { 
+        font-family: 'Courier New', monospace; 
+        font-size: 0.85em; 
+        color: #4ade80; 
+        text-align: start; 
+        background: #000;
+        border: 1px solid #333;
+    }
+
+    /* Promos Grid */
+    .promos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+    .promo { 
+        display: flex; flex-direction: column; align-items: center; 
+        border: 2px solid var(--border-card); 
+        border-radius: 12px; padding: 15px; 
+        background: var(--input-bg); 
+        transition: all 0.3s ease; 
+    }
+    .promo:hover { transform: translateY(-5px); border-color: var(--secondary-color); }
+    .promo.selected { border-color: var(--primary-color); background: rgba(34, 197, 94, 0.05); box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+    
+    .promo img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 12px; border: 2px solid var(--bg-body); }
+    .promo p { font-size: 0.9em; color: var(--text-main); margin: 0 0 15px 0; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    
+    .promo .promo-buttons { display: flex; gap: 8px; width: 100%; }
+    .promo .promo-buttons button { flex: 1; padding: 6px; font-size: 0.8em; border-radius: 6px; border: none; cursor: pointer; color: white; transition: 0.2s; }
+    .promo .promo-buttons .btn-select { background: var(--secondary-color); }
+    .promo .promo-buttons .btn-select:hover { background: var(--secondary-hover); }
+    .promo .promo-buttons .btn-delete { background: var(--danger-color); }
+    .promo .promo-buttons .btn-delete:hover { background: var(--danger-hover); }
+
+    /* Toggle Switch */
+    .toggle-switch { position: relative; display: inline-block; width: 54px; height: 30px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .toggle-switch label { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
-    .toggle-switch label:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    .toggle-switch label { 
+        position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+        background-color: #475569; transition: .4s; border-radius: 30px; 
+    }
+    .toggle-switch label:before { 
+        position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; 
+        background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
     .toggle-switch input:checked + label { background-color: var(--primary-color); }
-    .toggle-switch input:checked + label:before { transform: translateX(22px); }
+    .toggle-switch input:checked + label:before { transform: translateX(24px); }
+
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .main-grid { grid-template-columns: 1fr; }
+        header h1 { font-size: 2em; }
+        .header-controls { position: static; justify-content: center; margin-bottom: 20px; }
+    }
   </style>
 </head>
 <body>
@@ -103,79 +272,87 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p data-key="dashHeaderSubtitle"></p>
     </header>
 
+    <!-- WhatsApp Status Card -->
     <div class="card full-width" id="whatsapp-status-card">
-        <h2><i class="fas fa-sync-alt"></i> <span data-key="dashCardStatusTitle"></span></h2>
-        <div id="whatsapp-status" style="text-align: center; padding: 20px;">
-            <p id="status-message" style="font-size: 1.2em; font-weight: 600;" data-key="dashStatusMsg"></p>
-            <canvas id="qrcode-canvas" style="display:none;"></canvas>
+        <h2><i class="fas fa-wifi"></i> <span data-key="dashCardStatusTitle"></span></h2>
+        <div id="whatsapp-status" style="text-align: center; padding: 30px;">
+            <p id="status-message" style="font-size: 1.3em; font-weight: 600; color: var(--primary-color);" data-key="dashStatusMsg"></p>
+            <canvas id="qrcode-canvas" style="display:none; margin-top: 20px; border: 10px solid white; border-radius: 10px;"></canvas>
         </div>
     </div>
 
     <div id="main-content" style="display:none;">
       <div class="main-grid">
+        
+        <!-- Clients List Card -->
         <div class="card">
           <h2 style="display: flex; justify-content: space-between; align-items: center;">
               <span><i class="fas fa-users"></i> <span data-key="dashCardClientsTitle"></span></span>
-              <button type="button" id="syncContactsBtn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;">
-                  <i class="fas fa-sync-alt"></i> <span data-key="dashSyncBtn"></span>
+              <button type="button" id="syncContactsBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8em;">
+                  <i class="fas fa-sync-alt spin-on-hover"></i> <span data-key="dashSyncBtn"></span>
               </button>
           </h2>
           <div class="button-group">
-              <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> <span data-key="dashSendAllBtn"></span></button>
+              <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary"><i class="fas fa-paper-plane"></i> <span data-key="dashSendAllBtn"></span></button>
               <button type="button" id="exportClientsBtn" class="btn btn-secondary">
-                  <i class="fas fa-download"></i> <span data-key="dashExportBtn"></span>
+                  <i class="fas fa-file-export"></i> <span data-key="dashExportBtn"></span>
               </button>
           </div>
           <div id="clientsList" class="list-box"></div>
         </div>
 
+        <!-- Imported List Card -->
         <div class="card">
-          <h2><i class="fas fa-file-import"></i> <span data-key="dashCardImportedTitle"></span></h2>
+          <h2><i class="fas fa-file-csv"></i> <span data-key="dashCardImportedTitle"></span></h2>
           <div class="form-group" style="display:flex; gap: 10px; align-items: center;">
-              <input type="file" id="csvFileInput" accept=".csv" style="flex-grow: 1;" />
+              <input type="file" id="csvFileInput" accept=".csv" style="flex-grow: 1; background: #0f172a;" />
               <button type="button" id="importCsvBtn" class="btn btn-secondary"><i class="fas fa-upload"></i> <span data-key="dashImportBtn"></span></button>
           </div>
           <div class="button-group">
-              <button type="button" id="sendSequentiallyImportedBtn" class="btn btn-primary"><i class="fas fa-tasks"></i> <span data-key="dashSendAllBtn"></span></button>
+              <button type="button" id="sendSequentiallyImportedBtn" class="btn btn-primary"><i class="fas fa-paper-plane"></i> <span data-key="dashSendAllBtn"></span></button>
               <button type="button" id="deleteAllImportedBtn" class="btn btn-danger"><i class="fas fa-trash-alt"></i> <span data-key="dashDeleteAllBtn"></span></button>
           </div>
           <div id="importedClientsList" class="list-box"></div>
         </div>
 
+        <!-- Promos Card -->
         <div class="card full-width">
-          <h2><i class="fas fa-tags"></i> <span data-key="dashCardPromosTitle"></span></h2>
+          <h2><i class="fas fa-photo-video"></i> <span data-key="dashCardPromosTitle"></span></h2>
           <div id="promosList" class="promos-grid"></div>
         </div>
         
+        <!-- Add Promo Card -->
         <div class="card">
           <h2><i class="fas fa-plus-circle"></i> <span data-key="dashCardAddPromoTitle"></span></h2>
           <div class="form-group">
             <label for="newPromoText" data-key="dashPromoTextLabel"></label>
-            <textarea id="newPromoText" rows="3" data-key-placeholder="dashPromoTextPlaceholder"></textarea>
-            <button type="button" id="generateSpintaxBtn" class="btn btn-secondary" style="width:100%; margin-top: 10px; background-color: #6c757d;">
+            <textarea id="newPromoText" rows="3" data-key-placeholder="dashPromoTextPlaceholder" style="background: #0f172a;"></textarea>
+            <button type="button" id="generateSpintaxBtn" class="btn btn-secondary" style="width:100%; margin-top: 12px; opacity: 0.8;">
                 <i class="fas fa-magic"></i> <span data-key="dashGenerateSpintaxBtn"></span>
             </button>
           </div>
           <div class="form-group">
             <label for="newPromoImage" data-key="dashPromoImageLabel"></label>
-            <input type="file" id="newPromoImage" accept="image/*" />
+            <input type="file" id="newPromoImage" accept="image/*" style="background: #0f172a;" />
           </div>
-          <button type="button" id="addNewPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-plus"></i> <span data-key="dashAddPromoBtn"></span></button>
+          <button type="button" id="addNewPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-check"></i> <span data-key="dashAddPromoBtn"></span></button>
         </div>
         
+        <!-- Single Send Card -->
         <div class="card">
-          <h2><i class="fas fa-bullseye"></i> <span data-key="dashCardSingleSendTitle"></span></h2>
+          <h2><i class="fas fa-paper-plane"></i> <span data-key="dashCardSingleSendTitle"></span></h2>
           <div class="form-group">
             <label for="phoneInput" data-key="dashPhoneLabel"></label>
-            <input type="text" id="phoneInput" placeholder="212612345678" />
+            <input type="text" id="phoneInput" placeholder="212612345678" style="font-size: 1.1em; text-align: center; letter-spacing: 1px;" />
           </div>
-          <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> <span data-key="dashSendSelectedBtn"></span></button>
+          <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%; margin-top: 10px;"><i class="fas fa-rocket"></i> <span data-key="dashSendSelectedBtn"></span></button>
         </div>
 
+        <!-- Chatbot Card -->
         <div class="card">
             <h2><i class="fas fa-robot"></i> <span data-key="dashCardChatbotTitle"></span></h2>
-            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 15px;">
-                <label for="chatbotStatusToggle" style="margin-bottom: 0;" data-key="dashChatbotStatusLabel"></label>
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-card); padding-bottom: 15px;">
+                <label for="chatbotStatusToggle" style="margin-bottom: 0; font-size: 1.1em;" data-key="dashChatbotStatusLabel"></label>
                 <div class="toggle-switch">
                     <input type="checkbox" id="chatbotStatusToggle">
                     <label for="chatbotStatusToggle"></label>
@@ -183,15 +360,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <div class="form-group">
                 <label for="chatbotPrompt" data-key="dashChatbotPromptLabel"></label>
-                <textarea id="chatbotPrompt" rows="6" data-key-placeholder="dashChatbotPromptPlaceholder"></textarea>
+                <textarea id="chatbotPrompt" rows="6" data-key-placeholder="dashChatbotPromptPlaceholder" style="font-family: monospace; font-size: 0.9em;"></textarea>
             </div>
             <button type="button" id="savePromptBtn" class="btn btn-primary" style="width:100%;">
                 <i class="fas fa-save"></i> <span data-key="dashSavePromptBtn"></span>
             </button>
         </div>
 
+        <!-- Logs Card -->
         <div class="card full-width">
-          <h2><i class="fas fa-history"></i> <span data-key="dashCardLogsTitle"></span></h2>
+          <h2><i class="fas fa-terminal"></i> <span data-key="dashCardLogsTitle"></span></h2>
           <div id="logs" class="list-box logs-box"></div>
         </div>
       </div>
