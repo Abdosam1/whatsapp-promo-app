@@ -168,13 +168,15 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // --- كود فصل الواتساب الجديد (Disconnect Logic) ---
+    // ------------------------------------------------------------ //
+    // --- كود فصل الواتساب وحذف البيانات (Disconnect Logic) --- //
+    // ------------------------------------------------------------ //
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
 
-        console.log(`[Switch Account] User ${activeUserId} requested disconnect.`);
+        console.log(`[Switch Account] User ${activeUserId} requested disconnect & data wipe.`);
 
-        // 1. إغلاق الواتساب الحالي
+        // 1. إغلاق الواتساب الحالي وتدمير العميل
         if (whatsappClients[activeUserId]) {
             try {
                 await whatsappClients[activeUserId].destroy();
@@ -185,11 +187,8 @@ io.on('connection', (socket) => {
             delete activeCampaigns[activeUserId];
         }
 
-        // 2. حذف ملف الجلسة من السيرفر
-        // المسار يعتمد على كيفية تسمية LocalAuth للمجلد. بما أن clientId هو `session-${activeUserId}`
-        // فإن المجلد الفعلي سيكون `.wwebjs_auth/session-session-${activeUserId}`
+        // 2. حذف ملف الجلسة من السيرفر (لكي يطلب QR جديد عند إعادة الدخول)
         const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${activeUserId}`);
-        
         if (fs.existsSync(sessionPath)) {
             fs.rm(sessionPath, { recursive: true, force: true }, (err) => {
                 if (err) console.error("Failed to delete session folder:", err);
@@ -197,10 +196,20 @@ io.on('connection', (socket) => {
             });
         }
 
-        // 3. إعلام الواجهة بأننا فصلنا
-        socket.emit('status', { message: "تم فصل الرقم بنجاح. جاري تجهيز QR...", ready: false });
+        // 3. === مسح جميع جهات الاتصال من قاعدة البيانات لهذا المستخدم ===
+        // هذا ما طلبته: مسح الداتا القديمة لتبدأ بواتساب جديد نظيف
+        db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId], (err) => {
+            if (err) console.error("Error deleting clients:", err);
+        });
+        db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId], (err) => {
+            if (err) console.error("Error deleting imported clients:", err);
+        });
+        console.log(`All contact data deleted for user ${activeUserId}`);
 
-        // 4. إرسال إشارة لإعادة البدء
+        // 4. إعلام الواجهة بأن الفصل تم
+        socket.emit('status', { message: "تم فصل الرقم ومسح البيانات بنجاح. جاري تجهيز QR...", ready: false });
+        
+        // 5. إرسال إشارة لإعادة تحميل الواجهة أو طلب QR جديد
         socket.emit('whatsapp-logged-out'); 
     });
 
