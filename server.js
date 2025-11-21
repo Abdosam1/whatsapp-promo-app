@@ -123,7 +123,6 @@ io.on('connection', (socket) => {
                 if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
-                // ملاحظة: clientId هنا سيقوم بإنشاء مجلد بالاسم session-session-{userId} داخل .wwebjs_auth
                 client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
                 
                 client.on("qr", (qr) => socket.emit('qr', qr));
@@ -132,7 +131,6 @@ io.on('connection', (socket) => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
                     
-                    // إعداد مستمع الرسائل للمساعد الذكي
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
                         const campaignInfo = activeCampaigns[activeUserId];
@@ -168,15 +166,12 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // ------------------------------------------------------------ //
-    // --- كود فصل الواتساب وحذف البيانات (Disconnect Logic) --- //
-    // ------------------------------------------------------------ //
+    // --- 1. كود فصل الواتساب وحذف البيانات (Disconnect) ---
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
 
         console.log(`[Switch Account] User ${activeUserId} requested disconnect & data wipe.`);
 
-        // 1. إغلاق الواتساب الحالي وتدمير العميل
         if (whatsappClients[activeUserId]) {
             try {
                 await whatsappClients[activeUserId].destroy();
@@ -187,30 +182,58 @@ io.on('connection', (socket) => {
             delete activeCampaigns[activeUserId];
         }
 
-        // 2. حذف ملف الجلسة من السيرفر (لكي يطلب QR جديد عند إعادة الدخول)
         const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${activeUserId}`);
         if (fs.existsSync(sessionPath)) {
             fs.rm(sessionPath, { recursive: true, force: true }, (err) => {
                 if (err) console.error("Failed to delete session folder:", err);
-                else console.log("Session folder deleted successfully.");
             });
         }
 
-        // 3. === مسح جميع جهات الاتصال من قاعدة البيانات لهذا المستخدم ===
-        // هذا ما طلبته: مسح الداتا القديمة لتبدأ بواتساب جديد نظيف
-        db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId], (err) => {
-            if (err) console.error("Error deleting clients:", err);
-        });
-        db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId], (err) => {
-            if (err) console.error("Error deleting imported clients:", err);
-        });
-        console.log(`All contact data deleted for user ${activeUserId}`);
+        // مسح البيانات من القاعدة
+        db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
+        db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
 
-        // 4. إعلام الواجهة بأن الفصل تم
-        socket.emit('status', { message: "تم فصل الرقم ومسح البيانات بنجاح. جاري تجهيز QR...", ready: false });
-        
-        // 5. إرسال إشارة لإعادة تحميل الواجهة أو طلب QR جديد
+        socket.emit('status', { message: "تم فصل الرقم ومسح البيانات. جاري تجهيز QR...", ready: false });
         socket.emit('whatsapp-logged-out'); 
+    });
+
+    // --- 2. كود فلتر الأرقام (Number Filter) ---
+    socket.on('check-numbers', async ({ numbers }) => {
+        if (!activeUserId || !whatsappClients[activeUserId]) {
+            return socket.emit('filter-error', 'واتساب غير متصل! يرجى ربط الواتساب أولاً.');
+        }
+
+        const client = whatsappClients[activeUserId];
+        let validCount = 0;
+        let invalidCount = 0;
+
+        // تنظيف وتقسيم الأرقام
+        const phoneList = numbers.split('\n').map(n => n.trim().replace(/\D/g, '')).filter(n => n.length > 5);
+
+        for (const phone of phoneList) {
+            try {
+                const numberId = `${phone}@c.us`;
+                // التحقق من وجود الرقم
+                const isRegistered = await client.getNumberId(numberId);
+
+                if (isRegistered) {
+                    validCount++;
+                    socket.emit('filter-result', { phone, status: 'valid' });
+                } else {
+                    invalidCount++;
+                    socket.emit('filter-result', { phone, status: 'invalid' });
+                }
+
+                // تأخير بسيط لتجنب الحظر
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+            } catch (err) {
+                console.error("Error checking number:", phone, err);
+                socket.emit('filter-result', { phone, status: 'invalid' });
+            }
+        }
+
+        socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
     socket.on('start-campaign-mode', async ({ promoId }) => {
@@ -257,7 +280,6 @@ io.on('connection', (socket) => {
 
     socket.on('sync-contacts', async () => {
         if (!activeUserId || !whatsappClients[activeUserId]) { return; }
-        console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
         const currentClient = whatsappClients[activeUserId];
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
