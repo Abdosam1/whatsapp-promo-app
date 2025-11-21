@@ -73,8 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeEventListeners() {
-    // --- 1. تفعيل القائمة الجانبية (Sidebar Navigation Fix) ---
-    // هذا الكود هو الذي يجعل أزرار الجانب تعمل
+    // --- 1. تفعيل القائمة الجانبية (Sidebar) ---
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -90,7 +89,6 @@ function initializeEventListeners() {
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     uiElements.importCsvBtn.addEventListener('click', importCSV);
     
-    // ربط أزرار الإرسال ببدء الحملة
     uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => {
         startNewCampaign();
         sendPromoSequentially(clients, false);
@@ -111,13 +109,13 @@ function initializeEventListeners() {
     if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
     if (uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
 
-    // --- 3. منطق زر الفصل (Disconnect Logic) ---
+    // --- 3. منطق زر الفصل وحذف البيانات (Disconnect Logic) ---
     if (uiElements.disconnectWhatsappBtn) {
         uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
-            if(confirm("هل أنت متأكد أنك تريد فصل الرقم الحالي ومسح QR Code جديد؟")) {
+            if(confirm("هل أنت متأكد أنك تريد فصل الرقم وحذف جميع جهات الاتصال الحالية؟")) {
                 if(socket) {
                     socket.emit('logout-whatsapp'); 
-                    uiElements.statusMessage.innerText = "جاري الفصل...";
+                    uiElements.statusMessage.innerText = "جاري الفصل وحذف البيانات...";
                     uiElements.disconnectWhatsappBtn.style.display = 'none';
                 }
             }
@@ -129,25 +127,14 @@ function initializeEventListeners() {
 // ==================== 4. وظيفة التبديل (Switch Tab) ============== //
 // ================================================================= //
 function switchTab(tabName) {
-    // إزالة التفعيل من جميع عناصر القائمة
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    
-    // تفعيل العنصر المختار في القائمة
     const selectedNav = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
     if (selectedNav) selectedNav.classList.add('active');
 
-    // إخفاء جميع الأقسام (التي لها كلاس tab-section)
     document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active-section'));
-
-    // إظهار القسم المطلوب
     const selectedTab = document.getElementById('tab-' + tabName);
-    if(selectedTab) {
-        selectedTab.classList.add('active-section');
-    } else {
-        console.error(`Tab section not found: tab-${tabName}`);
-    }
+    if(selectedTab) selectedTab.classList.add('active-section');
 
-    // تحديث العنوان في الأعلى
     const titles = {
       'dashboard': 'Dashboard Overview',
       'contacts': 'Contact Management',
@@ -155,7 +142,7 @@ function switchTab(tabName) {
       'tools': 'Utilities & Automation',
       'logs': 'Activity Logs'
     };
-    const pageTitle = document.getElementById('page-title') || document.querySelector('h2'); // Fallback
+    const pageTitle = document.getElementById('page-title') || document.querySelector('h2');
     if(pageTitle && titles[tabName]) pageTitle.innerText = titles[tabName];
 }
 
@@ -174,10 +161,7 @@ function initializeWhatsAppConnection() {
         isWhatsappReady = false;
         uiElements.statusMessage.textContent = 'يرجى مسح هذا الـ QR Code للاتصال:';
         uiElements.qrcodeCanvas.style.display = 'block';
-        
-        // إخفاء زر الفصل أثناء المسح
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
-        
         QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => { if (err) console.error(err); });
     });
 
@@ -186,10 +170,7 @@ function initializeWhatsAppConnection() {
         if (status.ready) {
             isWhatsappReady = true;
             uiElements.qrcodeCanvas.style.display = 'none';
-            
-            // إظهار زر الفصل عند الاتصال
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'inline-block';
-
             loadInitialData();
             log('✅ تم الاتصال بواتساب بنجاح!', 'green');
         } else {
@@ -198,9 +179,20 @@ function initializeWhatsAppConnection() {
         }
     });
 
-    // استجابة السيرفر للفصل
+    // === استجابة السيرفر للفصل ومسح البيانات ===
     socket.on('whatsapp-logged-out', () => {
-        log('ℹ️ تم فصل الواتساب. جاري طلب QR Code جديد...', 'orange');
+        log('ℹ️ تم فصل الواتساب ومسح البيانات. جاري طلب QR جديد...', 'orange');
+        
+        // 1. تصفير المصفوفات محلياً
+        clients = [];
+        importedClients = [];
+        
+        // 2. تصفير القوائم في الواجهة
+        if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
+        if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
+        if(uiElements.statTotal) uiElements.statTotal.innerText = '0';
+
+        // 3. إعادة طلب الاتصال لتوليد QR جديد
         socket.emit('init-whatsapp', token);
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
@@ -243,15 +235,12 @@ function setupLogsObserver() {
     if(!logsContainer) return;
 
     const observer = new MutationObserver((mutations) => {
-        // لا نحسب إلا إذا كانت الحملة جارية
         if (!isCampaignRunning) return;
 
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1) { 
                      const text = node.innerText.toLowerCase();
-                     
-                     // === STRICT SUCCESS FILTER ===
                      const isRealSuccess = text.includes('تم إرسال العرض بنجاح') || text.includes('successfully sent') || text.includes('message sent');
 
                      if (isRealSuccess) {
@@ -259,8 +248,7 @@ function setupLogsObserver() {
                          if(uiElements.statSuccess) uiElements.statSuccess.innerText = globalSuccessCount;
                      }
 
-                     // === FAIL FILTER ===
-                     if (text.includes('fail') || text.includes('error') || text.includes('فشل') || text.includes('خطأ')) {
+                     if (text.includes('fail') || text.includes('error') || text.includes('فشل')) {
                          globalFailCount++;
                          if(uiElements.statFailed) uiElements.statFailed.innerText = globalFailCount;
                      }
@@ -356,7 +344,7 @@ async function addNewPromo() {
     if (imageFile) formData.append('image', imageFile);
     try {
         await apiFetch('/addPromo', { method: 'POST', body: formData });
-        log("✅ تم إضافة العرض.", 'green');
+        log("✅ تم إضافة العرض بنجاح!", 'green');
         uiElements.newPromoText.value = '';
         uiElements.newPromoImage.value = '';
         loadPromos();
@@ -377,8 +365,8 @@ async function importCSV() {
 }
 
 function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
-async function deletePromo(id) { if (!confirm("حذف العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم الحذف.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
-async function deleteAllImported() { if (!confirm("حذف جميع المستوردين؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
+async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
+async function deleteAllImported() { if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
 function exportClientsToCSV() {
     if (!clients || clients.length === 0) return alert("القائمة فارغة.");
     const headers = ['phone', 'name'];
