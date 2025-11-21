@@ -166,38 +166,28 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // --- 1. كود فصل الواتساب وحذف البيانات (Disconnect & Wipe) ---
+    // --- Disconnect Logic ---
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
-
         console.log(`[Switch Account] User ${activeUserId} requested disconnect & data wipe.`);
-
         if (whatsappClients[activeUserId]) {
-            try {
-                await whatsappClients[activeUserId].destroy();
-            } catch (err) {
-                console.error("Error destroying client:", err);
-            }
+            try { await whatsappClients[activeUserId].destroy(); } catch (err) { console.error("Error destroying client:", err); }
             delete whatsappClients[activeUserId];
             delete activeCampaigns[activeUserId];
         }
-
         const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${activeUserId}`);
         if (fs.existsSync(sessionPath)) {
-            fs.rm(sessionPath, { recursive: true, force: true }, (err) => {
-                if (err) console.error("Failed to delete session folder:", err);
-            });
+            fs.rm(sessionPath, { recursive: true, force: true }, (err) => { if (err) console.error("Failed to delete session folder:", err); });
         }
-
-        // مسح البيانات من قاعدة البيانات
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
-
         socket.emit('status', { message: "تم فصل الرقم ومسح البيانات. جاري تجهيز QR...", ready: false });
         socket.emit('whatsapp-logged-out'); 
     });
 
-    // --- 2. كود فلتر الأرقام (الذكي والعالمي) ---
+    // =================================================================
+    // === [UPDATED] كود فلتر الأرقام العالمي الشامل ===
+    // =================================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
             return socket.emit('filter-error', 'واتساب غير متصل! يرجى ربط الواتساب أولاً.');
@@ -207,47 +197,49 @@ io.on('connection', (socket) => {
         let validCount = 0;
         let invalidCount = 0;
 
-        // قراءة الأسطر
-        const rawLines = numbers.split('\n');
+        // 1. تنظيف القائمة: إزالة الأسطر الفارغة وتقسيمها
+        const rawLines = numbers.split(/\r?\n/);
 
         for (const rawLine of rawLines) {
-            // 1. تنظيف الرموز الزائدة (فقط أرقام)
+            // 2. تنظيف الرقم من أي رموز غير رقمية (+، -، مسافات)
             let phone = rawLine.trim().replace(/\D/g, '');
 
-            // 2. معالجة 00 الدولية (تحويلها إلى لا شيء)
+            // 3. التعامل مع 00 في البداية (تحويلها لرقم دولي)
             if (phone.startsWith('00')) {
                 phone = phone.substring(2);
             }
 
-            // 3. معالجة الأرقام المغربية المحلية (06/07 -> 212...)
-            // الشرط: تبدأ بـ 06 أو 07 وطولها 10 أرقام بالضبط
-            if ((phone.startsWith('06') || phone.startsWith('07')) && phone.length === 10) {
+            // 4. التعامل الذكي مع الأرقام المحلية المغربية (06/07 -> 212...)
+            // إذا كان الرقم يبدأ بـ 06 أو 07 وطوله 10، فهو غالباً مغربي
+            if (phone.length === 10 && (phone.startsWith('06') || phone.startsWith('07'))) {
                 phone = '212' + phone.substring(1);
             }
 
-            // تجاهل الأرقام القصيرة جداً (غير منطقية)
-            if (phone.length < 7) continue;
+            // 5. تجاهل الأرقام القصيرة جداً (أقل من 7 أرقام لا يمكن أن يكون رقم واتساب)
+            if (phone.length < 7) {
+                continue; 
+            }
 
             try {
-                // استخدام دالة getNumberId للتحقق من وجود الرقم في سيرفرات واتساب
-                // هذه الدالة تعمل عالمياً
+                // 6. الفحص باستخدام مكتبة واتساب
+                // هذه الدالة تعمل مع جميع الدول
                 const numberId = await client.getNumberId(phone);
 
                 if (numberId) {
                     validCount++;
-                    // numberId.user يعطينا الرقم بالتنسيق الصحيح المسجل في واتساب
+                    // نرسل الرقم كما هو مسجل في واتساب (user ID) لضمان صحته
                     socket.emit('filter-result', { phone: numberId.user, status: 'valid' });
                 } else {
                     invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
 
-                // انتظار قصير جداً لتجنب الضغط على السيرفر (250ms)
-                await new Promise(resolve => setTimeout(resolve, 250));
+                // تأخير صغير جداً (100ms) لتجنب الضغط، يمكن إلغاؤه للسرعة القصوى
+                await new Promise(resolve => setTimeout(resolve, 100));
 
             } catch (err) {
-                console.error("Error checking number:", phone, err);
-                // في حالة حدوث خطأ غير متوقع، نعتبره غير صالح لتجنب توقف العملية
+                console.error(`Error checking number ${phone}:`, err);
+                // في حالة الخطأ، نعتبره غير صالح ونكمل
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
@@ -264,6 +256,23 @@ io.on('connection', (socket) => {
             if (err || !user) return;
             activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
+        });
+    });
+
+    // === كود حفظ الأرقام الصالحة مباشرة (Save Valid Contacts) ===
+    socket.on('save-valid-contacts', ({ numbers }) => {
+        if (!activeUserId) return;
+        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+        
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            numbers.forEach(phone => {
+                stmt.run(phone, activeUserId);
+            });
+            stmt.finalize();
+            db.run("COMMIT", () => {
+                socket.emit('sync-complete'); 
+            });
         });
     });
 
