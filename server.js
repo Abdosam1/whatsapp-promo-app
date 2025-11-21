@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // --- 1. كود فصل الواتساب وحذف البيانات (Disconnect) ---
+    // --- 1. كود فصل الواتساب وحذف البيانات (Disconnect & Wipe) ---
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
 
@@ -189,7 +189,7 @@ io.on('connection', (socket) => {
             });
         }
 
-        // مسح البيانات من القاعدة
+        // مسح البيانات من قاعدة البيانات
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
 
@@ -197,7 +197,7 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out'); 
     });
 
-    // --- 2. كود فلتر الأرقام (Number Filter) ---
+    // --- 2. كود فلتر الأرقام (الذكي والعالمي) ---
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
             return socket.emit('filter-error', 'واتساب غير متصل! يرجى ربط الواتساب أولاً.');
@@ -207,29 +207,48 @@ io.on('connection', (socket) => {
         let validCount = 0;
         let invalidCount = 0;
 
-        // تنظيف وتقسيم الأرقام
-        const phoneList = numbers.split('\n').map(n => n.trim().replace(/\D/g, '')).filter(n => n.length > 5);
+        // قراءة الأسطر
+        const rawLines = numbers.split('\n');
 
-        for (const phone of phoneList) {
+        for (const rawLine of rawLines) {
+            // 1. تنظيف الرموز الزائدة (فقط أرقام)
+            let phone = rawLine.trim().replace(/\D/g, '');
+
+            // 2. معالجة 00 الدولية (تحويلها إلى لا شيء)
+            if (phone.startsWith('00')) {
+                phone = phone.substring(2);
+            }
+
+            // 3. معالجة الأرقام المغربية المحلية (06/07 -> 212...)
+            // الشرط: تبدأ بـ 06 أو 07 وطولها 10 أرقام بالضبط
+            if ((phone.startsWith('06') || phone.startsWith('07')) && phone.length === 10) {
+                phone = '212' + phone.substring(1);
+            }
+
+            // تجاهل الأرقام القصيرة جداً (غير منطقية)
+            if (phone.length < 7) continue;
+
             try {
-                const numberId = `${phone}@c.us`;
-                // التحقق من وجود الرقم
-                const isRegistered = await client.getNumberId(numberId);
+                // استخدام دالة getNumberId للتحقق من وجود الرقم في سيرفرات واتساب
+                // هذه الدالة تعمل عالمياً
+                const numberId = await client.getNumberId(phone);
 
-                if (isRegistered) {
+                if (numberId) {
                     validCount++;
-                    socket.emit('filter-result', { phone, status: 'valid' });
+                    // numberId.user يعطينا الرقم بالتنسيق الصحيح المسجل في واتساب
+                    socket.emit('filter-result', { phone: numberId.user, status: 'valid' });
                 } else {
                     invalidCount++;
-                    socket.emit('filter-result', { phone, status: 'invalid' });
+                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
 
-                // تأخير بسيط لتجنب الحظر
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // انتظار قصير جداً لتجنب الضغط على السيرفر (250ms)
+                await new Promise(resolve => setTimeout(resolve, 250));
 
             } catch (err) {
                 console.error("Error checking number:", phone, err);
-                socket.emit('filter-result', { phone, status: 'invalid' });
+                // في حالة حدوث خطأ غير متوقع، نعتبره غير صالح لتجنب توقف العملية
+                socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
 
@@ -244,7 +263,6 @@ io.on('connection', (socket) => {
         db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
             if (err || !user) return;
             activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
-            console.log(`[Campaign Mode] Activated for user ${activeUserId}`);
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
