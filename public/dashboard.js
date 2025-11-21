@@ -31,7 +31,7 @@ const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
     mainContent: document.getElementById('main-content'),
-    statusMessage: document.getElementById('status-message'),
+    statusMessage: document.getElementById('status-message-display') || document.getElementById('status-message'), // Support both IDs
     qrcodeCanvas: document.getElementById('qrcode-canvas'),
     clientsList: document.getElementById('clientsList'),
     importedClientsList: document.getElementById('importedClientsList'),
@@ -51,7 +51,9 @@ const uiElements = {
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
     syncContactsBtn: document.getElementById('syncContactsBtn'),
-    chatbotStatusToggle: document.getElementById('chatbotStatusToggle') // تمت إضافة الزر الجديد هنا
+    chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
+    generateSpintaxBtn: document.getElementById('generateSpintaxBtn'),
+    disconnectWhatsappBtn: document.getElementById('disconnectWhatsappBtn') // الزر الجديد لفصل الواتساب
 };
 
 // ================================================================= //
@@ -66,9 +68,12 @@ function initializeEventListeners() {
     uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     uiElements.importCsvBtn.addEventListener('click', importCSV);
+    
+    // ربط أزرار الإرسال
     uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => sendPromoSequentially(clients, false));
     uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => sendPromoSequentially(importedClients, true));
     uiElements.sendSelectedPromoBtn.addEventListener('click', sendSelectedPromo);
+
     if (uiElements.deleteAllImportedBtn) {
         uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     }
@@ -81,9 +86,24 @@ function initializeEventListeners() {
     if (uiElements.syncContactsBtn) {
         uiElements.syncContactsBtn.addEventListener('click', requestContactSync);
     }
-    // --- ربط زر تفعيل الشات بوت ---
     if (uiElements.chatbotStatusToggle) {
         uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
+    }
+    if (uiElements.generateSpintaxBtn) {
+        uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
+    }
+
+    // --- منطق فصل الواتساب (Disconnect Logic) ---
+    if (uiElements.disconnectWhatsappBtn) {
+        uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
+            if(confirm("هل أنت متأكد أنك تريد فصل الرقم الحالي ومسح QR Code جديد؟")) {
+                if(socket) {
+                    socket.emit('logout-whatsapp'); // طلب الفصل من السيرفر
+                    uiElements.statusMessage.innerText = "جاري الفصل...";
+                    uiElements.disconnectWhatsappBtn.style.display = 'none'; // إخفاء الزر مؤقتاً
+                }
+            }
+        });
     }
 }
 
@@ -92,36 +112,65 @@ function initializeEventListeners() {
 // ================================================================= //
 function initializeWhatsAppConnection() {
     socket = io({ auth: { token } });
-    socket.on('connect', () => { log('🔌 متصل بالخادم، جاري تهيئة واتساب...', 'blue'); socket.emit('init-whatsapp', token); });
+    
+    socket.on('connect', () => { 
+        log('🔌 متصل بالخادم، جاري تهيئة واتساب...', 'blue'); 
+        socket.emit('init-whatsapp', token); 
+    });
+
     socket.on('qr', (qr) => {
         isWhatsappReady = false;
         uiElements.statusMessage.textContent = 'يرجى مسح هذا الـ QR Code للاتصال:';
         uiElements.qrcodeCanvas.style.display = 'block';
+        if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none'; // إخفاء زر الفصل أثناء المسح
+        
         QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => { if (err) console.error(err); });
     });
+
     socket.on('status', (status) => {
         uiElements.statusMessage.textContent = status.message;
         if (status.ready) {
             isWhatsappReady = true;
             uiElements.qrcodeCanvas.style.display = 'none';
-            uiElements.statusCard.style.backgroundColor = '#d4edda';
-            log('✅ تم الاتصال بواتساب بنجاح! سيتم تحميل بياناتك.', 'green');
-            setTimeout(() => {
-                uiElements.statusCard.style.display = 'none';
-                uiElements.mainContent.style.display = 'block';
-                loadInitialData();
-            }, 1500);
+            
+            // إظهار زر الفصل عند الاتصال
+            if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'inline-block';
+
+            // إشعار المستخدم
+            // ملاحظة: لم نعد نخفي بطاقة الحالة (Status Card) لأننا نحتاج لرؤية زر الفصل
+            // ولكن يمكننا تحميل البيانات في الخلفية
+            loadInitialData();
+            log('✅ تم الاتصال بواتساب بنجاح!', 'green');
         } else {
             isWhatsappReady = false;
-            if (status.error) uiElements.statusCard.style.backgroundColor = '#f8d7da';
+            // إخفاء زر الفصل إذا لم يكن متصلاً
+            if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
         }
     });
+
+    // --- استجابة السيرفر عند إتمام الفصل ---
+    socket.on('whatsapp-logged-out', () => {
+        log('ℹ️ تم فصل الواتساب. جاري طلب QR Code جديد...', 'orange');
+        // إعادة طلب الاتصال لتوليد QR جديد
+        socket.emit('init-whatsapp', token);
+        
+        // تحديث الواجهة
+        uiElements.qrcodeCanvas.style.display = 'block';
+        if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
+    });
+
     socket.on('send-promo-status', (status) => {
         if (status.success) log(`✅ تم إرسال العرض بنجاح إلى +${status.phone}`, "green");
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
-    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 تم قطع الاتصال بالخادم، حاول تحديث الصفحة.', 'orange'); });
+
+    socket.on('disconnect', () => { 
+        isWhatsappReady = false; 
+        log('🔌 تم قطع الاتصال بالخادم، حاول تحديث الصفحة.', 'orange'); 
+    });
+
     socket.on('log', (data) => log(data.message, data.color));
+
     socket.on('sync-complete', () => {
         log('✅ اكتمل تحديث القائمة. جاري إعادة تحميل العملاء.', 'green');
         loadClients();
@@ -162,7 +211,7 @@ async function apiFetch(url, options = {}) {
 // =================== 6. تحميل وعرض البيانات ====================== //
 // ================================================================= //
 function loadInitialData() { 
-    log('🔄 جاري تحميل البيانات الأولية...', 'blue'); 
+    // log('🔄 جاري تحميل البيانات الأولية...', 'blue'); 
     loadClients(); 
     loadImportedClients(); 
     loadPromos();
@@ -315,7 +364,7 @@ async function sendPromoSequentially(list, fromImported) {
         if (!isWhatsappReady) { log('🛑 توقفت الحملة، انقطع اتصال واتساب.', 'red'); break; }
         sendPromo(client.phone, selectedPromoId, fromImported);
         if (i < list.length - 1) {
-            const delay = 10000 + Math.random() * 10000;
+            const delay = 10000 + Math.random() * 10000; // بين 10 و 20 ثانية
             log(`⏳ انتظار ${Math.round(delay/1000)} ثانية قبل الإرسال التالي...`, "orange");
             await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -350,4 +399,3 @@ function log(message, color = "black") {
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
 }
-
