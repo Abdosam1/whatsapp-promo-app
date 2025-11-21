@@ -119,6 +119,9 @@
     "statsFailed": "فشل الإرسال",
     "menuDashboard": "لوحة التحكم",
     "menuSettings": "الإعدادات",
+     "disconnectBtn": "تغيير الرقم / فصل",
+        "disconnectConfirm": "هل أنت متأكد أنك تريد فصل الرقم الحالي؟ ستحتاج لمسح QR Code من جديد.",
+        "disconnectingMsg": "جاري فصل الرقم...",
     "menuSupport": "الدعم الفني"
   },
   "en": {
@@ -241,6 +244,10 @@
     "statsFailed": "Failed",
     "menuDashboard": "Dashboard",
     "menuSettings": "Settings",
+     "disconnectBtn": "Switch Number / Disconnect",
+      "disconnectConfirm": "Are you sure you want to disconnect? You will need to scan QR code again.",
+      "disconnectingMsg": "Disconnecting...",
     "menuSupport": "Support"
   }
 }
+
