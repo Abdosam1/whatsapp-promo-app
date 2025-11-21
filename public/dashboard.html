@@ -222,20 +222,21 @@
       <span>WA Promo</span>
     </div>
     
+    <!-- UPDATED MENU WITH DATA-TAB -->
     <ul class="nav-menu">
-      <li class="nav-item active" onclick="switchTab('dashboard')">
+      <li class="nav-item active" data-tab="dashboard">
         <i class="fas fa-home"></i> <span data-key="menuDashboard">Dashboard</span>
       </li>
-      <li class="nav-item" onclick="switchTab('contacts')">
+      <li class="nav-item" data-tab="contacts">
         <i class="fas fa-users"></i> <span data-key="dashCardClientsTitle">Contacts</span>
       </li>
-      <li class="nav-item" onclick="switchTab('campaigns')">
+      <li class="nav-item" data-tab="campaigns">
         <i class="fas fa-bullhorn"></i> <span data-key="dashCardPromosTitle">Campaigns</span>
       </li>
-      <li class="nav-item" onclick="switchTab('tools')">
+      <li class="nav-item" data-tab="tools">
         <i class="fas fa-tools"></i> <span data-key="dashCardSingleSendTitle">Tools</span>
       </li>
-      <li class="nav-item" onclick="switchTab('logs')">
+      <li class="nav-item" data-tab="logs">
         <i class="fas fa-terminal"></i> <span data-key="dashCardLogsTitle">Logs</span>
       </li>
     </ul>
@@ -266,10 +267,8 @@
     <!-- Scrollable Content -->
     <div class="content-area">
       
-      <!-- TAB 1: DASHBOARD (Stats + Status) -->
+      <!-- TAB 1: DASHBOARD -->
       <div id="tab-dashboard" class="tab-section active-section">
-        
-        <!-- Stats Grid -->
         <div class="stats-grid">
             <!-- Total Contacts -->
             <div class="card stat-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #3b82f6;">
@@ -313,10 +312,9 @@
           <h3 data-key="dashCardStatusTitle" style="margin: 0 0 20px 0; color: var(--text-muted); text-align: center;">Connection Status</h3>
           
           <div id="whatsapp-status">
-            <!-- Status Text -->
             <p id="status-message-display" style="font-size: 1.4rem; font-weight: bold; margin: 10px 0; color: var(--primary);">Initializing...</p>
             
-            <!-- DISCONNECT BUTTON (Hidden initially, managed by dashboard.js) -->
+            <!-- DISCONNECT BUTTON -->
             <button id="disconnectWhatsappBtn" class="btn btn-danger" style="display:none; margin-top:15px; font-size: 0.9em;">
                 <i class="fas fa-unlink"></i> <span data-key="disconnectBtn">تغيير الرقم / فصل</span>
             </button>
@@ -417,9 +415,7 @@
                     <label data-key="dashChatbotPromptLabel">System Prompt</label>
                     <textarea id="chatbotPrompt" rows="5" data-key-placeholder="dashChatbotPromptPlaceholder"></textarea>
                 </div>
-                <button type="button" id="savePromptBtn" class="btn btn-primary" style="width:100%;">
-                    <i class="fas fa-save"></i> <span data-key="dashSavePromptBtn">Save Settings</span>
-                </button>
+                <button type="button" id="savePromptBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> <span data-key="dashSavePromptBtn">Save Settings</span></button>
             </div>
           </div>
         </div>
