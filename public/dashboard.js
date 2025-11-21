@@ -31,6 +31,9 @@ let isCampaignRunning = false;
 let globalSuccessCount = 0;
 let globalFailCount = 0;
 
+// متغيرات فلتر الأرقام (Filter)
+let validNumbersBuffer = [];
+
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
@@ -57,10 +60,20 @@ const uiElements = {
     syncContactsBtn: document.getElementById('syncContactsBtn'),
     chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
     generateSpintaxBtn: document.getElementById('generateSpintaxBtn'),
-    disconnectWhatsappBtn: document.getElementById('disconnectWhatsappBtn'), // زر الفصل
+    disconnectWhatsappBtn: document.getElementById('disconnectWhatsappBtn'),
     statSuccess: document.getElementById('stat-sent-success'),
     statFailed: document.getElementById('stat-sent-failed'),
-    statTotal: document.getElementById('stat-total-contacts')
+    statTotal: document.getElementById('stat-total-contacts'),
+    
+    // عناصر الفلتر الجديدة
+    filterInput: document.getElementById('filterInput'),
+    startFilterBtn: document.getElementById('startFilterBtn'),
+    exportValidBtn: document.getElementById('exportValidBtn'),
+    listValid: document.getElementById('listValid'),
+    listInvalid: document.getElementById('listInvalid'),
+    countValid: document.getElementById('countValid'),
+    countInvalid: document.getElementById('countInvalid'),
+    filterStatus: document.getElementById('filterStatus')
 };
 
 // ================================================================= //
@@ -69,11 +82,11 @@ const uiElements = {
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
     initializeWhatsAppConnection();
-    setupLogsObserver(); // تشغيل مراقب السجل
+    setupLogsObserver();
 });
 
 function initializeEventListeners() {
-    // --- 1. تفعيل القائمة الجانبية (Sidebar) ---
+    // 1. تفعيل القائمة الجانبية (Sidebar)
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -84,7 +97,7 @@ function initializeEventListeners() {
         });
     });
 
-    // --- 2. باقي الأزرار ---
+    // 2. الأزرار الرئيسية
     uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     uiElements.importCsvBtn.addEventListener('click', importCSV);
@@ -109,7 +122,7 @@ function initializeEventListeners() {
     if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
     if (uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
 
-    // --- 3. منطق زر الفصل وحذف البيانات (Disconnect Logic) ---
+    // 3. زر فصل الواتساب
     if (uiElements.disconnectWhatsappBtn) {
         uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
             if(confirm("هل أنت متأكد أنك تريد فصل الرقم وحذف جميع جهات الاتصال الحالية؟")) {
@@ -121,6 +134,10 @@ function initializeEventListeners() {
             }
         });
     }
+
+    // 4. أزرار الفلتر (Filter Buttons)
+    if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
+    if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
 }
 
 // ================================================================= //
@@ -140,7 +157,8 @@ function switchTab(tabName) {
       'contacts': 'Contact Management',
       'campaigns': 'Marketing Campaigns',
       'tools': 'Utilities & Automation',
-      'logs': 'Activity Logs'
+      'logs': 'Activity Logs',
+      'filter': 'Number Filter Check'
     };
     const pageTitle = document.getElementById('page-title') || document.querySelector('h2');
     if(pageTitle && titles[tabName]) pageTitle.innerText = titles[tabName];
@@ -179,20 +197,13 @@ function initializeWhatsAppConnection() {
         }
     });
 
-    // === استجابة السيرفر للفصل ومسح البيانات ===
     socket.on('whatsapp-logged-out', () => {
         log('ℹ️ تم فصل الواتساب ومسح البيانات. جاري طلب QR جديد...', 'orange');
-        
-        // 1. تصفير المصفوفات محلياً
         clients = [];
         importedClients = [];
-        
-        // 2. تصفير القوائم في الواجهة
         if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
         if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
         if(uiElements.statTotal) uiElements.statTotal.innerText = '0';
-
-        // 3. إعادة طلب الاتصال لتوليد QR جديد
         socket.emit('init-whatsapp', token);
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
@@ -203,22 +214,99 @@ function initializeWhatsAppConnection() {
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
 
-    socket.on('disconnect', () => { 
-        isWhatsappReady = false; 
-        log('🔌 تم قطع الاتصال بالخادم.', 'orange'); 
+    // --- أحداث الفلتر (Filter Events) ---
+    socket.on('filter-result', (data) => {
+        const div = document.createElement('div');
+        div.innerText = data.phone;
+        div.style.padding = "2px 5px";
+        div.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+
+        if (data.status === 'valid') {
+            div.style.color = "#4ade80";
+            uiElements.listValid.appendChild(div);
+            validNumbersBuffer.push(data.phone);
+            uiElements.countValid.innerText = validNumbersBuffer.length;
+        } else {
+            div.style.color = "#f87171";
+            uiElements.listInvalid.appendChild(div);
+            const currentInvalid = parseInt(uiElements.countInvalid.innerText) || 0;
+            uiElements.countInvalid.innerText = currentInvalid + 1;
+        }
     });
 
+    socket.on('filter-complete', (counts) => {
+        uiElements.filterStatus.innerText = `✅ انتهى الفحص. (صالح: ${counts.valid}, غير صالح: ${counts.invalid})`;
+        uiElements.startFilterBtn.disabled = false;
+        if (validNumbersBuffer.length > 0) {
+            uiElements.exportValidBtn.disabled = false; // تفعيل زر التصدير
+        }
+    });
+
+    socket.on('filter-error', (msg) => {
+        alert(msg);
+        uiElements.startFilterBtn.disabled = false;
+        uiElements.filterStatus.innerText = "❌ حدث خطأ.";
+    });
+
+    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 انقطع الاتصال بالخادم.', 'orange'); });
     socket.on('log', (data) => log(data.message, data.color));
-
-    socket.on('sync-complete', () => {
-        log('✅ اكتمل تحديث القائمة.', 'green');
-        loadClients();
-        if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false;
-    });
+    socket.on('sync-complete', () => { log('✅ اكتمل التحديث.', 'green'); loadClients(); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; });
 }
 
 // ================================================================= //
-// ==================== 6. نظام العداد (Stats) ===================== //
+// ================= 6. دوال الفلتر (Filter Functions) ============= //
+// ================================================================= //
+
+function startNumberFilter() {
+    const text = uiElements.filterInput.value.trim();
+    if (!text) return alert("أدخل أرقاماً للفحص.");
+    if (!isWhatsappReady) return alert("يجب أن يكون الواتساب متصلاً لبدء الفحص.");
+
+    // تهيئة الواجهة
+    uiElements.listValid.innerHTML = '';
+    uiElements.listInvalid.innerHTML = '';
+    uiElements.countValid.innerText = '0';
+    uiElements.countInvalid.innerText = '0';
+    uiElements.filterStatus.innerText = "جاري الفحص... ⏳";
+    uiElements.startFilterBtn.disabled = true;
+    uiElements.exportValidBtn.disabled = true;
+    validNumbersBuffer = [];
+
+    // إرسال الطلب للسيرفر
+    socket.emit('check-numbers', { numbers: text });
+}
+
+function exportValidNumbers() {
+    if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام صالحة للتحميل.");
+
+    // إنشاء ملف CSV
+    const csvContent = "Phone\n" + validNumbersBuffer.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `valid_numbers_${Date.now()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // خيار لمسح النتائج بعد التحميل
+    if(confirm("تم تحميل الملف بنجاح! هل تريد مسح النتائج من الشاشة؟")) {
+        uiElements.listValid.innerHTML = '';
+        uiElements.listInvalid.innerHTML = '';
+        uiElements.countValid.innerText = '0';
+        uiElements.countInvalid.innerText = '0';
+        uiElements.filterInput.value = '';
+        uiElements.exportValidBtn.disabled = true;
+        uiElements.filterStatus.innerText = "...";
+        validNumbersBuffer = [];
+    }
+}
+
+// ================================================================= //
+// ==================== 7. نظام العداد (Stats) ===================== //
 // ================================================================= //
 
 function startNewCampaign() {
@@ -258,7 +346,6 @@ function setupLogsObserver() {
     });
     observer.observe(logsContainer, { childList: true });
 
-    // تحديث دوري لعدد جهات الاتصال
     setInterval(() => {
         const saved = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
         const imported = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
@@ -267,7 +354,7 @@ function setupLogsObserver() {
 }
 
 // ================================================================= //
-// =================== 7. دوال الـ API والتحميل ==================== //
+// =================== 8. دوال الـ API والتحميل ==================== //
 // ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
@@ -291,14 +378,7 @@ async function apiFetch(url, options = {}) {
     }
 }
 
-function loadInitialData() { 
-    loadClients(); 
-    loadImportedClients(); 
-    loadPromos();
-    loadChatbotPrompt();
-    loadChatbotStatus();
-}
-
+function loadInitialData() { loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus(); }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
@@ -344,7 +424,7 @@ async function addNewPromo() {
     if (imageFile) formData.append('image', imageFile);
     try {
         await apiFetch('/addPromo', { method: 'POST', body: formData });
-        log("✅ تم إضافة العرض بنجاح!", 'green');
+        log("✅ تم إضافة العرض.", 'green');
         uiElements.newPromoText.value = '';
         uiElements.newPromoImage.value = '';
         loadPromos();
@@ -365,8 +445,8 @@ async function importCSV() {
 }
 
 function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
-async function deletePromo(id) { if (!confirm("هل أنت متأكد من حذف هذا العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم حذف العرض بنجاح.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
-async function deleteAllImported() { if (!confirm("هل أنت متأكد من حذف جميع الأرقام المستوردة؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
+async function deletePromo(id) { if (!confirm("حذف العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم الحذف.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
+async function deleteAllImported() { if (!confirm("حذف جميع المستوردين؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
 function exportClientsToCSV() {
     if (!clients || clients.length === 0) return alert("القائمة فارغة.");
     const headers = ['phone', 'name'];
