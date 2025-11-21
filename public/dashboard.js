@@ -73,7 +73,10 @@ const uiElements = {
     listInvalid: document.getElementById('listInvalid'),
     countValid: document.getElementById('countValid'),
     countInvalid: document.getElementById('countInvalid'),
-    filterStatus: document.getElementById('filterStatus')
+    filterStatus: document.getElementById('filterStatus'),
+    // عناصر رفع ملف الفلتر
+    filterFileInput: document.getElementById('filterFileInput'),
+    btnUploadFilter: document.getElementById('btnUploadFilter')
 };
 
 // ================================================================= //
@@ -135,9 +138,36 @@ function initializeEventListeners() {
         });
     }
 
-    // 4. أزرار الفلتر (Filter Buttons)
+    // 4. أزرار الفلتر (Filter Buttons & Upload)
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
+    
+    // إضافة: التعامل مع رفع ملف الفلتر
+    if (uiElements.btnUploadFilter && uiElements.filterFileInput) {
+        uiElements.btnUploadFilter.addEventListener('click', () => {
+            uiElements.filterFileInput.click();
+        });
+
+        uiElements.filterFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                // استخراج الأرقام فقط من الملف
+                const numbers = content.split(/\r?\n/)
+                                    .map(line => line.trim().replace(/[^0-9]/g, ''))
+                                    .filter(n => n.length > 5) // تجاهل الأسطر القصيرة
+                                    .join('\n');
+                
+                uiElements.filterInput.value = numbers;
+                // تفريغ الملف للسماح بإعادة رفعه
+                uiElements.filterFileInput.value = '';
+            };
+            reader.readAsText(file);
+        });
+    }
 }
 
 // ================================================================= //
@@ -238,7 +268,7 @@ function initializeWhatsAppConnection() {
         uiElements.filterStatus.innerText = `✅ انتهى الفحص. (صالح: ${counts.valid}, غير صالح: ${counts.invalid})`;
         uiElements.startFilterBtn.disabled = false;
         if (validNumbersBuffer.length > 0) {
-            uiElements.exportValidBtn.disabled = false; // تفعيل زر التصدير
+            uiElements.exportValidBtn.disabled = false; 
         }
     });
 
@@ -279,7 +309,6 @@ function startNumberFilter() {
 function exportValidNumbers() {
     if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام صالحة للتحميل.");
 
-    // إنشاء ملف CSV
     const csvContent = "Phone\n" + validNumbersBuffer.join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -292,7 +321,6 @@ function exportValidNumbers() {
     link.click();
     document.body.removeChild(link);
 
-    // خيار لمسح النتائج بعد التحميل
     if(confirm("تم تحميل الملف بنجاح! هل تريد مسح النتائج من الشاشة؟")) {
         uiElements.listValid.innerHTML = '';
         uiElements.listInvalid.innerHTML = '';
