@@ -113,6 +113,7 @@ function processSpintax(text) {
 io.on('connection', (socket) => {
     let activeUserId = null;
     let client = null;
+
     socket.on('init-whatsapp', (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
@@ -122,11 +123,16 @@ io.on('connection', (socket) => {
                 if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
+                // ملاحظة: clientId هنا سيقوم بإنشاء مجلد بالاسم session-session-{userId} داخل .wwebjs_auth
                 client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
+                
                 client.on("qr", (qr) => socket.emit('qr', qr));
+                
                 client.on("ready", async () => {
                     socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
                     await syncWhatsAppContacts(client, activeUserId);
+                    
+                    // إعداد مستمع الرسائل للمساعد الذكي
                     client.on('message', async (message) => {
                         if (message.fromMe || message.isGroup) return;
                         const campaignInfo = activeCampaigns[activeUserId];
@@ -149,16 +155,55 @@ io.on('connection', (socket) => {
                         });
                     });
                 });
+
                 client.on("disconnected", (reason) => {
                     socket.emit('status', { message: `تم قطع الاتصال: ${reason}`, ready: false, error: true });
                     delete whatsappClients[activeUserId];
                     delete activeCampaigns[activeUserId];
                 });
+
                 client.initialize();
                 whatsappClients[activeUserId] = client;
             }
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
+
+    // --- كود فصل الواتساب الجديد (Disconnect Logic) ---
+    socket.on('logout-whatsapp', async () => {
+        if (!activeUserId) return;
+
+        console.log(`[Switch Account] User ${activeUserId} requested disconnect.`);
+
+        // 1. إغلاق الواتساب الحالي
+        if (whatsappClients[activeUserId]) {
+            try {
+                await whatsappClients[activeUserId].destroy();
+            } catch (err) {
+                console.error("Error destroying client:", err);
+            }
+            delete whatsappClients[activeUserId];
+            delete activeCampaigns[activeUserId];
+        }
+
+        // 2. حذف ملف الجلسة من السيرفر
+        // المسار يعتمد على كيفية تسمية LocalAuth للمجلد. بما أن clientId هو `session-${activeUserId}`
+        // فإن المجلد الفعلي سيكون `.wwebjs_auth/session-session-${activeUserId}`
+        const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${activeUserId}`);
+        
+        if (fs.existsSync(sessionPath)) {
+            fs.rm(sessionPath, { recursive: true, force: true }, (err) => {
+                if (err) console.error("Failed to delete session folder:", err);
+                else console.log("Session folder deleted successfully.");
+            });
+        }
+
+        // 3. إعلام الواجهة بأننا فصلنا
+        socket.emit('status', { message: "تم فصل الرقم بنجاح. جاري تجهيز QR...", ready: false });
+
+        // 4. إرسال إشارة لإعادة البدء
+        socket.emit('whatsapp-logged-out'); 
+    });
+
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -171,6 +216,7 @@ io.on('connection', (socket) => {
             socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
+
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         if (!activeUserId || !whatsappClients[activeUserId]) return;
@@ -199,6 +245,7 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
+
     socket.on('sync-contacts', async () => {
         if (!activeUserId || !whatsappClients[activeUserId]) { return; }
         console.log(`[Sync] Received manual sync request from user ${activeUserId}`);
@@ -206,6 +253,7 @@ io.on('connection', (socket) => {
         await syncWhatsAppContacts(currentClient, activeUserId);
         socket.emit('sync-complete');
     });
+
     socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
 });
 
