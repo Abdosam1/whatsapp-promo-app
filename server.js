@@ -192,7 +192,7 @@ io.on('connection', (socket) => {
     });
 
     // =================================================================
-    // === [UNIVERSAL] فلتر الأرقام (بدون أي قيود) ===
+    // === [UNIVERSAL & ROBUST] فلتر الأرقام (بدون أي قيود) ===
     // =================================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
@@ -200,6 +200,12 @@ io.on('connection', (socket) => {
         }
 
         const client = whatsappClients[activeUserId];
+        
+        // تأكد أن العميل جاهز
+        if (!client.info) {
+             return socket.emit('filter-error', 'انتظر لحظة، واتساب يجهز الاتصال...');
+        }
+
         let validCount = 0;
         let invalidCount = 0;
 
@@ -207,45 +213,41 @@ io.on('connection', (socket) => {
         console.log(`[Filter] Checking ${rawLines.length} numbers...`);
 
         for (const rawLine of rawLines) {
-            // 1. مسح الرموز (+، -، مسافات)
+            // 1. تنظيف الرقم فقط (إزالة الرموز)
             let phone = rawLine.trim().replace(/\D/g, '');
 
-            // 2. مسح 00 الدولية إذا وجدت
+            // 2. إزالة 00 الدولية فقط
             if (phone.startsWith('00')) {
                 phone = phone.substring(2);
             }
 
-            // *** هام: حيدنا كود المغرب 212 هنا ***
-            // الآن السكريبت كياخد النمرة كما هي بالضبط.
-
-            if (phone.length < 5) continue;
+            // *** هنا التغيير: لا توجد أي شروط على طول الرقم أو بدايته ***
+            // أي رقم تدخله سيتم فحصه كما هو.
+            if (phone.length < 5) continue; // تجاهل الفارغ
 
             try {
-                // 3. فحص مباشر مع واتساب
-                const checkPromise = client.getNumberId(phone);
-                const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 5000));
+                // 3. الفحص المباشر (بدون Race condition معقدة)
+                // نعتمد على المكتبة مباشرة لتعطينا الجواب الأكيد
+                const result = await client.getNumberId(phone);
 
-                const result = await Promise.race([checkPromise, timeoutPromise]);
-
-                if (result === 'TIMEOUT') {
-                    console.log(`[Filter] Timeout: ${phone}`);
-                    invalidCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                } else if (result) {
-                    console.log(`[Filter] Valid: ${result.user}`);
+                if (result) {
+                    // الرقم صحيح وموجود في واتساب
                     validCount++;
                     socket.emit('filter-result', { phone: result.user, status: 'valid' });
                 } else {
-                    console.log(`[Filter] Invalid: ${phone}`);
+                    // الرقم غير موجود
                     invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
 
-                // تأخير خفيف
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // 4. *** استراحة إجبارية *** (Delay)
+                // هذا أهم سطر: الانتظار 300ms بين كل رقم ورقم لتجنب Rate Limit
+                // هذا سيجعل الفحص أبطأ قليلاً لكن أدق بكثير
+                await new Promise(resolve => setTimeout(resolve, 300));
 
             } catch (err) {
-                console.error(`Error checking number ${phone}:`, err.message);
+                console.error(`[Filter Error] ${phone}:`, err.message);
+                // في حالة الخطأ التقني، نعتبره غير صالح
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
@@ -412,7 +414,7 @@ app.post('/api/auth/logout', authMiddleware, (req, res) => {
     delete activeCampaigns[userId];
     const client = whatsappClients[userId];
     if (client) {
-        client.destroy().catch(err => console.error(`Error destroying client:`, err));
+        client.destroy().catch(err => console.error(`Error destroying client for user ${userId}:`, err));
         delete whatsappClients[userId];
     }
     const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${userId}`);
@@ -432,9 +434,9 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` };
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
                 await transporter.sendMail(mailOptions);
-                res.status(200).json({ success: true, message: "تم استلام الطلب." });
+                res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
             }
         );
     });
@@ -461,7 +463,7 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
 
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { const { userId } = req.userData; if (!req.file) return res.status(400).json({ error: "No file" }); const results = []; fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 })).on('data', (data) => { const phone = String(data.phone || "").replace(/\D/g, ""); if (phone.length >= 8) results.push(phone); }).on('end', () => { fs.unlinkSync(req.file.path); const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`); let importedCount = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); results.forEach(phone => stmt.run(phone, userId, function (err) { if (!err && this.changes > 0) importedCount++; })); stmt.finalize(); db.run("COMMIT", () => res.status(200).json({ message: "تم الاستيراد.", imported: importedCount })); }); }); });
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { const { userId } = req.userData; if (!req.file) return res.status(400).json({ error: "No file uploaded" }); const results = []; fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 })).on('data', (data) => { const phone = String(data.phone || "").replace(/\D/g, ""); if (phone.length >= 8) results.push(phone); }).on('end', () => { fs.unlinkSync(req.file.path); const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`); let importedCount = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); results.forEach(phone => stmt.run(phone, userId, function (err) { if (!err && this.changes > 0) importedCount++; })); stmt.finalize(); db.run("COMMIT", () => res.status(200).json({ message: "تم الاستيراد.", imported: importedCount })); }); }); });
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => { const { text } = req.body; const { userId } = req.userData; const promos = readPromos(userId); const newPromo = { id: Date.now(), text: text || "", image: req.file ? req.file.filename : null }; promos.push(newPromo); writePromos(userId, promos); res.json({ status: "success", promo: newPromo }); });
 app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { const promoId = parseInt(req.params.id); const { userId } = req.userData; let promos = readPromos(userId); const promo = promos.find(p => p.id === promoId); if (promo) { if (promo.image && typeof promo.image === 'string') { const imagePath = path.join(promosUploadFolder, promo.image); if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } writePromos(userId, promos.filter(p => p.id !== promoId)); } res.json({ status: "deleted" }); });
