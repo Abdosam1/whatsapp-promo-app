@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
                     authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), 
                     puppeteer: { 
                         headless: true, 
-                        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] // تحسينات للأداء
+                        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
                     } 
                 });
                 
@@ -172,10 +172,9 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // --- Disconnect Logic ---
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
-        console.log(`[Switch Account] User ${activeUserId} requested disconnect & data wipe.`);
+        console.log(`[Switch Account] User ${activeUserId} requested disconnect.`);
         if (whatsappClients[activeUserId]) {
             try { await whatsappClients[activeUserId].destroy(); } catch (err) { console.error("Error destroying client:", err); }
             delete whatsappClients[activeUserId];
@@ -187,12 +186,12 @@ io.on('connection', (socket) => {
         }
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
-        socket.emit('status', { message: "تم فصل الرقم ومسح البيانات. جاري تجهيز QR...", ready: false });
+        socket.emit('status', { message: "تم فصل الرقم ومسح البيانات.", ready: false });
         socket.emit('whatsapp-logged-out'); 
     });
 
     // =================================================================
-    // === [FIXED] فلتر الأرقام مع حماية من التوقف (Timeout) ===
+    // === [GLOBAL FIXED] فلتر الأرقام العالمي بدون قيود محلية ===
     // =================================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
@@ -202,45 +201,48 @@ io.on('connection', (socket) => {
         const client = whatsappClients[activeUserId];
         let validCount = 0;
         let invalidCount = 0;
-        
-        // 1. تنظيف القائمة
+
+        // تقسيم الأسطر
         const rawLines = numbers.split(/\r?\n/);
-        console.log(`[Filter] Starting check for ${rawLines.length} lines...`);
+        console.log(`[Filter] Starting check for ${rawLines.length} numbers...`);
 
         for (const rawLine of rawLines) {
+            // 1. تنظيف الرقم: إزالة أي شيء ليس رقماً
             let phone = rawLine.trim().replace(/\D/g, '');
-            if (phone.startsWith('00')) phone = phone.substring(2);
 
-            // تصحيح أرقام المغرب
-            if (phone.length === 10 && (phone.startsWith('06') || phone.startsWith('07'))) {
-                phone = '212' + phone.substring(1);
+            // 2. إذا كان يبدأ بـ 00، احذفه
+            if (phone.startsWith('00')) {
+                phone = phone.substring(2);
             }
 
+            // 3. تجاهل الأرقام القصيرة جداً (أقل من 7 أرقام لا تعتبر دولية صحيحة عادة)
             if (phone.length < 7) continue;
 
             try {
-                // *** الحل الجذري: سباق بين الفحص والوقت (Race with Timeout) ***
-                // إذا واتساب ماجاوبش فـ 5 ثواني، كنتخطاو النمرة
+                // 4. الفحص مع حماية من التوقف (Timeout Protection)
+                // إذا لم يرد الواتساب خلال 5 ثوانٍ، نعتبر الرقم غير صالح ونكمل
                 const checkPromise = client.getNumberId(phone);
                 const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 5000));
 
                 const result = await Promise.race([checkPromise, timeoutPromise]);
 
                 if (result === 'TIMEOUT') {
-                    console.log(`[Filter] Timeout for ${phone} - Marking Invalid`);
+                    console.log(`[Filter] Timeout for ${phone} -> Invalid`);
                     invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 } else if (result) {
-                    console.log(`[Filter] Valid: ${phone}`);
+                    // الرقم صحيح ومسجل في واتساب
+                    console.log(`[Filter] Valid: ${result.user}`);
                     validCount++;
                     socket.emit('filter-result', { phone: result.user, status: 'valid' });
                 } else {
+                    // الرقم غير مسجل
                     console.log(`[Filter] Invalid: ${phone}`);
                     invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
 
-                // تأخير صغير باش مايتبلوكاش (200ms)
+                // تأخير بسيط جداً (200ms) لتخفيف الضغط على السيرفر
                 await new Promise(resolve => setTimeout(resolve, 200));
 
             } catch (err) {
@@ -249,7 +251,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        console.log(`[Filter] Completed. Valid: ${validCount}, Invalid: ${invalidCount}`);
+        console.log(`[Filter] Done. Valid: ${validCount}, Invalid: ${invalidCount}`);
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
@@ -261,7 +263,7 @@ io.on('connection', (socket) => {
         db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
             if (err || !user) return;
             activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
-            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
+            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة.', color: 'purple' });
         });
     });
 
@@ -370,14 +372,14 @@ app.get('/api/auth/verify-email', (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const { email } = decoded;
         const pendingData = pendingRegistrations[email];
-        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح. ربما تم إعادة تشغيل الخادم، يرجى التسجيل مرة أخرى.');
+        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح.');
         db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
             if (user) { delete pendingRegistrations[email]; return res.status(400).send('هذا الحساب مسجل بالفعل.'); }
             const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial' };
             db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
                 (err) => {
-                    if (err) return res.status(500).send('حدث خطأ أثناء إنشاء حسابك في قاعدة البيانات.');
+                    if (err) return res.status(500).send('حدث خطأ.');
                     delete pendingRegistrations[email];
                     res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
                 }
@@ -390,20 +392,15 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (err) return res.status(500).json({ message: "خطأ في الخادم." });
-        if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة أو الحساب مسجل عبر جوجل.' });
+        if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة.' });
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
         const now = new Date();
         const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null;
         const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null;
         const isActive = (trialEnds && trialEnds > now) || (subscriptionEnds && subscriptionEnds > now);
-        if (isActive) {
-            const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
-            res.status(200).json({ token, subscriptionStatus: 'active' });
-        } else {
-            const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
-            res.status(200).json({ token, subscriptionStatus: 'expired' });
-        }
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: isActive ? '8h' : '1h' });
+        res.status(200).json({ token, subscriptionStatus: isActive ? 'active' : 'expired' });
     });
 });
 
@@ -412,7 +409,7 @@ app.post('/api/auth/logout', authMiddleware, (req, res) => {
     delete activeCampaigns[userId];
     const client = whatsappClients[userId];
     if (client) {
-        client.destroy().catch(err => console.error(`Error destroying client for user ${userId}:`, err));
+        client.destroy().catch(err => console.error(`Error destroying client:`, err));
         delete whatsappClients[userId];
     }
     const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${userId}`);
@@ -432,7 +429,7 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` };
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` };
                 await transporter.sendMail(mailOptions);
                 res.status(200).json({ success: true, message: "تم استلام الطلب." });
             }
