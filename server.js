@@ -41,6 +41,10 @@ const pendingRegistrations = {};
 const whatsappClients = {};
 const activeCampaigns = {};
 
+// إعدادات الفلتر (Batching Settings)
+const FILTER_BATCH_SIZE = 1000; // عدد الأرقام في كل دفعة
+const FILTER_BATCH_DELAY = 60000; // وقت الاستراحة بين الدفعات (60 ثانية)
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ================================================================= //
@@ -172,7 +176,6 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
     });
 
-    // --- Disconnect Logic ---
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
         console.log(`[Switch Account] User ${activeUserId} requested disconnect & data wipe.`);
@@ -192,7 +195,7 @@ io.on('connection', (socket) => {
     });
 
     // =================================================================
-    // === [UNIVERSAL & ROBUST] فلتر الأرقام (بدون أي قيود) ===
+    // === [BATCH FILTER] فلتر الأرقام بنظام الدفعات والاستراحة ===
     // =================================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
@@ -200,58 +203,78 @@ io.on('connection', (socket) => {
         }
 
         const client = whatsappClients[activeUserId];
-        
-        // تأكد أن العميل جاهز
         if (!client.info) {
              return socket.emit('filter-error', 'انتظر لحظة، واتساب يجهز الاتصال...');
         }
 
+        // 1. تحضير القائمة الكاملة
+        // نقوم بتنظيف القائمة أولاً من الأسطر الفارغة والأرقام غير الصالحة
+        const allPhones = numbers.split(/\r?\n/)
+            .map(line => {
+                let p = line.trim().replace(/\D/g, '');
+                if (p.startsWith('00')) p = p.substring(2);
+                return p;
+            })
+            .filter(p => p.length >= 6); // فقط الأرقام التي طولها مقبول
+
+        const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
+        let processedCount = 0;
 
-        const rawLines = numbers.split(/\r?\n/);
-        console.log(`[Filter] Checking ${rawLines.length} numbers...`);
+        console.log(`[Filter Batch] Starting check for ${totalNumbers} numbers in batches of ${FILTER_BATCH_SIZE}...`);
+        socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم. سيتم تقسيمهم لدفعات.`, color: 'blue' });
 
-        for (const rawLine of rawLines) {
-            // 1. تنظيف الرقم فقط (إزالة الرموز)
-            let phone = rawLine.trim().replace(/\D/g, '');
+        // 2. تقسيم القائمة إلى دفعات (Chunks)
+        for (let i = 0; i < totalNumbers; i += FILTER_BATCH_SIZE) {
+            const batch = allPhones.slice(i, i + FILTER_BATCH_SIZE);
+            const batchNumber = Math.floor(i / FILTER_BATCH_SIZE) + 1;
+            const totalBatches = Math.ceil(totalNumbers / FILTER_BATCH_SIZE);
 
-            // 2. إزالة 00 الدولية فقط
-            if (phone.startsWith('00')) {
-                phone = phone.substring(2);
-            }
+            console.log(`Processing Batch ${batchNumber}/${totalBatches} (${batch.length} numbers)`);
+            socket.emit('log', { message: `🔄 جاري فحص الدفعة ${batchNumber} من ${totalBatches}...`, color: 'blue' });
 
-            // *** هنا التغيير: لا توجد أي شروط على طول الرقم أو بدايته ***
-            // أي رقم تدخله سيتم فحصه كما هو.
-            if (phone.length < 5) continue; // تجاهل الفارغ
+            // 3. معالجة كل رقم داخل الدفعة
+            for (const phone of batch) {
+                try {
+                    const checkPromise = client.getNumberId(phone);
+                    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 6000)); // 6 ثواني
 
-            try {
-                // 3. الفحص المباشر (بدون Race condition معقدة)
-                // نعتمد على المكتبة مباشرة لتعطينا الجواب الأكيد
-                const result = await client.getNumberId(phone);
+                    const result = await Promise.race([checkPromise, timeoutPromise]);
 
-                if (result) {
-                    // الرقم صحيح وموجود في واتساب
-                    validCount++;
-                    socket.emit('filter-result', { phone: result.user, status: 'valid' });
-                } else {
-                    // الرقم غير موجود
-                    invalidCount++;
+                    if (result === 'TIMEOUT') {
+                        invalidCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                    } else if (result) {
+                        validCount++;
+                        socket.emit('filter-result', { phone: result.user, status: 'valid' });
+                    } else {
+                        invalidCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                    }
+
+                    // تأخير صغير بين الرقم والرقم (300ms)
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                } catch (err) {
+                    console.error(`Check error ${phone}:`, err.message);
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
+                processedCount++;
+            }
 
-                // 4. *** استراحة إجبارية *** (Delay)
-                // هذا أهم سطر: الانتظار 300ms بين كل رقم ورقم لتجنب Rate Limit
-                // هذا سيجعل الفحص أبطأ قليلاً لكن أدق بكثير
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-            } catch (err) {
-                console.error(`[Filter Error] ${phone}:`, err.message);
-                // في حالة الخطأ التقني، نعتبره غير صالح
-                socket.emit('filter-result', { phone: phone, status: 'invalid' });
+            // 4. الاستراحة بين الدفعات (Cool Down)
+            // إذا لم تكن هذه آخر دفعة، نرتاح
+            if (i + FILTER_BATCH_SIZE < totalNumbers) {
+                console.log(`Batch ${batchNumber} done. Cooling down for ${FILTER_BATCH_DELAY/1000}s...`);
+                socket.emit('log', { message: `⏸️ استراحة لمدة ${FILTER_BATCH_DELAY/1000} ثانية لتجنب الحظر...`, color: 'orange' });
+                await new Promise(resolve => setTimeout(resolve, FILTER_BATCH_DELAY));
+                socket.emit('log', { message: `▶️ استئناف الفحص...`, color: 'green' });
             }
         }
 
+        console.log(`[Filter Batch] Completed. Valid: ${validCount}, Invalid: ${invalidCount}`);
+        socket.emit('log', { message: `✅ انتهى الفحص. صالح: ${validCount}، غير صالح: ${invalidCount}`, color: 'green' });
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
@@ -263,7 +286,7 @@ io.on('connection', (socket) => {
         db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
             if (err || !user) return;
             activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
-            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة.', color: 'purple' });
+            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
         });
     });
 
@@ -434,9 +457,9 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` };
                 await transporter.sendMail(mailOptions);
-                res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
+                res.status(200).json({ success: true, message: "تم استلام الطلب." });
             }
         );
     });
