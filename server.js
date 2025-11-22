@@ -123,7 +123,13 @@ io.on('connection', (socket) => {
                 if (client.info) { socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true }); }
             } else {
                 console.log(`Creating new WhatsApp client for user: ${activeUserId}`);
-                client = new Client({ authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
+                client = new Client({ 
+                    authStrategy: new LocalAuth({ clientId: `session-${activeUserId}` }), 
+                    puppeteer: { 
+                        headless: true, 
+                        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] // تحسينات للأداء
+                    } 
+                });
                 
                 client.on("qr", (qr) => socket.emit('qr', qr));
                 
@@ -186,7 +192,7 @@ io.on('connection', (socket) => {
     });
 
     // =================================================================
-    // === [UPDATED] كود فلتر الأرقام العالمي الشامل ===
+    // === [FIXED] فلتر الأرقام مع حماية من التوقف (Timeout) ===
     // =================================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId || !whatsappClients[activeUserId]) {
@@ -196,54 +202,54 @@ io.on('connection', (socket) => {
         const client = whatsappClients[activeUserId];
         let validCount = 0;
         let invalidCount = 0;
-
-        // 1. تنظيف القائمة: إزالة الأسطر الفارغة وتقسيمها
+        
+        // 1. تنظيف القائمة
         const rawLines = numbers.split(/\r?\n/);
+        console.log(`[Filter] Starting check for ${rawLines.length} lines...`);
 
         for (const rawLine of rawLines) {
-            // 2. تنظيف الرقم من أي رموز غير رقمية (+، -، مسافات)
             let phone = rawLine.trim().replace(/\D/g, '');
+            if (phone.startsWith('00')) phone = phone.substring(2);
 
-            // 3. التعامل مع 00 في البداية (تحويلها لرقم دولي)
-            if (phone.startsWith('00')) {
-                phone = phone.substring(2);
-            }
-
-            // 4. التعامل الذكي مع الأرقام المحلية المغربية (06/07 -> 212...)
-            // إذا كان الرقم يبدأ بـ 06 أو 07 وطوله 10، فهو غالباً مغربي
+            // تصحيح أرقام المغرب
             if (phone.length === 10 && (phone.startsWith('06') || phone.startsWith('07'))) {
                 phone = '212' + phone.substring(1);
             }
 
-            // 5. تجاهل الأرقام القصيرة جداً (أقل من 7 أرقام لا يمكن أن يكون رقم واتساب)
-            if (phone.length < 7) {
-                continue; 
-            }
+            if (phone.length < 7) continue;
 
             try {
-                // 6. الفحص باستخدام مكتبة واتساب
-                // هذه الدالة تعمل مع جميع الدول
-                const numberId = await client.getNumberId(phone);
+                // *** الحل الجذري: سباق بين الفحص والوقت (Race with Timeout) ***
+                // إذا واتساب ماجاوبش فـ 5 ثواني، كنتخطاو النمرة
+                const checkPromise = client.getNumberId(phone);
+                const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 5000));
 
-                if (numberId) {
+                const result = await Promise.race([checkPromise, timeoutPromise]);
+
+                if (result === 'TIMEOUT') {
+                    console.log(`[Filter] Timeout for ${phone} - Marking Invalid`);
+                    invalidCount++;
+                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                } else if (result) {
+                    console.log(`[Filter] Valid: ${phone}`);
                     validCount++;
-                    // نرسل الرقم كما هو مسجل في واتساب (user ID) لضمان صحته
-                    socket.emit('filter-result', { phone: numberId.user, status: 'valid' });
+                    socket.emit('filter-result', { phone: result.user, status: 'valid' });
                 } else {
+                    console.log(`[Filter] Invalid: ${phone}`);
                     invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
 
-                // تأخير صغير جداً (100ms) لتجنب الضغط، يمكن إلغاؤه للسرعة القصوى
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // تأخير صغير باش مايتبلوكاش (200ms)
+                await new Promise(resolve => setTimeout(resolve, 200));
 
             } catch (err) {
-                console.error(`Error checking number ${phone}:`, err);
-                // في حالة الخطأ، نعتبره غير صالح ونكمل
+                console.error(`Error checking number ${phone}:`, err.message);
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
 
+        console.log(`[Filter] Completed. Valid: ${validCount}, Invalid: ${invalidCount}`);
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
@@ -259,20 +265,14 @@ io.on('connection', (socket) => {
         });
     });
 
-    // === كود حفظ الأرقام الصالحة مباشرة (Save Valid Contacts) ===
     socket.on('save-valid-contacts', ({ numbers }) => {
         if (!activeUserId) return;
         const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
-        
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
-            numbers.forEach(phone => {
-                stmt.run(phone, activeUserId);
-            });
+            numbers.forEach(phone => { stmt.run(phone, activeUserId); });
             stmt.finalize();
-            db.run("COMMIT", () => {
-                socket.emit('sync-complete'); 
-            });
+            db.run("COMMIT", () => { socket.emit('sync-complete'); });
         });
     });
 
@@ -312,7 +312,7 @@ io.on('connection', (socket) => {
         socket.emit('sync-complete');
     });
 
-    socket.on('disconnect', () => { console.log(`Socket disconnected. WhatsApp session remains active.`); });
+    socket.on('disconnect', () => { console.log(`Socket disconnected.`); });
 });
 
 // ================================================================= //
@@ -432,9 +432,9 @@ app.post("/api/request-code", authMiddleware, async (req, res) => {
             [newActivationCode, JSON.stringify({ durationName, durationDays }), userId],
             async (err) => {
                 if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." });
-                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد من ${user.email}`, html: `<h1>طلب تفعيل جديد</h1><p>المستخدم: ${user.name} (${user.email})</p><p>المدة: ${durationName}</p><h2>الرمز: ${newActivationCode}</h2>` };
+                const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` };
                 await transporter.sendMail(mailOptions);
-                res.status(200).json({ success: true, message: "تم استلام طلب التفعيل بنجاح. سيتم التواصل معك." });
+                res.status(200).json({ success: true, message: "تم استلام الطلب." });
             }
         );
     });
@@ -448,129 +448,30 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
         if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
         if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); }
         const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
-        if (!activationRequest || !activationRequest.durationDays) { return res.status(400).json({ message: "لم يتم العثور على طلب تفعيل. يرجى طلب رمز جديد." }); }
+        if (!activationRequest) { return res.status(400).json({ message: "لم يتم العثور على طلب." }); }
         const { durationDays } = activationRequest;
         const newSubscriptionEndDate = new Date();
         newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
         db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => {
-            if (err) return res.status(500).json({ message: "خطأ في تحديث الاشتراك." });
-            res.status(200).json({ success: true, message: "تم تفعيل الاشتراك بنجاح!" });
+            if (err) return res.status(500).json({ message: "خطأ." });
+            res.status(200).json({ success: true, message: "تم التفعيل بنجاح!" });
         });
     });
 });
 
 app.get("/contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, name, phone FROM clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
 app.get("/imported-contacts", authMiddleware, checkSubscription, (req, res) => { db.all(`SELECT id, phone FROM imported_clients WHERE ownerId = ?`, [req.userData.userId], (err, rows) => res.json(rows || [])); });
-app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { const { userId } = req.userData; if (!req.file) return res.status(400).json({ error: "No file uploaded" }); const results = []; fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 })).on('data', (data) => { const phone = String(data.phone || "").replace(/\D/g, ""); if (phone.length >= 8) results.push(phone); }).on('end', () => { fs.unlinkSync(req.file.path); if (results.length === 0) return res.status(400).json({ message: "لا يوجد أرقام صالحة." }); const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`); let importedCount = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); results.forEach(phone => stmt.run(phone, userId, function (err) { if (!err && this.changes > 0) importedCount++; })); stmt.finalize(); db.run("COMMIT", () => res.status(200).json({ message: "تم الاستيراد بنجاح.", imported: importedCount })); }); }); });
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => { const { userId } = req.userData; if (!req.file) return res.status(400).json({ error: "No file" }); const results = []; fs.createReadStream(req.file.path).pipe(csvParser({ headers: ['phone'], skipLines: 0 })).on('data', (data) => { const phone = String(data.phone || "").replace(/\D/g, ""); if (phone.length >= 8) results.push(phone); }).on('end', () => { fs.unlinkSync(req.file.path); const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`); let importedCount = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); results.forEach(phone => stmt.run(phone, userId, function (err) { if (!err && this.changes > 0) importedCount++; })); stmt.finalize(); db.run("COMMIT", () => res.status(200).json({ message: "تم الاستيراد.", imported: importedCount })); }); }); });
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
+app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => { const { text } = req.body; const { userId } = req.userData; const promos = readPromos(userId); const newPromo = { id: Date.now(), text: text || "", image: req.file ? req.file.filename : null }; promos.push(newPromo); writePromos(userId, promos); res.json({ status: "success", promo: newPromo }); });
+app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => { const promoId = parseInt(req.params.id); const { userId } = req.userData; let promos = readPromos(userId); const promo = promos.find(p => p.id === promoId); if (promo) { if (promo.image && typeof promo.image === 'string') { const imagePath = path.join(promosUploadFolder, promo.image); if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } writePromos(userId, promos.filter(p => p.id !== promoId)); } res.json({ status: "deleted" }); });
+app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => { const { userId } = req.userData; db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) { res.status(200).json({ status: "success", message: `تم الحذف.` }); }); });
+app.get("/api/chatbot-prompt", authMiddleware, (req, res) => { db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [req.userData.userId], (err, row) => { res.json({ prompt: row ? row.chatbot_prompt : "" }); }); });
+app.post("/api/chatbot-prompt", authMiddleware, (req, res) => { db.run("UPDATE users SET chatbot_prompt = ? WHERE id = ?", [req.body.prompt, req.userData.userId], (err) => { res.json({ message: "تم الحفظ" }); }); });
+app.get("/api/chatbot-status", authMiddleware, (req, res) => { db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [req.userData.userId], (err, row) => { res.json({ isActive: row ? !!row.is_chatbot_active : true }); }); });
+app.post("/api/chatbot-status", authMiddleware, (req, res) => { const statusValue = req.body.isActive ? 1 : 0; db.run("UPDATE users SET is_chatbot_active = ? WHERE id = ?", [statusValue, req.userData.userId], (err) => { res.json({ message: "تم التحديث" }); }); });
+app.post("/api/generate-spintax", authMiddleware, async (req, res) => { try { const completion = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "system", content: "You are a copywriter..." }, { role: "user", content: req.body.text }] }); res.json({ spintax: completion.choices[0].message.content }); } catch (error) { res.status(500).json({ message: "Error" }); } });
 
-app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
-    const { text } = req.body;
-    const { userId } = req.userData;
-    const promos = readPromos(userId);
-    const newPromo = { id: Date.now(), text: text || "", image: req.file ? req.file.filename : null };
-    promos.push(newPromo);
-    writePromos(userId, promos);
-    res.json({ status: "success", promo: newPromo });
-});
-
-app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
-    const promoId = parseInt(req.params.id);
-    const { userId } = req.userData;
-    let promos = readPromos(userId);
-    const promo = promos.find(p => p.id === promoId);
-    if (promo) {
-        if (promo.image && typeof promo.image === 'string') {
-            const imagePath = path.join(promosUploadFolder, promo.image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
-        }
-        writePromos(userId, promos.filter(p => p.id !== promoId));
-    }
-    res.json({ status: "deleted" });
-});
-
-app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => {
-    const { userId } = req.userData;
-    db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) {
-        if (err) {
-            console.error("Database error while deleting imported clients:", err.message);
-            return res.status(500).json({ message: "حدث خطأ في الخادم أثناء محاولة الحذف." });
-        }
-        res.status(200).json({ status: "success", message: `تم حذف ${this.changes} من العملاء المستوردين بنجاح.` });
-    });
-});
-
-app.get("/api/chatbot-prompt", authMiddleware, (req, res) => {
-    db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [req.userData.userId], (err, row) => {
-        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        res.json({ prompt: row ? row.chatbot_prompt : "" });
-    });
-});
-app.post("/api/chatbot-prompt", authMiddleware, (req, res) => {
-    const { prompt } = req.body;
-    db.run("UPDATE users SET chatbot_prompt = ? WHERE id = ?", [prompt, req.userData.userId], (err) => {
-        if (err) return res.status(500).json({ message: "فشل حفظ الإعدادات." });
-        res.json({ message: "تم حفظ الإعدادات بنجاح!" });
-    });
-});
-
-app.get("/api/chatbot-status", authMiddleware, (req, res) => {
-    db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [req.userData.userId], (err, row) => {
-        if (err) return res.status(500).json({ message: "خطأ في قاعدة البيانات." });
-        res.json({ isActive: row ? !!row.is_chatbot_active : true });
-    });
-});
-app.post("/api/chatbot-status", authMiddleware, (req, res) => {
-    const { isActive } = req.body;
-    const statusValue = isActive ? 1 : 0;
-    db.run("UPDATE users SET is_chatbot_active = ? WHERE id = ?", [statusValue, req.userData.userId], (err) => {
-        if (err) return res.status(500).json({ message: "فشل تحديث الحالة." });
-        res.json({ message: `تم ${isActive ? 'تفعيل' : 'إلغاء تفعيل'} المساعد الذكي بنجاح!` });
-    });
-});
-// استبدل المسار القديم بهذا الكود المحسن
-app.post("/api/generate-spintax", authMiddleware, async (req, res) => {
-    const { text } = req.body;
-    if (!text) {
-        return res.status(400).json({ message: "النص مطلوب." });
-    }
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini", // نموذج أحدث وأكثر إبداعاً
-            temperature: 0.8,    // زيادة درجة الإبداع قليلاً
-            messages: [
-                {
-                    role: "system",
-                    content: `Your persona is a world-class Moroccan marketing copywriter. You are an expert in writing persuasive, engaging, and creative ad copy in Moroccan Darija.
-
-Your task is to take a core promotional message and transform it into 5 distinct, high-impact variations.
-
-**CRITICAL RULES:**
-1.  **Do Not Summarize:** You must paraphrase, not summarize. All key information (like percentages, product names, etc.) from the original text MUST be included in every variation.
-2.  **Maintain Length & Detail:** Each variation should be roughly the same length as the original text and contain the same level of detail.
-3.  **Be Creative & Use Emojis:** Each variation must have a different tone and angle. Use persuasive language, marketing hooks, and relevant emojis (🚀, 🔥, ✨, 🎁, 💯) to make the copy visually appealing and engaging.
-4.  **Language:** Write exclusively in authentic Moroccan Darija.
-5.  **Final Format:** The entire output MUST be a single line of text in Spintax format: {variation 1|variation 2|variation 3|variation 4|variation 5}. Do not add any introductions, explanations, or text before or after the spintax string.`
-                },
-                {
-                    role: "user",
-                    content: `Paraphrase this promotional message into 5 variations: "${text}"`
-                }
-            ]
-        });
-        const spintaxResult = completion.choices[0].message.content;
-        res.json({ spintax: spintaxResult });
-    } catch (error) {
-        console.error("Error generating spintax:", error);
-        res.status(500).json({ message: "فشل إنشاء الصيغ الجديدة." });
-    }
-});
-
-// ================================================================= //
-// ===================== 9. خدمة الملفات الثابتة والتشغيل =================== //
-// ================================================================= //
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
