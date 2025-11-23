@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>نظام إرسال عروض WhatsApp</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>نظام إرسال عروض WhatsApp</h1>
+
+    <!-- ====== عملاء أساسيون ====== -->
+    <h2>العملاء الأساسيون</h2>
+    <button type="button" onclick="sendPromoToClients()">أرسل العرض للعملاء الأساسيين</button>
+    <button type="button" onclick="sendPromoSequentiallyToClients()">أرسل العرض واحداً تلو الآخر</button>
+    <div
+      id="clientsList"
+      style="max-height:200px; overflow-y:auto; border:1px solid #ccc; padding:10px;"
+    >لا يوجد عملاء حالياً.</div>
+
+    <!-- ====== عملاء مستوردون ====== -->
+    <h2>العملاء المستوردون</h2>
+    <input type="file" id="csvFileInput" accept=".csv" />
+    <button type="button" onclick="importCSV()">استيراد CSV</button>
+    <button type="button" onclick="sendPromoToImported()">أرسل العرض للعملاء المستوردين</button>
+    <button type="button" onclick="sendPromoSequentiallyToImported()">أرسل العرض واحداً تلو الآخر</button>
+    <button
+      type="button"
+      onclick="deleteAllImportedClients()"
+      style="background:red; color:#fff; margin-left:10px;"
+    >حذف الكل</button>
+    <div
+      id="importedClientsList"
+      style="max-height:200px; overflow-y:auto; border:1px solid #ccc; padding:10px;"
+    >لا يوجد عملاء مستوردين حالياً.</div>
+
+    <!-- ====== العروض ====== -->
+    <h2>العروض</h2>
+    <div id="promosList" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+
+    <!-- ====== إضافة عرض جديد ====== -->
+    <h2>إضافة عرض جديد</h2>
+    <label>نص العرض:</label><br/>
+    <textarea id="newPromoText" rows="3" style="width:100%;"></textarea><br/><br/>
+    <label>صورة العرض:</label><br/>
+    <input type="file" id="newPromoImage" accept="image/*" /><br/><br/>
+    <button type="button" onclick="addNewPromo()">إضافة العرض</button>
+
+    <hr/>
+
+    <!-- ====== إعداد العرض ====== -->
+    <h2>إعداد العرض</h2>
+    <label>نوع العميل:</label>
+    <select id="clientTypeSelect">
+      <option value="clients">أساسي</option>
+      <option value="imported_clients">مستورد</option>
+    </select>
+    <br/><br/>
+    <label>رقم الهاتف:</label>
+    <input
+      type="text"
+      id="phoneInput"
+      placeholder="+2126xxxxxxxx"
+      style="width:200px;"
+    />
+    <button type="button" onclick="sendSelectedPromo()">أرسل العرض لرقم محدد</button>
+    <button type="button" onclick="testMessage()">🧪 رسالة تجريبية</button>
+
+    <!-- ====== السجل ====== -->
+    <h2>السجل</h2>
+    <div
+      id="logs"
+      style="max-height:200px; overflow-y:auto; border:1px solid #ccc; padding:10px;"
+    >لا توجد سجلات بعد.</div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

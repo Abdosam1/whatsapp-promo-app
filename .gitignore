@@ -1,0 +1,16 @@
+# Dependencies
+/node_modules
+
+# WhatsApp Session Files (VERY IMPORTANT)
+/.wwebjs_auth
+/sessions
+
+# Database & Uploads
+/main_data.db
+/users.json
+/uploads
+/data
+
+# Logs & Environment
+npm-debug.log*
+.env

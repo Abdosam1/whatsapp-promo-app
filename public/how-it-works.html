@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <!-- Meta & Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-key="howWorksPageTitle">كيفية العمل - دليل الاستخدام</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Dark SaaS Theme Variables --- */
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --primary: #00d26a;
+            --primary-glow: rgba(0, 210, 106, 0.3);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* --- Navigation --- */
+        .nav-container {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 40px; background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color);
+            position: sticky; top: 0; z-index: 1000;
+        }
+        .nav-logo { font-size: 1.5em; font-weight: 900; color: white; text-decoration: none; }
+        .nav-logo i { color: var(--primary); }
+        
+        .nav-links { display: flex; align-items: center; gap: 15px; }
+        .nav-links a {
+            color: var(--text-muted); text-decoration: none; margin: 0 10px;
+            font-weight: 600; transition: 0.3s;
+        }
+        .nav-links a:hover { color: var(--primary); }
+        .btn-nav {
+            background: var(--primary); color: white !important; padding: 8px 20px;
+            border-radius: 20px; box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        /* Language Switcher */
+        .language-switcher button {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
+            cursor: pointer; transition: 0.3s; font-family: inherit; font-weight: bold;
+        }
+        .language-switcher button:hover, .language-switcher button.active {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            text-align: center; padding: 80px 20px 40px;
+            background: radial-gradient(circle at 50% 0%, rgba(0, 210, 106, 0.1), transparent 70%);
+        }
+        .hero h1 { font-size: 3em; margin-bottom: 15px; }
+        .hero p { font-size: 1.2em; color: var(--text-muted); max-width: 600px; margin: 0 auto; }
+
+        /* --- Timeline Steps --- */
+        .timeline {
+            max-width: 900px; margin: 50px auto; position: relative; padding: 20px;
+        }
+        /* The Line */
+        .timeline::before {
+            content: ''; position: absolute; top: 0; bottom: 0; right: 50%;
+            width: 4px; background: var(--border-color); transform: translateX(50%);
+            border-radius: 2px;
+        }
+
+        .step-container {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 60px; position: relative;
+        }
+        .step-content {
+            width: 45%; background: var(--bg-card); padding: 30px;
+            border-radius: 15px; border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+        .step-content:hover { transform: translateY(-5px); border-color: var(--primary); }
+        
+        /* Number Badge */
+        .step-number {
+            position: absolute; top: 50%; right: 50%; transform: translate(50%, -50%);
+            width: 50px; height: 50px; background: var(--bg-main);
+            border: 4px solid var(--primary); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: var(--primary); z-index: 2;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        /* RTL/LTR Fix for Steps */
+        html[dir="rtl"] .step-left { flex-direction: row-reverse; }
+        html[dir="ltr"] .step-left { flex-direction: row-reverse; }
+        
+        /* CSS handling for LTR specifically (to mirror the timeline correctly) */
+        html[dir="ltr"] .timeline::before { left: 50%; right: auto; transform: translateX(-50%); }
+        html[dir="ltr"] .step-number { left: 50%; right: auto; transform: translate(-50%, -50%); }
+        html[dir="ltr"] .step-container { flex-direction: row-reverse; } 
+        html[dir="ltr"] .step-left { flex-direction: row; }
+
+        .step-title { font-size: 1.5em; margin-bottom: 10px; color: white; }
+        .step-title i { margin-inline-end: 10px; color: var(--primary); }
+        .step-desc { color: var(--text-muted); line-height: 1.6; }
+
+        /* CTA Section */
+        .cta-section {
+            text-align: center; padding: 80px 20px;
+            background: linear-gradient(to top, rgba(0, 210, 106, 0.1), transparent);
+        }
+        .btn-cta {
+            text-decoration: none; background: var(--primary); color: white;
+            padding: 15px 40px; border-radius: 50px; font-size: 1.2em; font-weight: bold;
+            box-shadow: 0 0 30px var(--primary-glow); transition: 0.3s; display: inline-block;
+        }
+        .btn-cta:hover { transform: scale(1.05); background: #00b359; }
+
+        /* Footer */
+        .footer {
+            text-align: center; padding: 30px; border-top: 1px solid var(--border-color);
+            color: var(--text-muted); font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .timeline::before { right: 20px; }
+            html[dir="ltr"] .timeline::before { left: 20px; right: auto; }
+            
+            .step-container, html[dir="ltr"] .step-container { flex-direction: column; align-items: flex-start; }
+            .step-left, html[dir="ltr"] .step-left { flex-direction: column; }
+            
+            .step-content { width: 90%; margin-right: 50px; }
+            html[dir="ltr"] .step-content { margin-left: 50px; margin-right: 0; }
+
+            .step-number { right: 20px; transform: translate(50%, -50%); }
+            html[dir="ltr"] .step-number { left: 20px; transform: translate(-50%, -50%); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <a href="index.html" class="nav-logo"><i class="fab fa-whatsapp"></i> WA Promo</a>
+        <div class="nav-links">
+             <!-- Language Switcher -->
+             <div class="language-switcher">
+                <button id="lang-ar" data-key="lang_ar"></button>
+                <button id="lang-en" data-key="lang_en"></button>
+            </div>
+            <a href="index.html" data-key="navHome">الرئيسية</a>
+            <a href="login.html" data-key="navLogin">دخول</a>
+            <a href="signup.html" class="btn-nav" data-key="navStartFree">ابدأ مجاناً</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1 data-key="howWorksTitle">كيف يعمل النظام؟</h1>
+        <p data-key="howWorksSubtitle">دليل بسيط يشرح لك كيفية إطلاق حملتك الإعلانية الأولى في أقل من 5 دقائق.</p>
+    </section>
+
+    <!-- Timeline Steps -->
+    <div class="timeline">
+        
+        <!-- Step 1 -->
+        <div class="step-container">
+            <div class="step-content">
+                <h3 class="step-title"><i class="fas fa-user-plus"></i> <span data-key="step1Title">1. إنشاء حساب</span></h3>
+                <p class="step-desc" data-key="step1Desc">قم بتسجيل حساب جديد مجاناً. ستحصل على فترة تجريبية لتجربة جميع المميزات قبل الاشتراك.</p>
+            </div>
+            <div class="step-number">1</div>
+            <div style="width: 45%;"></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-container step-left">
+            <div style="width: 45%;"></div>
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h3 class="step-title"><i class="fas fa-qrcode"></i> <span data-key="step2Title">2. ربط الواتساب</span></h3>
+                <p class="step-desc" data-key="step2Desc">من لوحة التحكم، قم بمسح QR Code بهاتفك لربط رقمك بالمنصة (مثل واتساب ويب تماماً).</p>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-container">
+            <div class="step-content">
+                <h3 class="step-title"><i class="fas fa-file-import"></i> <span data-key="step3Title">3. استيراد الأرقام</span></h3>
+                <p class="step-desc" data-key="step3Desc">يمكنك رفع ملف CSV يحتوي على آلاف الأرقام، أو مزامنة جهات الاتصال المحفوظة في هاتفك بضغطة زر.</p>
+            </div>
+            <div class="step-number">3</div>
+            <div style="width: 45%;"></div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-container step-left">
+            <div style="width: 45%;"></div>
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <h3 class="step-title"><i class="fas fa-magic"></i> <span data-key="step4Title">4. تجهيز الرسالة</span></h3>
+                <p class="step-desc" data-key="step4Desc">اكتب رسالتك الإعلانية. يمكنك استخدام الذكاء الاصطناعي لإعادة صياغتها، وإرفاق صور للعرض.</p>
+            </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="step-container">
+            <div class="step-content">
+                <h3 class="step-title"><i class="fas fa-rocket"></i> <span data-key="step5Title">5. بدء الإرسال</span></h3>
+                <p class="step-desc" data-key="step5Desc">اضغط على "إرسال". سيقوم النظام بإرسال الرسائل بفاصل زمني ذكي لتجنب الحظر، ويمكنك متابعة الإحصائيات مباشرة.</p>
+            </div>
+            <div class="step-number">5</div>
+            <div style="width: 45%;"></div>
+        </div>
+
+    </div>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <h2 style="margin-bottom: 30px;" data-key="howWorksCtaTitle">جاهز لتجربة النظام؟</h2>
+        <a href="signup.html" class="btn-cta" data-key="howWorksCtaBtn">ابدأ تجربتك المجانية الآن</a>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        &copy; <span id="year"></span> WA Promo. <span data-key="footerRights">جميع الحقوق محفوظة.</span>
+    </footer>
+
+    <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+    <script src="language.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <!-- Google Analytics & Tag Manager -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-key="pageTitleSignup">إنشاء حساب جديد</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- Dark SaaS Theme --- */
+        :root {
+            --bg-main: #0f111a;       
+            --bg-card: rgba(30, 41, 59, 0.7);  /* Glass Effect */
+            --primary: #00d26a;       
+            --primary-glow: rgba(0, 210, 106, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #9ca3af;
+            --border: rgba(255, 255, 255, 0.1);
+            --input-bg: #13161f;
+            --input-border: #2d3748;
+        }
+
+        body {
+            font-family: 'Cairo', 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15), transparent 60%);
+            color: var(--text-main);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0;
+            overflow: hidden;
+        }
+
+        /* Card Container */
+        .container { width: 100%; max-width: 420px; padding: 20px; position: relative; z-index: 2; }
+        
+        .auth-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center;
+            position: relative;
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Language Switcher */
+        .language-switcher { position: absolute; top: 15px; inset-inline-start: 15px; }
+        .language-switcher button {
+            background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; transition: 0.3s;
+        }
+        .language-switcher button.active, .language-switcher button:hover {
+            background: var(--primary); border-color: var(--primary); color: #000;
+        }
+
+        /* Headings */
+        .auth-card h1 { font-size: 1.8em; color: var(--text-main); margin-bottom: 10px; }
+        .auth-card h1 i { color: var(--primary); }
+        .auth-card p { color: var(--text-muted); margin-bottom: 30px; font-size: 0.95em; }
+
+        /* Form Elements */
+        .form-group { margin-bottom: 20px; text-align: start; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main); font-size: 0.9em; }
+        
+        input {
+            width: 100%; padding: 12px 15px; 
+            background: var(--input-bg); border: 1px solid var(--input-border);
+            border-radius: 10px; color: white; font-family: inherit;
+            transition: 0.3s; box-sizing: border-box;
+        }
+        input:focus { 
+            outline: none; border-color: var(--primary); 
+            box-shadow: 0 0 0 3px rgba(0, 210, 106, 0.15); 
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%; padding: 12px; background: var(--primary); color: #000;
+            border: none; border-radius: 10px; font-size: 1em; font-weight: 700;
+            cursor: pointer; transition: 0.3s; margin-top: 10px;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px var(--primary-glow); }
+
+        /* Google Button */
+        .btn-google {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 12px; margin-top: 15px; 
+            background: transparent; border: 1px solid var(--border);
+            color: white; border-radius: 10px; font-size: 1em; font-weight: 600;
+            text-decoration: none; transition: 0.3s; cursor: pointer;
+        }
+        .btn-google:hover { background: rgba(255,255,255,0.05); border-color: white; }
+
+        /* Separator */
+        .separator {
+            display: flex; align-items: center; text-align: center;
+            color: var(--text-muted); margin: 25px 0; font-size: 0.85em;
+        }
+        .separator::before, .separator::after { 
+            content: ''; flex: 1; border-bottom: 1px solid var(--border); 
+        }
+        .separator:not(:empty)::before { margin-inline-end: 1em; }
+        .separator:not(:empty)::after { margin-inline-start: 1em; }
+
+        /* Messages */
+        .message {
+            margin-top: 15px; font-weight: 600; padding: 10px; font-size: 0.9em;
+            border-radius: 8px; display: none;
+        }
+        .error { color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.2); }
+        .success { color: var(--primary); background: rgba(0, 210, 106, 0.1); border: 1px solid var(--primary); }
+
+        /* Footer Link */
+        .switch-link { margin-top: 25px; font-size: 0.9em; color: var(--text-muted); }
+        .switch-link a { color: var(--primary); text-decoration: none; font-weight: 600; transition: 0.2s; }
+        .switch-link a:hover { text-decoration: underline; text-shadow: 0 0 10px var(--primary-glow); }
+
+    </style>
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <div class="container">
+        <div class="auth-card">
+            <div class="language-switcher">
+                <button id="lang-ar" data-key="lang_ar"></button>
+                <button id="lang-en" data-key="lang_en"></button>
+            </div>
+            
+            <h1><i class="fas fa-user-plus"></i> <span data-key="signupTitle"></span></h1>
+            <p data-key="signupSubtitle"></p>
+            
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="name" data-key="signupNameLabel"></label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email" data-key="signupEmailLabel"></label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" data-key="signupPasswordLabel"></label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn" data-key="signupBtn"></button>
+            </form>
+
+            <div id="message-container" class="message"></div>
+            
+            <div class="separator" data-key="signupOr"></div>
+            
+            <a href="/api/auth/google" class="btn-google">
+                <i class="fab fa-google"></i>
+                <span data-key="signupWithGoogle"></span>
+            </a>
+
+            <p class="switch-link">
+                <span data-key="signupHaveAccount"></span>
+                <a href="login.html" data-key="signupLogin"></a>
+            </p>
+        </div>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script src="language.js"></script>
+</body>
+</html>

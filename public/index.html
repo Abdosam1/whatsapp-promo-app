@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
+    <!-- End Google Tag Manager -->
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-key="pageTitleIndex">أداة إرسال واتساب الاحترافية</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- 1. Dark Theme Variables --- */
+        :root {
+            --bg-main: #0f172a;         
+            --bg-hero-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --bg-card: #1e293b;         
+            --primary: #00d26a;         
+            --primary-hover: #00b359;
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        /* --- 2. General Styles --- */
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            text-align: center;
+            overflow-x: hidden;
+            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+        }
+
+        /* Slide Animation Class */
+        body.slide-out {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        
+        /* Fix for LTR slide out */
+        html[dir="ltr"] body.slide-out {
+            transform: translateX(-100%);
+        }
+
+        /* --- 3. Header Navigation --- */
+        .header-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .language-switcher button {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-muted); padding: 6px 12px; border-radius: 6px;
+            cursor: pointer; transition: 0.3s; font-family: inherit; font-weight: bold;
+        }
+        .language-switcher button:hover, .language-switcher button.active {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
+
+        /* How it Works Link */
+        .nav-link-item {
+            color: #e2e8f0;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.3s;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid transparent;
+        }
+        .nav-link-item:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: rgba(0, 210, 106, 0.1);
+        }
+
+        /* --- 4. Hero Section --- */
+        .hero {
+            position: relative;
+            background: var(--bg-hero-gradient);
+            padding: 160px 20px 160px;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .hero h1 {
+            font-size: 3.5em; font-weight: 900; margin: 0 0 20px;
+            color: white; text-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .hero h1 i { color: var(--primary); }
+        
+        .hero p {
+            font-size: 1.3em; color: var(--text-muted); max-width: 700px; margin: 0 auto 40px; line-height: 1.6;
+        }
+
+        /* CTA Buttons */
+        .cta-buttons a {
+            text-decoration: none; padding: 14px 40px; border-radius: 50px;
+            font-size: 1.1em; font-weight: 700; margin: 10px;
+            display: inline-block; transition: all 0.3s ease;
+        }
+        .btn-main {
+            background-color: var(--primary); color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 210, 106, 0.4);
+        }
+        .btn-main:hover { transform: translateY(-3px); background-color: var(--primary-hover); }
+        
+        .btn-secondary {
+            background: transparent; border: 2px solid white; color: white;
+        }
+        .btn-secondary:hover { background: white; color: #0f172a; }
+
+        /* --- 5. Features Section --- */
+        .features { padding: 40px 20px 80px; max-width: 1200px; margin: auto; }
+        .features h2 { font-size: 2.5em; color: white; margin-bottom: 60px; }
+
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        
+        .feature-card { 
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 40px; 
+            border-radius: 16px; 
+            transition: transform 0.3s ease; 
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .feature-card:hover { transform: translateY(-10px); border-color: var(--primary); }
+        
+        .feature-card .icon { 
+            font-size: 3em; color: var(--primary); margin-bottom: 25px; 
+            display: inline-block;
+        }
+        .feature-card h3 { font-size: 1.5em; color: white; margin-bottom: 15px; }
+        .feature-card p { color: var(--text-muted); line-height: 1.6; }
+
+        /* --- 6. Pricing Section --- */
+        .pricing-section { padding: 60px 20px; background: rgba(0,0,0,0.2); }
+        .pricing-container { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: 0 auto; }
+        
+        .pricing-card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 35px; flex: 1; min-width: 300px;
+            text-align: center; position: relative; transition: 0.3s;
+        }
+        .pricing-card.popular {
+            border-color: var(--primary); background: rgba(0, 210, 106, 0.05); transform: scale(1.05); z-index: 2;
+        }
+        .popular-badge {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            background: var(--primary); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.9em; font-weight: bold;
+        }
+        .price-amount { font-size: 2.5em; font-weight: 900; color: white; margin: 20px 0; }
+        .card-title { color: white; font-size: 1.5em; margin-bottom: 10px; font-weight: 700; }
+        .card-desc { color: var(--text-muted); }
+
+        /* --- 7. Footer --- */
+        .site-footer { 
+            border-top: 1px solid var(--border-color); background: #0b1120;
+            padding: 40px 0; color: var(--text-muted); font-size: 0.9em; margin-top: 50px;
+        }
+        .footer-links a { color: white; text-decoration: none; margin: 0 10px; transition: 0.3s; }
+        .footer-links a:hover { color: var(--primary); }
+
+        /* Mobile Responsive Header */
+        @media (max-width: 600px) {
+            .header-nav { padding: 15px; }
+            .nav-link-item span { display: none; } /* Hide text on mobile */
+            .hero h1 { font-size: 2.5em; }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+
+    <!-- Hero Section -->
+    <div class="hero">
+        
+        <!-- Top Navbar -->
+        <div class="header-nav">
+            <!-- Language Switcher -->
+            <div class="language-switcher">
+                <button id="lang-ar" data-key="lang_ar"></button>
+                <button id="lang-en" data-key="lang_en"></button>
+            </div>
+
+            <!-- Link to How it Works (With Translate Key) -->
+            <a href="how-it-works.html" class="nav-link-item slide-link">
+                <i class="fas fa-info-circle"></i> 
+                <span data-key="navHowItWorks">كيف يعمل النظام؟</span>
+            </a>
+        </div>
+        
+        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
+        <p data-key="heroSubtitle"></p>
+        
+        <div class="cta-buttons">
+            <a href="signup.html" class="btn-main slide-link" data-key="ctaStart"></a>
+            <a href="login.html" class="btn-secondary slide-link" data-key="ctaLogin"></a>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="features">
+        <h2 data-key="featuresTitle"></h2>
+        <div class="features-grid">
+            <!-- Card 1 -->
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-rocket"></i></div>
+                <h3 data-key="feature1Title"></h3>
+                <p data-key="feature1Desc"></p>
+            </div>
+            <!-- Card 2 -->
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-file-import"></i></div>
+                <h3 data-key="feature2Title"></h3>
+                <p data-key="feature2Desc"></p>
+            </div>
+            <!-- Card 3 -->
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-shield-alt"></i></div>
+                <h3 data-key="feature3Title"></h3>
+                <p data-key="feature3Desc"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Section -->
+    <div class="pricing-section">
+        <h2 data-key="pricingSectionTitle"></h2>
+        <div class="pricing-container">
+            <div class="pricing-card">
+                <h3 class="card-title" data-key="planMonthlyTitle"></h3>
+                <p class="card-desc" data-key="planMonthlyDesc"></p>
+                <div class="price-amount">$5</div>
+            </div>
+            <div class="pricing-card popular">
+                <div class="popular-badge" data-key="mostPopular"></div>
+                <h3 class="card-title" data-key="planSemiTitle"></h3>
+                <p class="card-desc" data-key="planSemiDesc"></p>
+                <div class="price-amount">$20</div>
+            </div>
+            <div class="pricing-card">
+                <h3 class="card-title" data-key="planYearlyTitle"></h3>
+                <p class="card-desc" data-key="planYearlyDesc"></p>
+                <div class="price-amount">$35</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="about.html" data-key="footerAbout"></a> | 
+            <a href="privacy.html" data-key="footerPrivacy"></a>
+        </div>
+        <div style="margin-top: 15px;">
+            &copy; <span id="copyright-year"></span> Autosend Pro. <span data-key="footerRights"></span>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
+        // --- SLIDE ANIMATION LOGIC ---
+        document.querySelectorAll('.slide-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = this.getAttribute('href');
+                document.body.classList.add('slide-out');
+                setTimeout(() => {
+                    window.location.href = target;
+                }, 500);
+            });
+        });
+    </script>
+    <script src="language.js"></script>
+</body>
+</html>

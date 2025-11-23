@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-Z3N357ZJ1W');
+</script>
+
+    <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TT65MB24');</script>
+<!-- End Google Tag Manager -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-key="pageTitleValidation">التحقق من الرمز</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        :root {
+            --primary-color: #25D366; --secondary-color: #128C7E; --dark-color: #075E54;
+            --background-color: #f0f2f5; --card-background: #ffffff; --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px; --danger-color: #e74c3c;
+        }
+        body { 
+            font-family: 'Cairo', sans-serif; background-color: var(--background-color); 
+            display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; 
+        }
+        .card { 
+            background: var(--card-background); padding: 40px; border-radius: var(--border-radius); 
+            box-shadow: var(--shadow); text-align: center; max-width: 450px; width: 90%;
+            position: relative;
+        }
+        .language-switcher {
+            position: absolute; top: 15px; inset-inline-start: 15px;
+        }
+        .language-switcher button {
+            background: #f0f0f0; border: 1px solid #ddd; color: #555; padding: 5px 10px;
+            border-radius: 5px; cursor: pointer; margin-inline-start: 5px;
+        }
+        .language-switcher button.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
+
+        h1 { color: var(--dark-color); margin-bottom: 15px; }
+        p { color: #555; line-height: 1.6; margin-bottom: 25px; }
+        #activationCodeInput { 
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: var(--border-radius); 
+            box-sizing: border-box; text-align: center; font-size: 1.5em; letter-spacing: 4px; 
+            font-family: monospace; margin-bottom: 20px;
+        }
+        .btn { 
+            width: 100%; padding: 12px; border: none; border-radius: var(--border-radius); 
+            color: white; background-color: var(--primary-color); font-size: 1.2em; 
+            font-weight: 600; cursor: pointer; transition: background-color 0.3s; 
+        }
+        .btn:disabled { background-color: #aaa; cursor: not-allowed; }
+        .status-msg { min-height: 22px; font-weight: bold; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+    <div class="card">
+        <div class="language-switcher">
+            <button id="lang-ar" data-key="lang_ar"></button>
+            <button id="lang-en" data-key="lang_en"></button>
+        </div>
+
+        <h1><i class="fas fa-key"></i> <span data-key="validationTitle"></span></h1>
+        <p data-key="validationDesc"></p>
+        
+        <input type="text" id="activationCodeInput" placeholder="XXXX-XXXX-XXXX">
+        
+        <button id="verifyBtn" class="btn" onclick="verifyActivationCode()" data-key="validationBtn"></button>
+
+        <p id="status-message" class="status-msg"></p>
+    </div>
+
+    <script src="validation.js"></script>
+    <script src="language.js"></script>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <!-- Meta & Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-Z3N357ZJ1W');
+  </script>
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-key="pageTitleDashboard">WhatsApp Pro Suite</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Pro SaaS Theme Colors */
+      --bg-main: #0f111a;       
+      --bg-sidebar: #161b28;    
+      --bg-card: #1e2330;       
+      --primary: #00d26a;       
+      --primary-glow: rgba(0, 210, 106, 0.3);
+      --secondary: #3b82f6;     
+      --text-main: #ffffff;
+      --text-muted: #9ca3af;
+      --border: #2d3748;
+      --danger: #ef4444;
+      
+      --sidebar-width: 260px;
+      --header-height: 70px;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; outline: none; text-decoration: none; }
+    body { margin: 0; font-family: 'Cairo', 'Inter', sans-serif; background: var(--bg-main); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; }
+
+    /* --- LAYOUT STRUCTURE --- */
+    
+    /* 1. Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-sidebar);
+      border-inline-end: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 20px;
+      z-index: 100;
+    }
+    
+    .app-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.5rem; font-weight: 700; color: var(--text-main);
+      margin-bottom: 40px; padding-inline-start: 10px;
+    }
+    .app-logo i { color: var(--primary); font-size: 1.8rem; }
+
+    .nav-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+    .nav-item {
+      padding: 12px 15px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.3s ease;
+      display: flex; align-items: center; gap: 12px;
+      font-weight: 600;
+    }
+    .nav-item:hover, .nav-item.active { background: rgba(0, 210, 106, 0.1); color: var(--primary); }
+    .nav-item i { width: 20px; text-align: center; }
+
+    /* 2. Main Content Area */
+    .main-wrapper {
+      flex-grow: 1;
+      display: flex; flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Header */
+    .top-header {
+      height: var(--header-height);
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 30px;
+      background: rgba(15, 17, 26, 0.8);
+      backdrop-filter: blur(10px);
+    }
+
+    .header-title h2 { margin: 0; font-size: 1.2rem; font-weight: 600; }
+    .header-title span { font-size: 0.85rem; color: var(--text-muted); }
+
+    .header-actions { display: flex; gap: 15px; align-items: center; }
+
+    .lang-switch button {
+      background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+    }
+    .lang-switch button.active { background: var(--primary); border-color: var(--primary); color: #000; font-weight: bold; }
+
+    /* Content Scrollable Area */
+    .content-area {
+      flex-grow: 1;
+      padding: 30px;
+      overflow-y: auto;
+      position: relative;
+    }
+    .content-area::-webkit-scrollbar { width: 6px; }
+    .content-area::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+    /* --- TABS SYSTEM --- */
+    .tab-section { display: none; animation: fadeEffect 0.4s ease; }
+    .tab-section.active-section { display: block; }
+
+    @keyframes fadeEffect { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- CARDS & ELEMENTS DESIGN --- */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .card h2 { 
+      font-size: 1.1rem; color: var(--text-main); margin: 0 0 20px 0; 
+      display: flex; align-items: center; gap: 10px; padding-bottom: 15px; 
+      border-bottom: 1px solid var(--border);
+    }
+    .card h2 i { color: var(--secondary); }
+
+    /* Stats Cards (New) */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { display: flex; align-items: center; padding: 25px; position: relative; overflow: hidden; border: none; margin-bottom: 0; }
+    .stat-card::before { content: ''; position: absolute; top:0; bottom:0; left:0; width: 4px; }
+    
+    .stat-icon { 
+        width: 50px; height: 50px; border-radius: 12px; 
+        display: flex; align-items: center; justify-content: center; 
+        font-size: 1.5rem; margin-inline-end: 15px; 
+    }
+    .stat-info h3 { margin: 0; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+    .stat-info span { font-size: 1.8rem; font-weight: 700; color: white; display: block; margin-top: 5px; }
+
+    /* Buttons Pro */
+    .btn {
+      padding: 10px 20px; border-radius: 8px; border: none; 
+      cursor: pointer; font-weight: 600; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 8px; transition: 0.3s;
+    }
+    .btn-primary { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary-glow); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px var(--primary-glow); }
+    
+    .btn-secondary { background: #2d3748; color: white; }
+    .btn-secondary:hover { background: #4a5568; }
+    
+    .btn-success { background-color: #198754; color: white; }
+    .btn-success:hover { background-color: #157347; }
+
+    .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background: var(--danger); color: white; }
+
+    /* Inputs */
+    input, textarea, select {
+      background: #13161f; border: 1px solid #2d3748; color: white;
+      padding: 12px; border-radius: 8px; width: 100%; font-family: inherit;
+    }
+    input:focus, textarea:focus { border-color: var(--primary); }
+    
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .list-box { background: #13161f; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; border: 1px solid var(--border); }
+
+    /* Logs Terminal */
+    .logs-box { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #00d26a; background: #000; }
+
+    /* Promos */
+    .promos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+    .promo { background: #13161f; padding: 15px; border-radius: 10px; border: 1px solid var(--border); text-align: center; }
+    .promo.selected { border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+    .promo img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
+
+    /* Status Connection */
+    #whatsapp-status { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #qrcode-canvas { border: 8px solid white; border-radius: 8px; margin-top: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+
+    /* Toggle */
+    .toggle-switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch label { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+    .toggle-switch label:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    .toggle-switch input:checked + label { background-color: var(--primary); }
+    .toggle-switch input:checked + label:before { transform: translateX(22px); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { flex-direction: column; height: auto; overflow: auto; }
+      .sidebar { width: 100%; padding: 10px; flex-direction: row; align-items: center; justify-content: space-between; overflow-x: auto; }
+      .nav-menu { flex-direction: row; }
+      .nav-item span { display: none; }
+      .main-wrapper { height: auto; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="app-logo">
+      <i class="fab fa-whatsapp"></i>
+      <span>WA Promo</span>
+    </div>
+    
+    <ul class="nav-menu">
+      <li class="nav-item active" data-tab="dashboard">
+        <i class="fas fa-home"></i> <span data-key="menuDashboard">Dashboard</span>
+      </li>
+      <li class="nav-item" data-tab="contacts">
+        <i class="fas fa-users"></i> <span data-key="dashCardClientsTitle">Contacts</span>
+      </li>
+      <li class="nav-item" data-tab="campaigns">
+        <i class="fas fa-bullhorn"></i> <span data-key="dashCardPromosTitle">Campaigns</span>
+      </li>
+      <li class="nav-item" data-tab="tools">
+        <i class="fas fa-tools"></i> <span data-key="dashCardSingleSendTitle">Tools</span>
+      </li>
+      
+      <!-- NEW FILTER TAB -->
+      <li class="nav-item" data-tab="filter">
+        <i class="fas fa-filter"></i> <span data-key="menuFilter">Number Filter</span>
+      </li>
+
+      <li class="nav-item" data-tab="logs">
+        <i class="fas fa-terminal"></i> <span data-key="dashCardLogsTitle">Logs</span>
+      </li>
+    </ul>
+
+    <button id="logoutBtn" class="btn btn-danger" style="width: 100%; justify-content: center;">
+      <i class="fas fa-sign-out-alt"></i> <span data-key="logoutBtn">Logout</span>
+    </button>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-wrapper">
+    
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-title">
+        <h2 id="page-title">Dashboard Overview</h2>
+        <span id="status-message" data-key="dashStatusMsg">Connecting...</span>
+      </div>
+      
+      <div class="header-actions">
+        <div class="lang-switch">
+          <button id="lang-ar" data-key="lang_ar">AR</button>
+          <button id="lang-en" data-key="lang_en">EN</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scrollable Content -->
+    <div class="content-area">
+      
+      <!-- TAB 1: DASHBOARD (Stats + Status) -->
+      <div id="tab-dashboard" class="tab-section active-section">
+        <div class="stats-grid">
+            <!-- Total Contacts -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #3b82f6;">
+                <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 data-key="dashCardClientsTitle">Contacts</h3>
+                    <span id="stat-total-contacts">0</span>
+                </div>
+            </div>
+
+            <!-- Sent Success -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #22c55e;">
+                <div class="stat-icon" style="background: rgba(34, 197, 94, 0.2); color: #22c55e;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 data-key="statsSuccess">تم بنجاح</h3>
+                    <span id="stat-sent-success">0</span>
+                </div>
+            </div>
+
+            <!-- Sent Failed -->
+            <div class="card stat-card" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(30, 41, 59, 0.5)); border-inline-start: 4px solid #ef4444;">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 data-key="statsFailed">فشل الإرسال</h3>
+                    <span id="stat-sent-failed">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="card" id="whatsapp-status-card" style="text-align: center; padding: 40px;">
+          <h2 style="justify-content: center; border: none; font-size: 1.5rem; margin-bottom: 10px;">
+            <i class="fab fa-whatsapp" style="font-size: 2.5rem; color: var(--primary);"></i>
+          </h2>
+          <h3 data-key="dashCardStatusTitle" style="margin: 0 0 20px 0; color: var(--text-muted); text-align: center;">Connection Status</h3>
+          
+          <div id="whatsapp-status">
+            <p id="status-message-display" style="font-size: 1.4rem; font-weight: bold; margin: 10px 0; color: var(--primary);">Initializing...</p>
+            
+            <button id="disconnectWhatsappBtn" class="btn btn-danger" style="display:none; margin-top:15px; font-size: 0.9em;">
+                <i class="fas fa-unlink"></i> <span data-key="disconnectBtn">تغيير الرقم / فصل</span>
+            </button>
+
+            <canvas id="qrcode-canvas" style="display:none; margin: 20px auto;"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CONTACTS -->
+      <div id="tab-contacts" class="tab-section">
+          <div class="grid-2">
+             <div class="card">
+              <h2 style="justify-content: space-between;">
+                <span><i class="fas fa-address-book"></i> <span data-key="dashCardClientsTitle">Saved Contacts</span></span>
+                <button type="button" id="syncContactsBtn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;"><i class="fas fa-sync-alt"></i></button>
+              </h2>
+              <div class="button-group" style="margin-bottom: 15px; display:flex; gap:10px;">
+                  <button type="button" id="sendSequentiallyClientsBtn" class="btn btn-primary" style="flex:1;"><i class="fas fa-paper-plane"></i> <span data-key="dashSendAllBtn">Send All</span></button>
+                  <button type="button" id="exportClientsBtn" class="btn btn-secondary"><i class="fas fa-download"></i></button>
+              </div>
+              <div id="clientsList" class="list-box"></div>
+            </div>
+
+            <div class="card">
+              <h2><i class="fas fa-file-csv"></i> <span data-key="dashCardImportedTitle">Import CSV</span></h2>
+              <div class="form-group" style="display:flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                  <input type="file" id="csvFileInput" accept=".csv" />
+                  <button type="button" id="importCsvBtn" class="btn btn-secondary"><i class="fas fa-upload"></i></button>
+              </div>
+              <div class="button-group" style="margin-bottom: 15px; display:flex; gap:10px;">
+                  <button type="button" id="sendSequentiallyImportedBtn" class="btn btn-primary" style="flex:1;"><i class="fas fa-paper-plane"></i> <span data-key="dashSendAllBtn">Send All</span></button>
+                  <button type="button" id="deleteAllImportedBtn" class="btn btn-danger"><i class="fas fa-trash"></i></button>
+              </div>
+              <div id="importedClientsList" class="list-box"></div>
+            </div>
+          </div>
+      </div>
+
+      <!-- TAB 3: CAMPAIGNS -->
+      <div id="tab-campaigns" class="tab-section">
+          <div class="grid-2">
+            <div class="card">
+              <h2><i class="fas fa-plus-circle"></i> <span data-key="dashCardAddPromoTitle">Create Campaign</span></h2>
+              <div style="margin-bottom:15px;">
+                <label data-key="dashPromoTextLabel">Message</label>
+                <textarea id="newPromoText" rows="4" data-key-placeholder="dashPromoTextPlaceholder"></textarea>
+                <button type="button" id="generateSpintaxBtn" class="btn btn-secondary" style="width:100%; margin-top: 10px; font-size:0.8rem;">
+                    <i class="fas fa-magic"></i> <span data-key="dashGenerateSpintaxBtn">AI Spintax</span>
+                </button>
+              </div>
+              <div style="margin-bottom:15px;">
+                <label data-key="dashPromoImageLabel">Attachment</label>
+                <input type="file" id="newPromoImage" accept="image/*" />
+              </div>
+              <button type="button" id="addNewPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> <span data-key="dashAddPromoBtn">Save Campaign</span></button>
+            </div>
+
+            <div class="card">
+              <h2><i class="fas fa-images"></i> <span data-key="dashCardPromosTitle">Gallery</span></h2>
+              <div id="promosList" class="promos-grid"></div>
+            </div>
+          </div>
+      </div>
+
+      <!-- TAB 4: TOOLS -->
+      <div id="tab-tools" class="tab-section">
+          <div class="grid-2">
+            <div class="card">
+              <h2><i class="fas fa-paper-plane"></i> <span data-key="dashCardSingleSendTitle">Quick Send</span></h2>
+              <div style="margin-bottom: 15px;">
+                <label data-key="dashPhoneLabel">Phone Number</label>
+                <input type="text" id="phoneInput" placeholder="2126..." />
+              </div>
+              <button type="button" id="sendSelectedPromoBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-rocket"></i> <span data-key="dashSendSelectedBtn">Send Now</span></button>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-robot"></i> <span data-key="dashCardChatbotTitle">Auto-Reply Bot</span></h2>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label data-key="dashChatbotStatusLabel">Active Status</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="chatbotStatusToggle">
+                        <label for="chatbotStatusToggle"></label>
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label data-key="dashChatbotPromptLabel">System Prompt</label>
+                    <textarea id="chatbotPrompt" rows="5" data-key-placeholder="dashChatbotPromptPlaceholder"></textarea>
+                </div>
+                <button type="button" id="savePromptBtn" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> <span data-key="dashSavePromptBtn">Save Settings</span></button>
+            </div>
+          </div>
+      </div>
+
+      <!-- NEW TAB: FILTER (Updated with Upload Button) -->
+      <div id="tab-filter" class="tab-section">
+        <div class="card full-width">
+            <h2><i class="fas fa-filter"></i> <span data-key="filterTitle">فحص الأرقام</span></h2>
+            
+            <div class="filter-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Input Area -->
+                <div style="flex: 1; min-width: 300px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label data-key="filterLabel" style="margin:0;">أدخل الأرقام (كل رقم في سطر):</label>
+                        
+                        <!-- New Upload Button -->
+                        <div>
+                            <input type="file" id="filterFileInput" accept=".txt,.csv" style="display: none;" />
+                            <button id="btnUploadFilter" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;">
+                                <i class="fas fa-upload"></i> <span data-key="btnUploadFilter">رفع ملف</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <textarea id="filterInput" rows="10" placeholder="212600000000&#10;212611111111"></textarea>
+                    <div style="margin-top: 10px; display: flex; gap: 10px;">
+                        <button id="startFilterBtn" class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-play"></i> <span data-key="btnStartFilter">بدء الفحص</span>
+                        </button>
+                        <button id="exportValidBtn" class="btn btn-success" style="flex: 1;" disabled>
+                            <i class="fas fa-file-download"></i> <span data-key="btnExportValid">تحميل (Export)</span>
+                        </button>
+                    </div>
+                    <p id="filterStatus" style="margin-top: 10px; color: var(--text-muted); font-size: 0.9em;">...</p>
+                </div>
+
+                <!-- Results Area -->
+                <div style="flex: 1; display: flex; gap: 10px;">
+                    <!-- Valid Numbers -->
+                    <div style="flex: 1; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 8px; padding: 10px;">
+                        <h4 style="color: #22c55e; margin: 0 0 10px 0; text-align: center;">
+                            <i class="fas fa-check-circle"></i> <span data-key="validTitle">واتساب</span> (<span id="countValid">0</span>)
+                        </h4>
+                        <div id="listValid" style="height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.9em;"></div>
+                    </div>
+
+                    <!-- Invalid Numbers -->
+                    <div style="flex: 1; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 10px;">
+                        <h4 style="color: #ef4444; margin: 0 0 10px 0; text-align: center;">
+                            <i class="fas fa-times-circle"></i> <span data-key="invalidTitle">غير موجود</span> (<span id="countInvalid">0</span>)
+                        </h4>
+                        <div id="listInvalid" style="height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.9em;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: LOGS -->
+      <div id="tab-logs" class="tab-section">
+          <div class="card full-width">
+            <h2><i class="fas fa-history"></i> <span data-key="dashCardLogsTitle">System Logs</span></h2>
+            <div id="logs" class="list-box logs-box" style="height: 500px;"></div>
+          </div>
+      </div>
+
+    </div> <!-- End of .content-area -->
+  </main>
+
+  <!-- Backend Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="language.js"></script>
+
+</body>
+</html>
