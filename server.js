@@ -137,7 +137,6 @@ async function initSystemBot() {
     systemSock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // QR Code for SYSTEM BOT only shows in Terminal
         if (qr) {
             console.log('\n[SYSTEM BOT] Scan this QR for Filtering Service:\n');
             qrcodeTerminal.generate(qr, { small: true });
@@ -159,16 +158,18 @@ initSystemBot();
 // ================================================================= //
 
 async function startWhatsAppSession(userId, socket = null) {
-    // === Security Check: Ensure userId is valid ===
     if (!userId || userId === 'undefined' || userId === 'null') {
-        console.error("❌ Error: Attempted to create session for invalid User ID.");
-        if(socket) socket.emit('status', { message: "خطأ في المعرف (ID)", ready: false, error: true });
+        console.error("❌ Error: Invalid User ID.");
+        if(socket) socket.emit('status', { message: "خطأ في المعرف", ready: false, error: true });
         return;
     }
 
-    // UNIQUE FOLDER PER USER
+    // مجلد خاص لكل يوزر (لضمان عدم التداخل)
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
-    console.log(`📂 Opening Session for User: ${userId} at ${sessionDir}`);
+    
+    // التحقق: إذا كان المجلد موجوداً، فهذا يعني أن اليوزر لديه جلسة مسجلة
+    // Baileys سيقوم بالاتصال تلقائياً (Auto-reconnect)
+    // إذا لم يكن موجوداً، Baileys سيرسل QR Code
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -176,7 +177,7 @@ async function startWhatsAppSession(userId, socket = null) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false, // User QR goes to Frontend, NOT terminal
+        printQRInTerminal: false, 
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -188,28 +189,29 @@ async function startWhatsAppSession(userId, socket = null) {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // Send QR to FRONTEND (Dashboard)
+        // إرسال QR للداشبورد (فقط إذا لم تكن هناك جلسة)
         if (qr && socket) {
-            console.log(`📤 Sending QR to Dashboard for User: ${userId}`);
             socket.emit('qr', qr);
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            
+            // إذا كان قطع الاتصال بسبب مشكلة إنترنت -> أعد الاتصال
             if (shouldReconnect) {
                 startWhatsAppSession(userId, socket);
             } else {
+                // إذا كان تسجيل خروج (Logout) -> احذف الجلسة
                 if (socket) socket.emit('status', { message: "تم تسجيل الخروج", ready: false, error: true });
                 delete whatsappClients[userId];
                 try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
             }
         } else if (connection === 'open') {
-            console.log(`✅ User ${userId} Connected Successfully!`);
             if (socket) socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
         }
     });
 
-    // Chatbot Logic for User
+    // Chatbot Logic
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
@@ -251,36 +253,36 @@ io.on('connection', (socket) => {
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
 
-            if (!activeUserId) {
-                console.error("❌ Token invalid: No userId found.");
-                return;
-            }
+            if (!activeUserId) return;
 
-            console.log(`🔌 Client connected: ${activeUserId}`);
-
-            if (whatsappClients[activeUserId]) {
+            // التحقق الذكي عند عمل Refresh
+            const existingSock = whatsappClients[activeUserId];
+            
+            // إذا كان لدينا كائن اتصال في الذاكرة، والاتصال مفتوح
+            if (existingSock && existingSock.ws && existingSock.ws.isOpen) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
+                // إذا لم يكن موجوداً (مثلاً بعد إعادة تشغيل السيرفر)، نحاول تحميل الجلسة من الملفات
+                // إذا وجد ملف الجلسة -> يتصل تلقائياً
+                // إذا لم يجد ملف الجلسة -> يرسل QR
                 await startWhatsAppSession(activeUserId, socket);
             }
         } catch (e) { 
-            console.error("Token Error:", e.message);
             socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); 
         }
     });
 
+    // زر فصل الواتساب (Logout)
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
-        console.log(`🚪 User ${activeUserId} logging out...`);
         
         const sock = whatsappClients[activeUserId];
         if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[activeUserId]; }
         
-        // Force Delete Session Folder
+        // حذف مجلد الجلسة إجبارياً
         const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
         if (fs.existsSync(sessionDir)) { 
             fs.rmSync(sessionDir, { recursive: true, force: true }); 
-            console.log(`🗑️ Deleted session folder for ${activeUserId}`);
         }
         
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
@@ -290,6 +292,7 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
+    // ... (Filter, Promo, Campaign logic remains the same) ...
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock) return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
         const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
@@ -313,7 +316,6 @@ io.on('connection', (socket) => {
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
-    // ... (Baqi les events bhal start-campaign, send-promo kima homa) ...
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -376,7 +378,6 @@ passport.use(new GoogleStrategy({
         if (user) return done(null, user);
         const trialEndsAt = new Date();
         trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
-        // ID must be string and unique
         const newUser = { id: Date.now().toString(), googleId: profile.id, name: profile.displayName, email: email, password: null, trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null, subscription_status: 'trial' };
         db.run("INSERT INTO users (id, googleId, name, email, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [newUser.id, newUser.googleId, newUser.name, newUser.email, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status], (err) => { if (err) return done(err, null); done(null, newUser); });
     });
