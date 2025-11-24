@@ -290,7 +290,10 @@ function initializeWhatsAppConnection() {
 function startNumberFilter() {
     const text = uiElements.filterInput.value.trim();
     if (!text) return alert("أدخل أرقاماً للفحص.");
-    if (!isWhatsappReady) return alert("يجب أن يكون الواتساب متصلاً لبدء الفحص.");
+    
+    // === تم التعديل: إزالة التحقق من اتصال واتساب العميل للسماح لـ System Bot بالعمل ===
+    // if (!isWhatsappReady) return alert("يجب أن يكون الواتساب متصلاً لبدء الفحص.");
+    // ==================================================================================
 
     // تهيئة الواجهة
     uiElements.listValid.innerHTML = '';
