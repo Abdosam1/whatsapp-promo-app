@@ -46,6 +46,8 @@ const TRIAL_PERIOD_MINUTES = 1440;
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
+
+// === SESSIONS FOLDERS ===
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
 
@@ -137,6 +139,7 @@ async function initSystemBot() {
     systemSock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
+        // System Bot QR in Terminal only
         if (qr) {
             console.log('\n[SYSTEM BOT] Scan this QR for Filtering Service:\n');
             qrcodeTerminal.generate(qr, { small: true });
@@ -151,6 +154,7 @@ async function initSystemBot() {
     });
 }
 
+// Launch System Bot
 initSystemBot();
 
 // ================================================================= //
@@ -159,18 +163,11 @@ initSystemBot();
 
 async function startWhatsAppSession(userId, socket = null) {
     if (!userId || userId === 'undefined' || userId === 'null') {
-        console.error("❌ Error: Invalid User ID.");
         if(socket) socket.emit('status', { message: "خطأ في المعرف", ready: false, error: true });
         return;
     }
 
-    // مجلد خاص لكل يوزر (لضمان عدم التداخل)
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
-    
-    // التحقق: إذا كان المجلد موجوداً، فهذا يعني أن اليوزر لديه جلسة مسجلة
-    // Baileys سيقوم بالاتصال تلقائياً (Auto-reconnect)
-    // إذا لم يكن موجوداً، Baileys سيرسل QR Code
-
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -189,24 +186,24 @@ async function startWhatsAppSession(userId, socket = null) {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // إرسال QR للداشبورد (فقط إذا لم تكن هناك جلسة)
+        // Send QR to User Dashboard
         if (qr && socket) {
             socket.emit('qr', qr);
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            
-            // إذا كان قطع الاتصال بسبب مشكلة إنترنت -> أعد الاتصال
             if (shouldReconnect) {
+                // Reconnect logic
                 startWhatsAppSession(userId, socket);
             } else {
-                // إذا كان تسجيل خروج (Logout) -> احذف الجلسة
+                // Logout logic
                 if (socket) socket.emit('status', { message: "تم تسجيل الخروج", ready: false, error: true });
                 delete whatsappClients[userId];
                 try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
             }
         } else if (connection === 'open') {
+            // Successful Connection
             if (socket) socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
         }
     });
@@ -255,16 +252,18 @@ io.on('connection', (socket) => {
 
             if (!activeUserId) return;
 
-            // التحقق الذكي عند عمل Refresh
             const existingSock = whatsappClients[activeUserId];
             
-            // إذا كان لدينا كائن اتصال في الذاكرة، والاتصال مفتوح
-            if (existingSock && existingSock.ws && existingSock.ws.isOpen) {
+            // === THE IMPORTANT FIX ===
+            // Check if User is ACTUALLY logged in (sock.user exists)
+            if (existingSock && existingSock.user) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
-                // إذا لم يكن موجوداً (مثلاً بعد إعادة تشغيل السيرفر)، نحاول تحميل الجلسة من الملفات
-                // إذا وجد ملف الجلسة -> يتصل تلقائياً
-                // إذا لم يجد ملف الجلسة -> يرسل QR
+                // If exists but not logged in (stuck state), kill it and restart
+                if (existingSock) {
+                    try { existingSock.end(); } catch(e){}
+                    delete whatsappClients[activeUserId];
+                }
                 await startWhatsAppSession(activeUserId, socket);
             }
         } catch (e) { 
@@ -272,18 +271,13 @@ io.on('connection', (socket) => {
         }
     });
 
-    // زر فصل الواتساب (Logout)
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
-        
         const sock = whatsappClients[activeUserId];
         if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[activeUserId]; }
         
-        // حذف مجلد الجلسة إجبارياً
         const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
-        if (fs.existsSync(sessionDir)) { 
-            fs.rmSync(sessionDir, { recursive: true, force: true }); 
-        }
+        if (fs.existsSync(sessionDir)) { fs.rmSync(sessionDir, { recursive: true, force: true }); }
         
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
@@ -292,7 +286,7 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    // ... (Filter, Promo, Campaign logic remains the same) ...
+    // === Filter Logic (System Bot) ===
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock) return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
         const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
