@@ -29,7 +29,7 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcodeTerminal = require('qrcode-terminal'); // <--- ZDNA HADI
+const qrcodeTerminal = require('qrcode-terminal');
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -116,7 +116,7 @@ function processSpintax(text) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ================================================================= //
-// ================= 5. SYSTEM BOT SETUP (FIXED QR) =========== //
+// ================= 5. SYSTEM BOT (FILTER ONLY) =================== //
 // ================================================================= //
 
 async function initSystemBot() {
@@ -127,7 +127,7 @@ async function initSystemBot() {
     systemSock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false, // Disablena default bach ma ytl3ch warning
+        printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -137,16 +137,14 @@ async function initSystemBot() {
     systemSock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // === HNA ZE3NA QR CODE DISPLAY ===
+        // QR Code for SYSTEM BOT only shows in Terminal
         if (qr) {
-            console.log('\nPlease Scan This QR Code for System Bot:\n');
-            qrcodeTerminal.generate(qr, { small: true }); // Affiche QR f terminal
+            console.log('\n[SYSTEM BOT] Scan this QR for Filtering Service:\n');
+            qrcodeTerminal.generate(qr, { small: true });
         }
-        // =================================
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('🤖 System Bot disconnected. Reconnecting:', shouldReconnect);
             if (shouldReconnect) initSystemBot();
         } else if (connection === 'open') {
             console.log('✅ System Bot is READY for Filtering!');
@@ -154,22 +152,31 @@ async function initSystemBot() {
     });
 }
 
-// Start System Bot immediately
 initSystemBot();
 
 // ================================================================= //
-// ================= 6. USER BOT SETUP (CLIENTS) =================== //
+// ================= 6. USER BOT (CLIENTS) ========================= //
 // ================================================================= //
 
 async function startWhatsAppSession(userId, socket = null) {
+    // === Security Check: Ensure userId is valid ===
+    if (!userId || userId === 'undefined' || userId === 'null') {
+        console.error("❌ Error: Attempted to create session for invalid User ID.");
+        if(socket) socket.emit('status', { message: "خطأ في المعرف (ID)", ready: false, error: true });
+        return;
+    }
+
+    // UNIQUE FOLDER PER USER
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
+    console.log(`📂 Opening Session for User: ${userId} at ${sessionDir}`);
+
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: false, // User QR goes to Frontend, NOT terminal
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -180,7 +187,13 @@ async function startWhatsAppSession(userId, socket = null) {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
-        if (qr && socket) socket.emit('qr', qr);
+        
+        // Send QR to FRONTEND (Dashboard)
+        if (qr && socket) {
+            console.log(`📤 Sending QR to Dashboard for User: ${userId}`);
+            socket.emit('qr', qr);
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
@@ -191,10 +204,12 @@ async function startWhatsAppSession(userId, socket = null) {
                 try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
             }
         } else if (connection === 'open') {
+            console.log(`✅ User ${userId} Connected Successfully!`);
             if (socket) socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
         }
     });
 
+    // Chatbot Logic for User
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
@@ -232,24 +247,45 @@ io.on('connection', (socket) => {
 
     socket.on('init-whatsapp', async (token) => {
         try {
+            if(!token) return;
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
+
+            if (!activeUserId) {
+                console.error("❌ Token invalid: No userId found.");
+                return;
+            }
+
+            console.log(`🔌 Client connected: ${activeUserId}`);
+
             if (whatsappClients[activeUserId]) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
                 await startWhatsAppSession(activeUserId, socket);
             }
-        } catch (e) { socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); }
+        } catch (e) { 
+            console.error("Token Error:", e.message);
+            socket.emit('status', { message: "فشل التحقق من التوكن", ready: false, error: true }); 
+        }
     });
 
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
+        console.log(`🚪 User ${activeUserId} logging out...`);
+        
         const sock = whatsappClients[activeUserId];
         if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[activeUserId]; }
+        
+        // Force Delete Session Folder
         const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
-        if (fs.existsSync(sessionDir)) { fs.rmSync(sessionDir, { recursive: true, force: true }); }
+        if (fs.existsSync(sessionDir)) { 
+            fs.rmSync(sessionDir, { recursive: true, force: true }); 
+            console.log(`🗑️ Deleted session folder for ${activeUserId}`);
+        }
+        
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
+        
         socket.emit('status', { message: "تم فصل الرقم ومسح البيانات.", ready: false });
         socket.emit('whatsapp-logged-out');
     });
@@ -277,6 +313,7 @@ io.on('connection', (socket) => {
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
+    // ... (Baqi les events bhal start-campaign, send-promo kima homa) ...
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -339,6 +376,7 @@ passport.use(new GoogleStrategy({
         if (user) return done(null, user);
         const trialEndsAt = new Date();
         trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
+        // ID must be string and unique
         const newUser = { id: Date.now().toString(), googleId: profile.id, name: profile.displayName, email: email, password: null, trialEndsAt: trialEndsAt.toISOString(), subscriptionEndsAt: null, subscription_status: 'trial' };
         db.run("INSERT INTO users (id, googleId, name, email, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [newUser.id, newUser.googleId, newUser.name, newUser.email, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status], (err) => { if (err) return done(err, null); done(null, newUser); });
     });
