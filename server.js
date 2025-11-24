@@ -3,8 +3,7 @@
 // ================================================================= //
 require('dotenv').config();
 
-// ملاحظة: تأكد أن systemBot.js أيضاً تم تحديثه ليعمل بـ Baileys إذا كان يستخدم whatsapp-web.js
-// أو اتركه كما هو إذا كان يعمل بشكل منفصل، لكنه سيستهلك RAM
+// ملاحظة: تأكد أن ملف systemBot.js يعمل بشكل مستقل أو تم تحديثه
 const { filterNumber } = require('./systemBot'); 
 
 const http = require('http');
@@ -23,16 +22,16 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
 
-// === BAILEYS IMPORTS (NEW) ===
+// === BAILEYS IMPORTS (مكتبة واتساب الجديدة) ===
 const { 
     makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason, 
     Browsers,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-// =============================
 
 // ================================================================= //
 // ========================= 2. المتغيرات العامة والتكوينات ======================= //
@@ -49,14 +48,16 @@ const TRIAL_PERIOD_MINUTES = 1440;
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
-const sessionsFolder = path.join(__dirname, 'baileys_auth'); // New Session Folder
+// مجلد جديد لحفظ جلسات Baileys
+const sessionsFolder = path.join(__dirname, 'baileys_auth_sessions'); 
 
-// تخزين العملاء النشطين (Sockets)
+const pendingRegistrations = {};
+// تخزين اتصالات واتساب النشطة (Map لربط المستخدم بالسوكت)
 const whatsappClients = {}; 
 const activeCampaigns = {};
-const pendingRegistrations = {};
 
 const FILTER_BATCH_SIZE = 1000;
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ================================================================= //
@@ -84,6 +85,8 @@ db.serialize(() => {
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
+
+// إنشاء المجلدات الضرورية
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
 if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
 if (!fs.existsSync(sessionsFolder)) fs.mkdirSync(sessionsFolder, { recursive: true });
@@ -92,6 +95,9 @@ const uploadLimits = { fileSize: 3 * 1024 * 1024 };
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: uploadLimits });
 const uploadCSV = multer({ dest: uploadsFolder, limits: uploadLimits });
 
+// ================================================================= //
+// ==================== 4. إعدادات Express Middleware =================== //
+// ================================================================= //
 app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
@@ -104,7 +110,9 @@ const checkSubscription = require('./middleware/checkSubscription');
 // ================================================================= //
 function readPromos(userId) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); const p = path.join(userPromoPath, 'promos.json'); return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; }
 function writePromos(userId, promos) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2)); }
+
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
+
 function processSpintax(text) {
     if (!text) return "";
     let processedText = text;
@@ -118,98 +126,106 @@ function processSpintax(text) {
     return processedText;
 }
 
-// === دالة جديدة لجلب جهات الاتصال في Baileys ===
-// Baileys لا يملك دالة getChats جاهزة بنفس طريقة Puppeteer، سنعتمد على التخزين أو Sync
-// هنا سنستخدم طريقة بسيطة: حفظ جهات الاتصال عند وصول رسائل أو Sync
-async function syncBaileysContacts(sock, ownerId) {
-    // في Baileys، جهات الاتصال تأتي عبر events.
-    // للتبسيط، لن نقوم بـ Sync كامل هنا لأن Baileys يحتاج Store.
-    // يمكننا إرسال رسالة للعميل "تم الاتصال" وهذا يكفي.
-    console.log(`[Sync] Baileys Connected for user ${ownerId}`);
-}
+// دالة مساعدة لتأخير التنفيذ (لتجنب الحظر)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ================================================================= //
-// ================= 6. منطق Socket.IO وإدارة واتساب (BAILEYS) ================= //
+// ================= 6. منطق إدارة واتساب (BAILEYS) ================= //
 // ================================================================= //
 
-// دالة لإنشاء اتصال واتساب لكل مستخدم
-const startWhatsAppSession = async (userId, socket) => {
+// دالة لتهيئة وتشغيل جلسة واتساب
+async function startWhatsAppSession(userId, socket = null) {
+    // تحديد مسار الجلسة الخاص بالمستخدم
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
-    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
-
+    
+    // إعداد المصادقة (State & SaveCreds)
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
+    // إنشاء الـ Socket (الكلاينت)
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
-        logger: pino({ level: 'silent' }), // تقليل الازعاج في الكونسول
-        browser: Browsers.macOS('Desktop'),
-        syncFullHistory: false // تسريع العملية
+        printQRInTerminal: false, // لا نريد طباعة QR في السيرفر
+        logger: pino({ level: 'silent' }), // إخفاء السجلات المزعجة
+        browser: Browsers.macOS('Desktop'), // يظهر كمتصفح عادي
+        syncFullHistory: false, // لتقليل استهلاك الذاكرة
+        generateHighQualityLinkPreview: true,
     });
 
-    // حفظ بيانات الجلسة تلقائياً
-    sock.ev.on('creds.update', saveCreds);
+    // تخزين الكلاينت في الذاكرة
+    whatsappClients[userId] = sock;
 
-    // إدارة الاتصال
+    // === إدارة الأحداث (Events) ===
+
+    // 1. تحديثات الاتصال (QR, Connect, Disconnect)
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr) {
-            // إرسال QR للفرونت إند (Dashboard.js يفهم هذا)
-            if (socket) socket.emit('qr', qr);
+        // إرسال QR Code إلى الواجهة الأمامية
+        if (qr && socket) {
+            socket.emit('qr', qr);
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log(`Connection closed for user ${userId}. Reconnecting: ${shouldReconnect}`);
+            console.log(`[Baileys] Connection closed for user ${userId}. Reconnecting: ${shouldReconnect}`);
             
-            // حذف من القائمة مؤقتاً
-            if (whatsappClients[userId]) delete whatsappClients[userId];
-
+            // إذا لم يكن تسجيل خروج يدوي، نحاول إعادة الاتصال
             if (shouldReconnect) {
-                // إعادة الاتصال
                 startWhatsAppSession(userId, socket);
             } else {
+                // إذا كان تسجيل خروج، ننظف البيانات
                 if (socket) socket.emit('status', { message: "تم تسجيل الخروج", ready: false, error: true });
-                // تنظيف الملفات إذا كان خروج نهائي
-                try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch(e) {}
+                delete whatsappClients[userId];
+                try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
             }
         } else if (connection === 'open') {
-            console.log(`Opened connection for user ${userId}`);
-            whatsappClients[userId] = sock; // حفظ الكلاينت
+            console.log(`[Baileys] User ${userId} is READY!`);
             if (socket) socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
+            
+            // حفظ جهات الاتصال (مزامنة بسيطة عند الاتصال)
+            // ملاحظة: Baileys لا يعطي جهات الاتصال فوراً مثل Web.js، يحتاج وقت
+            // سنرسل فقط إشعار أن المزامنة ممكنة
         }
     });
 
-    // الاستماع للرسائل (Chatbot)
+    // 2. تحديث ملفات الجلسة تلقائياً
+    sock.ev.on('creds.update', saveCreds);
+
+    // 3. استقبال الرسائل (Chatbot Logic)
     sock.ev.on('messages.upsert', async (m) => {
-        if (m.type !== 'notify') return;
-        
+        if (m.type !== 'notify') return; // نهتم فقط بالرسائل الجديدة
+
         for (const msg of m.messages) {
-            if (!msg.message || msg.key.fromMe) continue;
+            if (!msg.message || msg.key.fromMe) continue; // تجاهل رسائلنا
 
             const fromNumber = msg.key.remoteJid;
-            const isGroup = fromNumber.endsWith('@g.us');
+            const isGroup = fromNumber.endsWith('@g.us'); // تجاهل المجموعات
             if (isGroup) continue;
 
-            // Chatbot Logic
+            // التأكد من تفعيل الشات بوت لهذا المستخدم
             db.get("SELECT is_chatbot_active, chatbot_prompt FROM users WHERE id = ?", [userId], async (err, user) => {
                 if (err || !user || !user.is_chatbot_active) return;
-                
-                // استخراج نص الرسالة
-                const userMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
+
+                // استخراج النص من أنواع الرسائل المختلفة
+                const userMessage = msg.message.conversation || 
+                                  msg.message.extendedTextMessage?.text || 
+                                  msg.message.imageMessage?.caption;
+
                 if (!userMessage) return;
 
+                // جلب إعدادات الحملة
                 const campaignInfo = activeCampaigns[userId];
-                // إذا لم يكن هناك حملة، نعتمد على Prompt المستخدم أو الافتراضي
-                const systemPrompt = (campaignInfo && campaignInfo.businessPrompt) ? campaignInfo.businessPrompt : (user.chatbot_prompt || "You are a helpful assistant.");
+                const systemPrompt = (campaignInfo && campaignInfo.businessPrompt) 
+                                     ? campaignInfo.businessPrompt 
+                                     : (user.chatbot_prompt || "You are a helpful assistant.");
 
                 try {
-                    // محاكاة الكتابة
+                    // إظهار "جاري الكتابة..."
                     await sock.sendPresenceUpdate('composing', fromNumber);
-                    
+
+                    // استدعاء OpenAI
                     const completion = await openai.chat.completions.create({
                         model: "gpt-3.5-turbo",
                         messages: [
@@ -217,36 +233,40 @@ const startWhatsAppSession = async (userId, socket) => {
                             { role: "user", content: userMessage }
                         ]
                     });
-                    
+
                     const reply = completion.choices[0].message.content;
-                    await sock.sendMessage(fromNumber, { text: reply });
                     
-                } catch (error) { 
-                    console.error("[AI Chatbot] Error:", error.message); 
+                    // إرسال الرد
+                    await sock.sendMessage(fromNumber, { text: reply });
+
+                } catch (error) {
+                    console.error("[AI Chatbot] Error:", error.message);
                 }
             });
         }
     });
 
     return sock;
-};
+}
 
-
+// ================================================================= //
+// ==================== 7. منطق Socket.IO (الربط مع الواجهة) ==================== //
+// ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
 
+    // 1. عند طلب تهيئة واتساب
     socket.on('init-whatsapp', async (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
 
-            // التحقق مما إذا كان متصلاً بالفعل
+            // إذا كان المستخدم متصلاً بالفعل في الذاكرة
             if (whatsappClients[activeUserId]) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
-                // تحديث السوكيت للكلاينت الموجود لإرسال التنبيهات
-                // (Optional: Logic to attach new socket to existing session events)
+                // نعيد ربط السوكت الجديد بالجلسة الحالية (اختياري)
             } else {
-                console.log(`Initializing Baileys for user: ${activeUserId}`);
+                console.log(`Initializing Baileys Session for: ${activeUserId}`);
                 await startWhatsAppSession(activeUserId, socket);
             }
         } catch (e) {
@@ -255,41 +275,40 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 2. تسجيل الخروج
     socket.on('logout-whatsapp', async () => {
         if (!activeUserId) return;
+        
         const sock = whatsappClients[activeUserId];
         if (sock) {
             try {
-                await sock.logout(); // Baileys Logout
-                delete whatsappClients[activeUserId];
-                delete activeCampaigns[activeUserId];
+                await sock.logout(); // تسجيل خروج Baileys
             } catch (err) { console.error("Logout error:", err); }
+            delete whatsappClients[activeUserId];
+            delete activeCampaigns[activeUserId];
         }
-        
+
+        // حذف ملفات الجلسة
         const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
         if (fs.existsSync(sessionDir)) {
-            fs.rm(sessionDir, { recursive: true, force: true }, (err) => { 
-                if (err) console.error("Failed to delete session folder:", err); 
+            fs.rm(sessionDir, { recursive: true, force: true }, (err) => {
+                if (err) console.error("Failed to delete session folder:", err);
             });
         }
-        
+
+        // تنظيف قاعدة البيانات
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
-        
+
         socket.emit('status', { message: "تم فصل الرقم ومسح البيانات.", ready: false });
         socket.emit('whatsapp-logged-out');
     });
 
-    // =======================================================
-    // FILTER LOGIC (System Bot) - Remains mostly same logic wise
-    // =======================================================
+    // 3. فلترة الأرقام (تعتمد على System Bot)
     socket.on('check-numbers', async ({ numbers }) => {
         if (!activeUserId) return socket.emit('filter-error', 'يرجى تسجيل الدخول أولاً.');
 
-        // ملاحظة: هنا نستخدم systemBot المستورد. إذا كان systemBot.js يعتمد على Puppeteer 
-        // سيظل يستهلك RAM. يجب تحديث systemBot.js أيضاً ليعمل بـ Baileys للحصول على أفضل أداء.
-        // سأترك المنطق كما هو بناءً على طلبك لتعديل السيرفر فقط.
-
+        // ملاحظة: System Bot يعمل بشكل منفصل، الكود هنا يستدعيه فقط
         const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
@@ -301,8 +320,8 @@ io.on('connection', (socket) => {
             const batch = allPhones.slice(i, i + FILTER_BATCH_SIZE);
             for (const phone of batch) {
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    const isValid = await filterNumber(phone); // تأكد أن هذه الدالة تعمل
+                    await sleep(500); // تأخير بسيط
+                    const isValid = await filterNumber(phone);
                     if (isValid) {
                         validCount++;
                         socket.emit('filter-result', { phone: phone, status: 'valid' });
@@ -316,13 +335,14 @@ io.on('connection', (socket) => {
                 }
             }
             if (i + FILTER_BATCH_SIZE < totalNumbers) {
-                socket.emit('log', { message: `⏸️ استراحة...`, color: 'orange' });
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                socket.emit('log', { message: `⏸️ استراحة لتجنب الحظر...`, color: 'orange' });
+                await sleep(5000);
             }
         }
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
+    // 4. تفعيل وضع الحملة
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -335,6 +355,7 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 5. حفظ الأرقام الصحيحة
     socket.on('save-valid-contacts', ({ numbers }) => {
         if (!activeUserId) return;
         const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
@@ -346,35 +367,38 @@ io.on('connection', (socket) => {
         });
     });
 
-    // =======================================================
-    // SEND PROMO (MODIFIED FOR BAILEYS)
-    // =======================================================
+    // 6. إرسال العروض (Core Feature)
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
-        const sock = whatsappClients[activeUserId]; // Baileys Socket
-
-        if (!activeUserId || !sock) return;
+        
+        // التحقق من وجود الكلاينت (Baileys)
+        const sock = whatsappClients[activeUserId];
+        if (!activeUserId || !sock) {
+            return socket.emit('send-promo-status', { success: false, phone, error: 'WhatsApp غير متصل' });
+        }
 
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
         if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
 
         try {
-            // تنسيق الرقم لـ Baileys (number@s.whatsapp.net)
+            // تنسيق الرقم لـ Baileys (مهم جداً)
+            // Baileys يستخدم @s.whatsapp.net للأرقام الفردية
             const numberJid = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
             const processedText = processSpintax(promo.text);
 
             // التحقق من وجود الصورة
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
+                
                 if (fs.existsSync(imagePath)) {
                     // إرسال صورة + نص
                     await sock.sendMessage(numberJid, { 
-                        image: { url: imagePath }, // Baileys يقبل المسار مباشرة
+                        image: { url: imagePath }, // Baileys يقبل المسار أو الرابط
                         caption: processedText 
                     });
                 } else {
-                    // إرسال نص فقط إذا الصورة مفقودة
+                    // إذا لم توجد الصورة نرسل النص فقط
                     await sock.sendMessage(numberJid, { text: processedText });
                 }
             } else if (processedText) {
@@ -382,31 +406,33 @@ io.on('connection', (socket) => {
                 await sock.sendMessage(numberJid, { text: processedText });
             }
 
-            // تحديث قاعدة البيانات
+            // تحديث حالة الإرسال في قاعدة البيانات
             const table = fromImported ? "imported_clients" : "clients";
-            db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
-            
+            db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, 
+                [new Date().toISOString().split("T")[0], phone, activeUserId]
+            );
+
             socket.emit('send-promo-status', { success: true, phone });
+
         } catch (err) {
-            console.error("Send Error:", err);
+            console.error(`[Send Error] User ${activeUserId} -> ${phone}:`, err.message);
             socket.emit('send-promo-status', { success: false, phone, error: err.message });
         }
     });
 
+    // 7. مزامنة جهات الاتصال (وهمية حالياً لـ Baileys لأنها تأخذ وقتاً)
     socket.on('sync-contacts', async () => {
-        // Baileys لا يدعم جلب جهات الاتصال القديمة بسهولة بدون Store
-        // سنكتفي بإشعار العميل
+        // يمكن تطوير هذا الجزء لجلب المحادثات من Baileys Store لاحقاً
         socket.emit('sync-complete');
     });
 
     socket.on('disconnect', () => { 
-        // لا نحذف الكلاينت هنا لأننا نريده أن يبقى متصلاً حتى لو أغلق المتصفح
-        // الحذف يتم فقط عند Logout
+        // لا نحذف الكلاينت عند انقطاع السوكت، ليظل الواتساب يعمل في الخلفية
     });
 });
 
 // ================================================================= //
-// ==================== 7. إعدادات Passport.js ===================== //
+// ==================== 8. إعدادات Passport.js ===================== //
 // ================================================================= //
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -428,7 +454,7 @@ passport.use(new GoogleStrategy({
 }));
 
 // ================================================================= //
-// ======================= 8. مسارات API (Routes) ======================= //
+// ======================= 9. مسارات API (Routes) ======================= //
 // ================================================================= //
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
@@ -500,11 +526,15 @@ app.post("/api/auth/login", async (req, res) => {
 app.post('/api/auth/logout', authMiddleware, async (req, res) => {
     const userId = req.userData.userId;
     delete activeCampaigns[userId];
+    
+    // تسجيل الخروج من Baileys
     const sock = whatsappClients[userId];
     if (sock) {
         try { await sock.logout(); } catch(e){}
         delete whatsappClients[userId];
     }
+    
+    // مسح الملفات
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
     if (fs.existsSync(sessionDir)) {
         fs.rmSync(sessionDir, { recursive: true, force: true });
