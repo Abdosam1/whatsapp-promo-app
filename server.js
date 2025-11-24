@@ -54,7 +54,6 @@ const systemSessionFolder = path.join(__dirname, 'baileys_system_session');
 const pendingRegistrations = {};
 const whatsappClients = {}; 
 const activeCampaigns = {};
-const FILTER_BATCH_SIZE = 1000;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 let systemSock = null; 
@@ -117,6 +116,11 @@ function processSpintax(text) {
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Helper function for Random Range
+function getRandomDelay(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
 // ================================================================= //
 // ================= 5. SYSTEM BOT (FILTER ONLY) =================== //
 // ================================================================= //
@@ -139,7 +143,6 @@ async function initSystemBot() {
     systemSock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // System Bot QR in Terminal only
         if (qr) {
             console.log('\n[SYSTEM BOT] Scan this QR for Filtering Service:\n');
             qrcodeTerminal.generate(qr, { small: true });
@@ -154,7 +157,6 @@ async function initSystemBot() {
     });
 }
 
-// Launch System Bot
 initSystemBot();
 
 // ================================================================= //
@@ -186,7 +188,6 @@ async function startWhatsAppSession(userId, socket = null) {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // Send QR to User Dashboard
         if (qr && socket) {
             socket.emit('qr', qr);
         }
@@ -194,21 +195,17 @@ async function startWhatsAppSession(userId, socket = null) {
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                // Reconnect logic
                 startWhatsAppSession(userId, socket);
             } else {
-                // Logout logic
                 if (socket) socket.emit('status', { message: "تم تسجيل الخروج", ready: false, error: true });
                 delete whatsappClients[userId];
                 try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
             }
         } else if (connection === 'open') {
-            // Successful Connection
             if (socket) socket.emit('status', { message: "WhatsApp متصل بنجاح!", ready: true });
         }
     });
 
-    // Chatbot Logic
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
@@ -254,12 +251,9 @@ io.on('connection', (socket) => {
 
             const existingSock = whatsappClients[activeUserId];
             
-            // === THE IMPORTANT FIX ===
-            // Check if User is ACTUALLY logged in (sock.user exists)
             if (existingSock && existingSock.user) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
-                // If exists but not logged in (stuck state), kill it and restart
                 if (existingSock) {
                     try { existingSock.end(); } catch(e){}
                     delete whatsappClients[activeUserId];
@@ -275,38 +269,71 @@ io.on('connection', (socket) => {
         if (!activeUserId) return;
         const sock = whatsappClients[activeUserId];
         if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[activeUserId]; }
-        
         const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
         if (fs.existsSync(sessionDir)) { fs.rmSync(sessionDir, { recursive: true, force: true }); }
-        
         db.run(`DELETE FROM clients WHERE ownerId = ?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [activeUserId]);
-        
         socket.emit('status', { message: "تم فصل الرقم ومسح البيانات.", ready: false });
         socket.emit('whatsapp-logged-out');
     });
 
-    // === Filter Logic (System Bot) ===
+    // ============================================================ //
+    // === SYSTEM BOT FILTER LOGIC (ANTI-BAN UPDATED) ============= //
+    // ============================================================ //
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock) return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
+        
         const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
-        socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم...`, color: 'blue' });
-        for (let i = 0; i < totalNumbers; i += FILTER_BATCH_SIZE) {
-            const batch = allPhones.slice(i, i + FILTER_BATCH_SIZE);
-            for (const phone of batch) {
-                try {
-                    await sleep(300);
-                    const id = `${phone}@s.whatsapp.net`;
-                    const [result] = await systemSock.onWhatsApp(id);
-                    if (result?.exists) { validCount++; socket.emit('filter-result', { phone: phone, status: 'valid' }); } 
-                    else { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
-                } catch (err) { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
+        
+        socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم (وضع الحماية من الحظر)...`, color: 'blue' });
+
+        // Process numbers individually with smart delays
+        for (let i = 0; i < totalNumbers; i++) {
+            const phone = allPhones[i];
+
+            // === 1. Anti-Ban Pause Logic ===
+            
+            // Rule: Every 1000 numbers -> Sleep 5 to 15 mins
+            if (i > 0 && i % 1000 === 0) {
+                const pauseTime = getRandomDelay(5 * 60 * 1000, 15 * 60 * 1000); // 5min to 15min
+                const pauseMins = Math.round(pauseTime / 60000);
+                socket.emit('log', { message: `⏸️ (Anti-Ban 1000) استراحة طويلة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
+                await sleep(pauseTime);
             }
-            if (i + FILTER_BATCH_SIZE < totalNumbers) { socket.emit('log', { message: `⏸️ استراحة لتجنب الحظر...`, color: 'orange' }); await sleep(2000); }
+            // Rule: Every 100 numbers -> Sleep 3 to 5 mins (skipped if we just did the 1000 pause)
+            else if (i > 0 && i % 100 === 0) {
+                const pauseTime = getRandomDelay(3 * 60 * 1000, 5 * 60 * 1000); // 3min to 5min
+                const pauseMins = Math.round(pauseTime / 60000);
+                socket.emit('log', { message: `⏸️ (Anti-Ban 100) استراحة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
+                await sleep(pauseTime);
+            }
+
+            // === 2. Per-Number Delay (0.5s to 2s) ===
+            const numberDelay = getRandomDelay(500, 2000); // 0.5s to 2s
+            await sleep(numberDelay);
+
+            // === 3. Filter Check ===
+            try {
+                const id = `${phone}@s.whatsapp.net`;
+                const [result] = await systemSock.onWhatsApp(id);
+                
+                if (result?.exists) {
+                    validCount++;
+                    socket.emit('filter-result', { phone: phone, status: 'valid' });
+                } else {
+                    invalidCount++;
+                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                }
+            } catch (err) {
+                // console.error("Filter error", err);
+                invalidCount++;
+                socket.emit('filter-result', { phone: phone, status: 'invalid' });
+            }
         }
+        
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
