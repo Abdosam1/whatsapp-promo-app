@@ -18,6 +18,8 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
+// === NEW LIBRARY FOR EMAIL VALIDATION ===
+const { validate } = require('deep-email-validator'); 
 
 // === BAILEYS IMPORTS ===
 const { 
@@ -290,29 +292,25 @@ io.on('connection', (socket) => {
         
         socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم (وضع الحماية من الحظر)...`, color: 'blue' });
 
-        // Process numbers individually with smart delays
         for (let i = 0; i < totalNumbers; i++) {
             const phone = allPhones[i];
 
             // === 1. Anti-Ban Pause Logic ===
-            
-            // Rule: Every 1000 numbers -> Sleep 5 to 15 mins
             if (i > 0 && i % 1000 === 0) {
-                const pauseTime = getRandomDelay(5 * 60 * 1000, 15 * 60 * 1000); // 5min to 15min
+                const pauseTime = getRandomDelay(5 * 60 * 1000, 15 * 60 * 1000); 
                 const pauseMins = Math.round(pauseTime / 60000);
                 socket.emit('log', { message: `⏸️ (Anti-Ban 1000) استراحة طويلة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
                 await sleep(pauseTime);
             }
-            // Rule: Every 100 numbers -> Sleep 3 to 5 mins (skipped if we just did the 1000 pause)
             else if (i > 0 && i % 100 === 0) {
-                const pauseTime = getRandomDelay(3 * 60 * 1000, 5 * 60 * 1000); // 3min to 5min
+                const pauseTime = getRandomDelay(3 * 60 * 1000, 5 * 60 * 1000); 
                 const pauseMins = Math.round(pauseTime / 60000);
                 socket.emit('log', { message: `⏸️ (Anti-Ban 100) استراحة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
                 await sleep(pauseTime);
             }
 
-            // === 2. Per-Number Delay (0.5s to 2s) ===
-            const numberDelay = getRandomDelay(500, 2000); // 0.5s to 2s
+            // === 2. Per-Number Delay ===
+            const numberDelay = getRandomDelay(500, 2000);
             await sleep(numberDelay);
 
             // === 3. Filter Check ===
@@ -328,12 +326,10 @@ io.on('connection', (socket) => {
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
             } catch (err) {
-                // console.error("Filter error", err);
                 invalidCount++;
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
-        
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
 
@@ -406,7 +402,45 @@ passport.use(new GoogleStrategy({
 
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => { const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' }); res.redirect(`/dashboard.html?token=${token}`); });
-app.post("/api/auth/signup", async (req, res) => { const { name, email, password } = req.body; if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' }); db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => { if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' }); const hashedPassword = await bcrypt.hash(password, 12); const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' }); const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`; const trialEndsAt = new Date(); trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES); pendingRegistrations[email] = { name, email, password: hashedPassword, trialEndsAt: trialEndsAt.toISOString() }; const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` }; await transporter.sendMail(mailOptions); res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' }); }); });
+
+// === SIGNUP ROUTE (UPDATED WITH EMAIL VALIDATION) ===
+app.post("/api/auth/signup", async (req, res) => {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
+
+    // 1. Validate Email (Block Temporary Emails)
+    try {
+        const val = await validate({
+            email: email,
+            validateRegex: true,
+            validateMx: true,
+            validateTypo: false,
+            validateDisposable: true,
+            validateSMTP: false, 
+        });
+
+        if (!val.valid) {
+            if (val.validators.disposable && !val.validators.disposable.valid) {
+                return res.status(400).json({ message: 'الإيميلات المؤقتة غير مسموحة، يرجى استخدام بريد حقيقي.' });
+            }
+            return res.status(400).json({ message: 'البريد الإلكتروني غير صالح أو غير موجود.' });
+        }
+    } catch (err) { console.error("Validation Error:", err); }
+
+    db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => {
+        if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+        const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
+        const trialEndsAt = new Date();
+        trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
+        pendingRegistrations[email] = { name, email, password: hashedPassword, trialEndsAt: trialEndsAt.toISOString() };
+        const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` };
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
+    });
+});
+
 app.get('/api/auth/verify-email', (req, res) => { const { token } = req.query; if (!token) return res.status(400).send('رابط التفعيل غير صالح.'); try { const decoded = jwt.verify(token, JWT_SECRET); const { email } = decoded; const pendingData = pendingRegistrations[email]; if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح...'); db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => { if (user) { delete pendingRegistrations[email]; return res.status(400).send('هذا الحساب مسجل بالفعل.'); } const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial' }; db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)", [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status], (err) => { if (err) return res.status(500).send('خطأ أثناء إنشاء حسابك.'); delete pendingRegistrations[email]; res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`); }); }); } catch (error) { res.status(500).send('خطأ في التحقق من الرمز.'); } });
 app.post("/api/auth/login", async (req, res) => { const { email, password } = req.body; db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => { if (err) return res.status(500).json({ message: "خطأ في الخادم." }); if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة.' }); const isMatch = await bcrypt.compare(password, user.password); if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' }); const now = new Date(); const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null; const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null; const isActive = (trialEnds && trialEnds > now) || (subscriptionEnds && subscriptionEnds > now); const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: isActive ? '8h' : '1h' }); res.status(200).json({ token, subscriptionStatus: isActive ? 'active' : 'expired' }); }); });
 app.post('/api/auth/logout', authMiddleware, async (req, res) => { const userId = req.userData.userId; delete activeCampaigns[userId]; const sock = whatsappClients[userId]; if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[userId]; } const sessionDir = path.join(sessionsFolder, `session-${userId}`); if (fs.existsSync(sessionDir)) { fs.rmSync(sessionDir, { recursive: true, force: true }); } res.status(200).json({ message: 'تم تسجيل الخروج بنجاح.' }); });
