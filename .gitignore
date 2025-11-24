@@ -1,16 +1,35 @@
 # Dependencies
-/node_modules
+node_modules/
 
-# WhatsApp Session Files (VERY IMPORTANT)
-/.wwebjs_auth
-/sessions
-
-# Database & Uploads
-/main_data.db
-/users.json
-/uploads
-/data
-
-# Logs & Environment
-npm-debug.log*
+# Environment Variables (Security)
 .env
+
+# === Old WhatsApp Sessions (Puppeteer) ===
+.wwebjs_auth/
+.wwebjs_cache/
+auth_system_session/
+sessions/
+
+# === New Baileys Sessions (CRITICAL) ===
+baileys_system_session/
+baileys_user_sessions/
+
+# === Database & User Data ===
+*.db
+*.sqlite
+main_data.db
+user_data/
+users.json
+promos.json
+importedPromos.json
+
+# === Uploads & Media ===
+uploads/
+public/promos/
+data/
+
+# === Logs & System Files ===
+npm-debug.log*
+logs/
+.DS_Store
+Thumbs.db
