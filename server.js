@@ -29,6 +29,7 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const qrcodeTerminal = require('qrcode-terminal'); // <--- ZDNA HADI
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -46,7 +47,6 @@ const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
-// === Dossier Jdid l System Bot ===
 const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
 
 const pendingRegistrations = {};
@@ -55,8 +55,7 @@ const activeCampaigns = {};
 const FILTER_BATCH_SIZE = 1000;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// === GLOBAL SYSTEM BOT SOCKET ===
-let systemSock = null; // Hada howa l-bot l-mas2oul 3la filter
+let systemSock = null; 
 
 // ================================================================= //
 // ================= 3. Database & Setup ================= //
@@ -117,7 +116,7 @@ function processSpintax(text) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ================================================================= //
-// ================= 5. SYSTEM BOT SETUP (FOR FILTERING) =========== //
+// ================= 5. SYSTEM BOT SETUP (FIXED QR) =========== //
 // ================================================================= //
 
 async function initSystemBot() {
@@ -128,7 +127,7 @@ async function initSystemBot() {
     systemSock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: true, // IMPORTANT: QR will show in terminal
+        printQRInTerminal: false, // Disablena default bach ma ytl3ch warning
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -136,7 +135,15 @@ async function initSystemBot() {
     systemSock.ev.on('creds.update', saveCreds);
 
     systemSock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        
+        // === HNA ZE3NA QR CODE DISPLAY ===
+        if (qr) {
+            console.log('\nPlease Scan This QR Code for System Bot:\n');
+            qrcodeTerminal.generate(qr, { small: true }); // Affiche QR f terminal
+        }
+        // =================================
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             console.log('🤖 System Bot disconnected. Reconnecting:', shouldReconnect);
@@ -247,47 +254,25 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    // ============================================================ //
-    // === SYSTEM BOT FILTER LOGIC (UPDATED) ====================== //
-    // ============================================================ //
     socket.on('check-numbers', async ({ numbers }) => {
-        // Hna ma kan-checkiwch wash User connecté, kan-checkiw System Bot
-        if (!systemSock) {
-            return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
-        }
-
+        if (!systemSock) return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
         const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
-        
         socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم...`, color: 'blue' });
-
         for (let i = 0; i < totalNumbers; i += FILTER_BATCH_SIZE) {
             const batch = allPhones.slice(i, i + FILTER_BATCH_SIZE);
             for (const phone of batch) {
                 try {
-                    await sleep(300); // 300ms delay between checks
+                    await sleep(300);
                     const id = `${phone}@s.whatsapp.net`;
-                    const [result] = await systemSock.onWhatsApp(id); // Check using System Bot
-
-                    if (result?.exists) {
-                        validCount++;
-                        socket.emit('filter-result', { phone: phone, status: 'valid' });
-                    } else {
-                        invalidCount++;
-                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                    }
-                } catch (err) {
-                    // console.error("Filter check error", err); // Silent error
-                    invalidCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                }
+                    const [result] = await systemSock.onWhatsApp(id);
+                    if (result?.exists) { validCount++; socket.emit('filter-result', { phone: phone, status: 'valid' }); } 
+                    else { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
+                } catch (err) { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
             }
-            if (i + FILTER_BATCH_SIZE < totalNumbers) {
-                socket.emit('log', { message: `⏸️ استراحة لتجنب الحظر...`, color: 'orange' });
-                await sleep(2000);
-            }
+            if (i + FILTER_BATCH_SIZE < totalNumbers) { socket.emit('log', { message: `⏸️ استراحة لتجنب الحظر...`, color: 'orange' }); await sleep(2000); }
         }
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
@@ -319,32 +304,21 @@ io.on('connection', (socket) => {
         const { phone, promoId, fromImported } = data;
         const sock = whatsappClients[activeUserId]; 
         if (!activeUserId || !sock) return socket.emit('send-promo-status', { success: false, phone, error: 'WhatsApp غير متصل' });
-
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
         if (!promo) return socket.emit('send-promo-status', { success: false, phone, error: 'العرض غير موجود' });
-
         try {
             const numberJid = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
             const processedText = processSpintax(promo.text);
-
             if (promo.image && typeof promo.image === 'string') {
                 const imagePath = path.join(promosUploadFolder, promo.image);
-                if (fs.existsSync(imagePath)) {
-                    await sock.sendMessage(numberJid, { image: { url: imagePath }, caption: processedText });
-                } else {
-                    await sock.sendMessage(numberJid, { text: processedText });
-                }
-            } else if (processedText) {
-                await sock.sendMessage(numberJid, { text: processedText });
-            }
-
+                if (fs.existsSync(imagePath)) { await sock.sendMessage(numberJid, { image: { url: imagePath }, caption: processedText }); } 
+                else { await sock.sendMessage(numberJid, { text: processedText }); }
+            } else if (processedText) { await sock.sendMessage(numberJid, { text: processedText }); }
             const table = fromImported ? "imported_clients" : "clients";
             db.run(`UPDATE ${table} SET last_sent = ? WHERE phone = ? AND ownerId = ?`, [new Date().toISOString().split("T")[0], phone, activeUserId]);
             socket.emit('send-promo-status', { success: true, phone });
-        } catch (err) {
-            socket.emit('send-promo-status', { success: false, phone, error: err.message });
-        }
+        } catch (err) { socket.emit('send-promo-status', { success: false, phone, error: err.message }); }
     });
 
     socket.on('sync-contacts', async () => { socket.emit('sync-complete'); });
