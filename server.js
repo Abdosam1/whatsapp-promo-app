@@ -18,7 +18,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
-// === NEW LIBRARY FOR EMAIL VALIDATION ===
+// === EMAIL VALIDATOR ===
 const { validate } = require('deep-email-validator'); 
 
 // === BAILEYS IMPORTS ===
@@ -48,6 +48,7 @@ const TRIAL_PERIOD_MINUTES = 1440;
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
+const blogFile = path.join(__dirname, 'blog_posts.json'); // ملف المقالات
 
 // === SESSIONS FOLDERS ===
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
@@ -56,6 +57,9 @@ const systemSessionFolder = path.join(__dirname, 'baileys_system_session');
 const pendingRegistrations = {};
 const whatsappClients = {}; 
 const activeCampaigns = {};
+// === STOP FLAGS (للتحكم في إيقاف الفلتر) ===
+const stopFilterFlags = {}; 
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 let systemSock = null; 
@@ -82,10 +86,13 @@ db.serialize(() => {
 });
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
+
+// Create directories
 if (!fs.existsSync(promosUploadFolder)) fs.mkdirSync(promosUploadFolder, { recursive: true });
 if (!fs.existsSync(uploadsFolder)) fs.mkdirSync(uploadsFolder, { recursive: true });
 if (!fs.existsSync(sessionsFolder)) fs.mkdirSync(sessionsFolder, { recursive: true });
 if (!fs.existsSync(systemSessionFolder)) fs.mkdirSync(systemSessionFolder, { recursive: true });
+if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 
 const uploadLimits = { fileSize: 3 * 1024 * 1024 };
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: uploadLimits });
@@ -117,10 +124,16 @@ function processSpintax(text) {
     return processedText;
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Helper function for Random Range
 function getRandomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+// Helper to check Admin
+function checkAdmin(userId, callback) {
+    db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => {
+        if (err || !row) return callback(false);
+        callback(row.email === ADMIN_EMAIL);
+    });
 }
 
 // ================================================================= //
@@ -189,10 +202,7 @@ async function startWhatsAppSession(userId, socket = null) {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
-        if (qr && socket) {
-            socket.emit('qr', qr);
-        }
+        if (qr && socket) socket.emit('qr', qr);
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
@@ -248,18 +258,15 @@ io.on('connection', (socket) => {
             if(!token) return;
             const decoded = jwt.verify(token, JWT_SECRET);
             activeUserId = decoded.userId;
-
             if (!activeUserId) return;
 
             const existingSock = whatsappClients[activeUserId];
             
+            // Check if user is really connected
             if (existingSock && existingSock.user) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
-                if (existingSock) {
-                    try { existingSock.end(); } catch(e){}
-                    delete whatsappClients[activeUserId];
-                }
+                if (existingSock) { try { existingSock.end(); } catch(e){} delete whatsappClients[activeUserId]; }
                 await startWhatsAppSession(activeUserId, socket);
             }
         } catch (e) { 
@@ -280,7 +287,7 @@ io.on('connection', (socket) => {
     });
 
     // ============================================================ //
-    // === SYSTEM BOT FILTER LOGIC (ANTI-BAN UPDATED) ============= //
+    // === SYSTEM BOT FILTER LOGIC (ANTI-BAN + STOP) ============== //
     // ============================================================ //
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock) return socket.emit('filter-error', 'System Bot غير متصل! يرجى الاتصال بالدعم.');
@@ -290,49 +297,58 @@ io.on('connection', (socket) => {
         let validCount = 0;
         let invalidCount = 0;
         
+        // Reset stop flag for this user
+        stopFilterFlags[activeUserId] = false;
+
         socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم (وضع الحماية من الحظر)...`, color: 'blue' });
 
         for (let i = 0; i < totalNumbers; i++) {
+            
+            // === STOP CHECK ===
+            if (stopFilterFlags[activeUserId] === true) {
+                socket.emit('filter-stopped');
+                socket.emit('log', { message: `🛑 تم إيقاف الفحص يدوياً.`, color: 'red' });
+                break; // Break out of the loop
+            }
+
             const phone = allPhones[i];
 
-            // === 1. Anti-Ban Pause Logic ===
+            // === Anti-Ban Pauses ===
             if (i > 0 && i % 1000 === 0) {
-                const pauseTime = getRandomDelay(5 * 60 * 1000, 15 * 60 * 1000); 
-                const pauseMins = Math.round(pauseTime / 60000);
-                socket.emit('log', { message: `⏸️ (Anti-Ban 1000) استراحة طويلة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
+                const pauseTime = getRandomDelay(5 * 60 * 1000, 15 * 60 * 1000);
+                socket.emit('log', { message: `⏸️ (Anti-Ban 1000) استراحة طويلة...`, color: 'orange' });
                 await sleep(pauseTime);
-            }
-            else if (i > 0 && i % 100 === 0) {
-                const pauseTime = getRandomDelay(3 * 60 * 1000, 5 * 60 * 1000); 
-                const pauseMins = Math.round(pauseTime / 60000);
-                socket.emit('log', { message: `⏸️ (Anti-Ban 100) استراحة لمدة ${pauseMins} دقيقة...`, color: 'orange' });
+            } else if (i > 0 && i % 100 === 0) {
+                const pauseTime = getRandomDelay(3 * 60 * 1000, 5 * 60 * 1000);
+                socket.emit('log', { message: `⏸️ (Anti-Ban 100) استراحة قصيرة...`, color: 'orange' });
                 await sleep(pauseTime);
             }
 
-            // === 2. Per-Number Delay ===
-            const numberDelay = getRandomDelay(500, 2000);
-            await sleep(numberDelay);
+            // Random delay per number
+            await sleep(getRandomDelay(500, 2000));
 
-            // === 3. Filter Check ===
             try {
                 const id = `${phone}@s.whatsapp.net`;
                 const [result] = await systemSock.onWhatsApp(id);
-                
-                if (result?.exists) {
-                    validCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'valid' });
-                } else {
-                    invalidCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                }
-            } catch (err) {
-                invalidCount++;
-                socket.emit('filter-result', { phone: phone, status: 'invalid' });
-            }
+                if (result?.exists) { validCount++; socket.emit('filter-result', { phone: phone, status: 'valid' }); } 
+                else { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
+            } catch (err) { invalidCount++; socket.emit('filter-result', { phone: phone, status: 'invalid' }); }
         }
-        socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
+        
+        // Emit complete only if not stopped manually (to avoid double UI reset)
+        if (!stopFilterFlags[activeUserId]) {
+            socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
+        }
     });
 
+    // === NEW: STOP EVENT HANDLER ===
+    socket.on('stop-filter', () => {
+        if (activeUserId) {
+            stopFilterFlags[activeUserId] = true;
+        }
+    });
+
+    // ... Other events ...
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
         const promos = readPromos(activeUserId);
@@ -403,46 +419,36 @@ passport.use(new GoogleStrategy({
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => { const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' }); res.redirect(`/dashboard.html?token=${token}`); });
 
-// === SIGNUP ROUTE (UPDATED WITH EMAIL VALIDATION) ===
+// Signup with Email Validation + Blocklist
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'الاسم، البريد، وكلمة المرور مطلوبة' });
+    if (!name || !email || !password) return res.status(400).json({ message: 'البيانات ناقصة' });
 
-    // 1. Validate Email (Block Temporary Emails)
+    const tempDomains = ['moondyal.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com', 'yopmail.com'];
+    const domain = email.split('@')[1].toLowerCase();
+    if (tempDomains.includes(domain)) return res.status(400).json({ message: 'الإيميلات المؤقتة غير مسموحة.' });
+
     try {
-        const val = await validate({
-            email: email,
-            validateRegex: true,
-            validateMx: true,
-            validateTypo: false,
-            validateDisposable: true,
-            validateSMTP: false, 
-        });
-
-        if (!val.valid) {
-            if (val.validators.disposable && !val.validators.disposable.valid) {
-                return res.status(400).json({ message: 'الإيميلات المؤقتة غير مسموحة، يرجى استخدام بريد حقيقي.' });
-            }
-            return res.status(400).json({ message: 'البريد الإلكتروني غير صالح أو غير موجود.' });
-        }
-    } catch (err) { console.error("Validation Error:", err); }
+        const val = await validate({ email, validateDisposable: true, validateSMTP: false });
+        if (!val.valid) return res.status(400).json({ message: 'البريد الإلكتروني غير صالح.' });
+    } catch (err) {}
 
     db.get("SELECT email FROM users WHERE email = ?", [email], async (err, user) => {
-        if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل' });
+        if (user || pendingRegistrations[email]) return res.status(400).json({ message: 'مسجل بالفعل' });
         const hashedPassword = await bcrypt.hash(password, 12);
         const verificationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
         const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email?token=${verificationToken}`;
         const trialEndsAt = new Date();
         trialEndsAt.setMinutes(trialEndsAt.getMinutes() + TRIAL_PERIOD_MINUTES);
         pendingRegistrations[email] = { name, email, password: hashedPassword, trialEndsAt: trialEndsAt.toISOString() };
-        const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<p>مرحباً ${name}،</p><p>الرجاء النقر على الرابط أدناه لتفعيل حسابك:</p><a href="${verificationLink}">تفعيل الحساب</a>` };
+        const mailOptions = { from: SENDER_EMAIL, to: email, subject: 'تفعيل حسابك', html: `<a href="${verificationLink}">اضغط لتفعيل الحساب</a>` };
         await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني.' });
+        res.status(200).json({ message: 'تم إرسال رابط التفعيل.' });
     });
 });
 
 app.get('/api/auth/verify-email', (req, res) => { const { token } = req.query; if (!token) return res.status(400).send('رابط التفعيل غير صالح.'); try { const decoded = jwt.verify(token, JWT_SECRET); const { email } = decoded; const pendingData = pendingRegistrations[email]; if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح...'); db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => { if (user) { delete pendingRegistrations[email]; return res.status(400).send('هذا الحساب مسجل بالفعل.'); } const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial' }; db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)", [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status], (err) => { if (err) return res.status(500).send('خطأ أثناء إنشاء حسابك.'); delete pendingRegistrations[email]; res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`); }); }); } catch (error) { res.status(500).send('خطأ في التحقق من الرمز.'); } });
-app.post("/api/auth/login", async (req, res) => { const { email, password } = req.body; db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => { if (err) return res.status(500).json({ message: "خطأ في الخادم." }); if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة.' }); const isMatch = await bcrypt.compare(password, user.password); if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' }); const now = new Date(); const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null; const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null; const isActive = (trialEnds && trialEnds > now) || (subscriptionEnds && subscriptionEnds > now); const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: isActive ? '8h' : '1h' }); res.status(200).json({ token, subscriptionStatus: isActive ? 'active' : 'expired' }); }); });
+app.post("/api/auth/login", async (req, res) => { const { email, password } = req.body; db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => { if (err) return res.status(500).json({ message: "خطأ في الخادم." }); if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة.' }); const isMatch = await bcrypt.compare(password, user.password); if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' }); const now = new Date(); const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt) : null; const subscriptionEnds = user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt) : null; const isActive = (trialEnds && trialEnds > now) || (subscriptionEnds && subscriptionEnds > now); const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: isActive ? '8h' : '1h' }); res.status(200).json({ token, subscriptionStatus: isActive ? 'active' : 'expired', isAdmin: (user.email === ADMIN_EMAIL) }); }); });
 app.post('/api/auth/logout', authMiddleware, async (req, res) => { const userId = req.userData.userId; delete activeCampaigns[userId]; const sock = whatsappClients[userId]; if (sock) { try { await sock.logout(); } catch(e){} delete whatsappClients[userId]; } const sessionDir = path.join(sessionsFolder, `session-${userId}`); if (fs.existsSync(sessionDir)) { fs.rmSync(sessionDir, { recursive: true, force: true }); } res.status(200).json({ message: 'تم تسجيل الخروج بنجاح.' }); });
 app.post("/api/request-code", authMiddleware, async (req, res) => { const userId = req.userData.userId; const { durationName, durationDays } = req.body; db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => { if (err || !user) return res.status(404).json({ message: "لم يتم العثور على المستخدم." }); const newActivationCode = generateActivationCode(); db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?", [newActivationCode, JSON.stringify({ durationName, durationDays }), userId], async (err) => { if (err) return res.status(500).json({ message: "خطأ في تحديث الطلب." }); const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `طلب تفعيل اشتراك جديد`, html: `<h1>طلب تفعيل</h1><p>المستخدم: ${user.name}</p><p>الرمز: ${newActivationCode}</p>` }; await transporter.sendMail(mailOptions); res.status(200).json({ success: true, message: "تم استلام الطلب." }); }); }); });
 app.post("/api/activate-with-code", authMiddleware, async (req, res) => { const { activationCode } = req.body; const userId = req.userData.userId; if (!activationCode) return res.status(400).json({ message: "رمز التفعيل مطلوب." }); db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => { if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." }); if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); } const { durationDays } = JSON.parse(user.activationRequest); const newSubscriptionEndDate = new Date(); newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10)); db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => { if (err) return res.status(500).json({ message: "خطأ." }); res.status(200).json({ success: true, message: "تم التفعيل بنجاح!" }); }); }); });
@@ -460,8 +466,15 @@ app.get("/api/chatbot-status", authMiddleware, (req, res) => { db.get("SELECT is
 app.post("/api/chatbot-status", authMiddleware, (req, res) => { const statusValue = req.body.isActive ? 1 : 0; db.run("UPDATE users SET is_chatbot_active = ? WHERE id = ?", [statusValue, req.userData.userId], (err) => { res.json({ message: "تم التحديث" }); }); });
 app.post("/api/generate-spintax", authMiddleware, async (req, res) => { try { const completion = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "system", content: "You are a copywriter..." }, { role: "user", content: req.body.text }] }); res.json({ spintax: completion.choices[0].message.content }); } catch (error) { res.status(500).json({ message: "Error" }); } });
 
+// === BLOG ROUTES ===
+app.get('/api/blog-posts', (req, res) => { try { const posts = fs.existsSync(blogFile) ? JSON.parse(fs.readFileSync(blogFile, 'utf8')) : []; res.json(posts); } catch (err) { res.status(500).json([]); } });
+app.post('/api/blog-post', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if (!isAdmin) return res.status(403).json({ message: "Forbidden" }); try { const { title, summary, content, image } = req.body; const posts = fs.existsSync(blogFile) ? JSON.parse(fs.readFileSync(blogFile, 'utf8')) : []; posts.unshift({ id: Date.now(), title, summary, content, image, date: new Date().toISOString().split('T')[0] }); fs.writeFileSync(blogFile, JSON.stringify(posts, null, 2)); res.json({ success: true }); } catch (err) { res.status(500).json({ message: "Error" }); } }); });
+app.delete('/api/blog-post/:id', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if (!isAdmin) return res.status(403).json({ message: "Forbidden" }); try { let posts = JSON.parse(fs.readFileSync(blogFile, 'utf8')); posts = posts.filter(p => p.id !== parseInt(req.params.id)); fs.writeFileSync(blogFile, JSON.stringify(posts, null, 2)); res.json({ success: true }); } catch (err) { res.status(500).json({ message: "Error" }); } }); });
+app.get('/api/is-admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { res.json({ isAdmin: isAdmin }); }); });
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard'); res.sendFile(path.join(__dirname, 'public', 'admin.html')); }); });
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
