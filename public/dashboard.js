@@ -65,9 +65,10 @@ const uiElements = {
     statFailed: document.getElementById('stat-sent-failed'),
     statTotal: document.getElementById('stat-total-contacts'),
     
-    // عناصر الفلتر الجديدة
+    // عناصر الفلتر الجديدة والمحدثة
     filterInput: document.getElementById('filterInput'),
     startFilterBtn: document.getElementById('startFilterBtn'),
+    stopFilterBtn: document.getElementById('stopFilterBtn'), // زر التوقف
     exportValidBtn: document.getElementById('exportValidBtn'),
     listValid: document.getElementById('listValid'),
     listInvalid: document.getElementById('listInvalid'),
@@ -140,6 +141,10 @@ function initializeEventListeners() {
 
     // 4. أزرار الفلتر (Filter Buttons & Upload)
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
+    
+    // إضافة زر التوقف
+    if (uiElements.stopFilterBtn) uiElements.stopFilterBtn.addEventListener('click', stopNumberFilter);
+    
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
     
     // إضافة: التعامل مع رفع ملف الفلتر
@@ -192,6 +197,9 @@ function switchTab(tabName) {
     };
     const pageTitle = document.getElementById('page-title') || document.querySelector('h2');
     if(pageTitle && titles[tabName]) pageTitle.innerText = titles[tabName];
+    
+    // Check for Admin Access when loading specific tabs (like blog)
+    if (tabName === 'blog' && typeof checkAdminAccess === 'function') checkAdminAccess();
 }
 
 // ================================================================= //
@@ -256,6 +264,13 @@ function initializeWhatsAppConnection() {
             uiElements.listValid.appendChild(div);
             validNumbersBuffer.push(data.phone);
             uiElements.countValid.innerText = validNumbersBuffer.length;
+            
+            // === تفعيل زر التحميل فوراً عند وجود أرقام صحيحة ===
+            if (uiElements.exportValidBtn.disabled) {
+                uiElements.exportValidBtn.disabled = false;
+                uiElements.exportValidBtn.classList.remove('btn-secondary');
+                uiElements.exportValidBtn.classList.add('btn-success'); // تغيير لونه للأخضر
+            }
         } else {
             div.style.color = "#f87171";
             uiElements.listInvalid.appendChild(div);
@@ -265,16 +280,24 @@ function initializeWhatsAppConnection() {
     });
 
     socket.on('filter-complete', (counts) => {
+        resetFilterUI(false); // إعادة الأزرار لوضعها الطبيعي
         uiElements.filterStatus.innerText = `✅ انتهى الفحص. (صالح: ${counts.valid}, غير صالح: ${counts.invalid})`;
-        uiElements.startFilterBtn.disabled = false;
+        
         if (validNumbersBuffer.length > 0) {
             uiElements.exportValidBtn.disabled = false; 
         }
     });
 
+    // === استقبال حدث التوقف ===
+    socket.on('filter-stopped', () => {
+        resetFilterUI(false);
+        uiElements.filterStatus.innerText = "🛑 تم إيقاف الفحص يدوياً.";
+        log('🛑 قام المستخدم بإيقاف الفحص.', 'orange');
+    });
+
     socket.on('filter-error', (msg) => {
         alert(msg);
-        uiElements.startFilterBtn.disabled = false;
+        resetFilterUI(false);
         uiElements.filterStatus.innerText = "❌ حدث خطأ.";
     });
 
@@ -291,22 +314,51 @@ function startNumberFilter() {
     const text = uiElements.filterInput.value.trim();
     if (!text) return alert("أدخل أرقاماً للفحص.");
     
-    // === تم التعديل: إزالة التحقق من اتصال واتساب العميل للسماح لـ System Bot بالعمل ===
-    // if (!isWhatsappReady) return alert("يجب أن يكون الواتساب متصلاً لبدء الفحص.");
-    // ==================================================================================
-
     // تهيئة الواجهة
     uiElements.listValid.innerHTML = '';
     uiElements.listInvalid.innerHTML = '';
     uiElements.countValid.innerText = '0';
     uiElements.countInvalid.innerText = '0';
     uiElements.filterStatus.innerText = "جاري الفحص... ⏳";
-    uiElements.startFilterBtn.disabled = true;
-    uiElements.exportValidBtn.disabled = true;
+    
     validNumbersBuffer = [];
+
+    // تبديل الأزرار (إخفاء بدء، إظهار توقف)
+    uiElements.startFilterBtn.style.display = 'none';
+    if(uiElements.stopFilterBtn) {
+        uiElements.stopFilterBtn.style.display = 'inline-block';
+        uiElements.stopFilterBtn.disabled = false;
+        uiElements.stopFilterBtn.textContent = "توقف";
+    }
+    
+    uiElements.exportValidBtn.disabled = true; // تعطيل التحميل في البداية
 
     // إرسال الطلب للسيرفر
     socket.emit('check-numbers', { numbers: text });
+}
+
+// === دالة إيقاف الفلتر ===
+function stopNumberFilter() {
+    if(confirm("هل تريد حقاً إيقاف عملية الفحص؟")) {
+        if(uiElements.stopFilterBtn) {
+            uiElements.stopFilterBtn.textContent = "جاري التوقف...";
+            uiElements.stopFilterBtn.disabled = true;
+        }
+        socket.emit('stop-filter');
+    }
+}
+
+// === دالة إعادة تعيين واجهة الفلتر ===
+function resetFilterUI(isRunning) {
+    if (!isRunning) {
+        uiElements.startFilterBtn.style.display = 'inline-block';
+        if(uiElements.stopFilterBtn) uiElements.stopFilterBtn.style.display = 'none';
+        
+        // زر التحميل يبقى مفعلاً إذا كانت هناك نتائج
+        if (validNumbersBuffer.length > 0) {
+            uiElements.exportValidBtn.disabled = false;
+        }
+    }
 }
 
 function exportValidNumbers() {
@@ -324,13 +376,16 @@ function exportValidNumbers() {
     link.click();
     document.body.removeChild(link);
 
-    if(confirm("تم تحميل الملف بنجاح! هل تريد مسح النتائج من الشاشة؟")) {
+    // سؤال المستخدم إن كان يريد مسح النتائج بعد التحميل
+    if(confirm("تم تحميل الملف بنجاح! هل تريد مسح النتائج من الشاشة لبدء فحص جديد؟")) {
         uiElements.listValid.innerHTML = '';
         uiElements.listInvalid.innerHTML = '';
         uiElements.countValid.innerText = '0';
         uiElements.countInvalid.innerText = '0';
         uiElements.filterInput.value = '';
         uiElements.exportValidBtn.disabled = true;
+        uiElements.exportValidBtn.classList.remove('btn-success');
+        uiElements.exportValidBtn.classList.add('btn-secondary');
         uiElements.filterStatus.innerText = "...";
         validNumbersBuffer = [];
     }
@@ -409,7 +464,15 @@ async function apiFetch(url, options = {}) {
     }
 }
 
-function loadInitialData() { loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus(); }
+function loadInitialData() { 
+    loadClients(); 
+    loadImportedClients(); 
+    loadPromos(); 
+    loadChatbotPrompt(); 
+    loadChatbotStatus();
+    if (typeof checkAdminAccess === 'function') checkAdminAccess();
+}
+
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
@@ -547,4 +610,17 @@ function log(message, color = "black") {
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     p.style.color = color;
     uiElements.logsContainer.prepend(p);
+}
+
+// === ADMIN & BLOG LOGIC INJECTION ===
+async function checkAdminAccess() {
+    try {
+        const res = await apiFetch('/api/is-admin');
+        const blogNav = document.getElementById('nav-blog-manager');
+        
+        if (res.isAdmin) {
+            // إذا كان أدمين، قد نضيف رابط لصفحة الأدمن في القائمة (اختياري)
+            // حالياً التوجيه يتم عبر admin.html
+        }
+    } catch (e) {}
 }
