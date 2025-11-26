@@ -417,7 +417,7 @@
           </div>
       </div>
 
-      <!-- NEW TAB: FILTER (Updated with Upload Button) -->
+      <!-- NEW TAB: FILTER (Updated with Upload & Stop) -->
       <div id="tab-filter" class="tab-section">
         <div class="card full-width">
             <h2><i class="fas fa-filter"></i> <span data-key="filterTitle">فحص الأرقام</span></h2>
@@ -428,7 +428,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                         <label data-key="filterLabel" style="margin:0;">أدخل الأرقام (كل رقم في سطر):</label>
                         
-                        <!-- New Upload Button -->
+                        <!-- Upload Button -->
                         <div>
                             <input type="file" id="filterFileInput" accept=".txt,.csv" style="display: none;" />
                             <button id="btnUploadFilter" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;">
@@ -438,14 +438,24 @@
                     </div>
 
                     <textarea id="filterInput" rows="10" placeholder="212600000000&#10;212611111111"></textarea>
+                    
                     <div style="margin-top: 10px; display: flex; gap: 10px;">
+                        <!-- زر البدء -->
                         <button id="startFilterBtn" class="btn btn-primary" style="flex: 1;">
                             <i class="fas fa-play"></i> <span data-key="btnStartFilter">بدء الفحص</span>
                         </button>
+                        
+                        <!-- زر التوقف (مخفي في البداية) -->
+                        <button id="stopFilterBtn" class="btn btn-danger" style="flex: 1; display: none;">
+                            <i class="fas fa-stop"></i> <span data-key="btnStopFilter">توقف</span>
+                        </button>
+
+                        <!-- زر التحميل -->
                         <button id="exportValidBtn" class="btn btn-success" style="flex: 1;" disabled>
                             <i class="fas fa-file-download"></i> <span data-key="btnExportValid">تحميل (Export)</span>
                         </button>
                     </div>
+                    
                     <p id="filterStatus" style="margin-top: 10px; color: var(--text-muted); font-size: 0.9em;">...</p>
                 </div>
 
