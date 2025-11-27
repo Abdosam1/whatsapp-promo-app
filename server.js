@@ -20,6 +20,7 @@ const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
 const { validate } = require('deep-email-validator'); 
 
+// === BAILEYS IMPORTS ===
 const { 
     makeWASocket, 
     useMultiFileAuthState, 
@@ -40,27 +41,27 @@ const io = socketIo(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
-// === ADMIN SETTINGS ===
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com'; 
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
 const TRIAL_PERIOD_MINUTES = 1440;
-
-// === SYSTEM BOTS SETTINGS ===
-const NUMBER_OF_SYSTEM_BOTS = 3; // عدد بوتات الفلترة
 
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const blogFile = path.join(__dirname, 'blog_posts.json');
+
+// === SESSIONS FOLDERS ===
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
+const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); // بوت واحد
 
 const pendingRegistrations = {};
 const whatsappClients = {}; 
 const activeCampaigns = {};
-const systemSocks = new Array(NUMBER_OF_SYSTEM_BOTS).fill(null); // مصفوفة لتخزين البوتات
 const stopFilterFlags = {}; 
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+let systemSock = null; // متغير للبوت الواحد
 
 // ================================================================= //
 // ================= 3. Database & Setup ================= //
@@ -83,7 +84,7 @@ db.serialize(() => {
 
 const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
 
-[promosUploadFolder, uploadsFolder, sessionsFolder].forEach(dir => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); });
+[promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); });
 if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
@@ -102,20 +103,15 @@ function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min
 function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
 
 // ================================================================= //
-// ================= 5. SYSTEM BOTS (MULTI-FILTER ENGINE) ========== //
+// ================= 5. SYSTEM BOT (SINGLE) ======================== //
 // ================================================================= //
 
-async function startSingleSystemBot(botIndex) {
-    const folderName = `baileys_system_session_${botIndex}`;
-    const folderPath = path.join(__dirname, folderName);
-    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
-
-    console.log(`🤖 Initializing System Bot #${botIndex + 1}...`);
-
-    const { state, saveCreds } = await useMultiFileAuthState(folderPath);
+async function initSystemBot() {
+    console.log('🤖 Starting System Bot (Single Filter Engine)...');
+    const { state, saveCreds } = await useMultiFileAuthState(systemSessionFolder);
     const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({
+    systemSock = makeWASocket({
         version,
         auth: state,
         printQRInTerminal: false,
@@ -123,42 +119,31 @@ async function startSingleSystemBot(botIndex) {
         browser: Browsers.macOS('Desktop'),
     });
 
-    sock.ev.on('creds.update', saveCreds);
+    systemSock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    systemSock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-            console.log(`\n⚠️ [SYSTEM BOT #${botIndex + 1}] SCAN QR BELOW:\n`);
+            console.log(`\n⚠️ [SYSTEM BOT] SCAN QR BELOW:\n`);
             qrcodeTerminal.generate(qr, { small: true });
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                startSingleSystemBot(botIndex);
+                initSystemBot();
             } else {
-                console.log(`❌ System Bot #${botIndex + 1} Logged Out completely.`);
+                console.log('❌ System Bot Logged Out.');
+                systemSock = null;
             }
         } else if (connection === 'open') {
-            console.log(`✅ System Bot #${botIndex + 1} is READY!`);
-            // Store active socket
-            systemSocks[botIndex] = sock;
+            console.log('✅ System Bot is READY for Filtering!');
         }
     });
-    
-    // Store socket reference immediately
-    systemSocks[botIndex] = sock;
 }
 
-// Initialize All System Bots sequentially
-async function initAllSystemBots() {
-    for (let i = 0; i < NUMBER_OF_SYSTEM_BOTS; i++) {
-        await startSingleSystemBot(i);
-        await sleep(2000); // Wait 2s between initializations to avoid conflicts
-    }
-}
-initAllSystemBots();
+initSystemBot(); // تشغيل البوت
 
 // ================================================================= //
 // ================= 6. USER BOT (CLIENTS) ========================= //
@@ -200,7 +185,6 @@ async function startWhatsAppSession(userId, socket = null) {
         }
     });
 
-    // Simple Chatbot
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
@@ -258,80 +242,76 @@ io.on('connection', (socket) => {
     });
 
     // =======================================================
-    // === FILTER LOGIC (LOAD BALANCING + STOP + ANTI-BAN) ===
+    // === SINGLE FILTER LOGIC (FIXED & STOPPABLE) ===========
     // =======================================================
     socket.on('check-numbers', async ({ numbers }) => {
-        // 1. Get Available System Bots (Must be connected)
-        const activeBots = systemSocks.filter(s => s && s.user);
-        
-        if (activeBots.length === 0) {
-            return socket.emit('filter-error', 'System Bot غير متصل (0 Active). المرجو الاتصال بالدعم.');
+        // 1. Check if System Bot is Online
+        if (!systemSock || !systemSock.user) {
+            return socket.emit('filter-error', 'System Bot غير متصل! (Single Mode)');
         }
 
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
-        const total = allPhones.length;
-        let valid = 0, invalid = 0;
+        const totalNumbers = allPhones.length;
+        let validCount = 0;
+        let invalidCount = 0;
 
         // Reset Stop Flag
         stopFilterFlags[activeUserId] = false;
 
-        socket.emit('log', { message: `⏳ جاري فحص ${total} رقم باستخدام ${activeBots.length} بوتات...`, color: 'blue' });
+        socket.emit('log', { message: `⏳ Checking ${totalNumbers} numbers...`, color: 'blue' });
 
-        for (let i = 0; i < total; i++) {
-            // STOP CHECK
-            if (stopFilterFlags[activeUserId]) {
+        for (let i = 0; i < totalNumbers; i++) {
+            
+            // 🛑 STOP CHECK
+            if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
-                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
-                break;
+                socket.emit('log', { message: "🛑 Stopped by user.", color: 'red' });
+                break; 
             }
 
             const phone = allPhones[i];
 
             // Anti-Ban Pauses
             if (i > 0 && i % 1000 === 0) {
-                const pause = getRandomDelay(300000, 900000); // 5-15 mins
-                socket.emit('log', { message: `⏸️ استراحة طويلة (${Math.round(pause/60000)} د)...`, color: 'orange' });
+                const pause = getRandomDelay(300000, 900000); 
+                socket.emit('log', { message: `⏸️ Long Pause (Anti-Ban)...`, color: 'orange' });
                 await sleep(pause);
             } else if (i > 0 && i % 100 === 0) {
-                const pause = getRandomDelay(60000, 180000); // 1-3 mins
-                socket.emit('log', { message: `⏸️ استراحة قصيرة (${Math.round(pause/60000)} د)...`, color: 'orange' });
+                const pause = getRandomDelay(60000, 180000);
+                socket.emit('log', { message: `⏸️ Short Pause (Anti-Ban)...`, color: 'orange' });
                 await sleep(pause);
             }
 
-            // Random short delay
-            await sleep(getRandomDelay(500, 1500));
-
-            // Load Balancing: Choose bot by index
-            const bot = activeBots[i % activeBots.length];
+            await sleep(getRandomDelay(300, 1000));
 
             try {
-                const id = `${phone}@s.whatsapp.net`;
-                const [result] = await bot.onWhatsApp(id);
+                // Correct Check: Send Raw Phone String
+                const [result] = await systemSock.onWhatsApp(phone);
                 
                 if (result?.exists) {
-                    valid++;
-                    socket.emit('filter-result', { phone, status: 'valid' });
+                    validCount++;
+                    socket.emit('filter-result', { phone: phone, status: 'valid' });
                 } else {
-                    invalid++;
-                    socket.emit('filter-result', { phone, status: 'invalid' });
+                    invalidCount++;
+                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
             } catch (err) {
-                invalid++;
-                socket.emit('filter-result', { phone, status: 'invalid' });
-                // Try to re-initialize bot if error persists? (Advanced)
+                invalidCount++;
+                socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
 
         if (!stopFilterFlags[activeUserId]) {
-            socket.emit('filter-complete', { valid, invalid });
+            socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
         }
     });
 
-    // Stop Event
+    // === STOP EVENT ===
     socket.on('stop-filter', () => {
         if(activeUserId) stopFilterFlags[activeUserId] = true;
     });
 
+    // ... Other Events ...
     socket.on('start-campaign-mode', async ({ promoId }) => { /* ... */ });
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
@@ -377,7 +357,7 @@ app.get('/api/auth/google/callback', passport.authenticate('google', { failureRe
 
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'بيانات ناقصة' });
+    if (!name || !email || !password) return res.status(400).json({ message: 'البيانات ناقصة' });
     const domains = ['moondyal.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
     if (domains.includes(email.split('@')[1])) return res.status(400).json({ message: 'إيميل مؤقت غير مقبول' });
     
