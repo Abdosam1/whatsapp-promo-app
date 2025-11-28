@@ -61,7 +61,7 @@ const stopFilterFlags = {};
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-let systemSock = null; // متغير للبوت الواحد
+let systemSock = null; 
 
 // ================================================================= //
 // ================= 3. Database & Setup ================= //
@@ -96,6 +96,7 @@ const checkSubscription = require('./middleware/checkSubscription');
 
 // Helpers
 function readPromos(userId) { const p = path.join(__dirname, 'user_data', `user_${userId}`, 'promos.json'); return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; }
+function writePromos(userId, promos) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2)); }
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 function processSpintax(text) { if (!text) return ""; return text.replace(/\{([^{}]+)\}/g, (match, options) => { const choices = options.split('|'); return choices[Math.floor(Math.random() * choices.length)]; }); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -103,11 +104,11 @@ function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min
 function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
 
 // ================================================================= //
-// ================= 5. SYSTEM BOT (SINGLE) ======================== //
+// ================= 5. SYSTEM BOT (SINGLE FILTER) ================= //
 // ================================================================= //
 
 async function initSystemBot() {
-    console.log('🤖 Starting System Bot (Single Filter Engine)...');
+    console.log('🤖 Starting System Bot (Filter Engine)...');
     const { state, saveCreds } = await useMultiFileAuthState(systemSessionFolder);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -131,19 +132,15 @@ async function initSystemBot() {
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                initSystemBot();
-            } else {
-                console.log('❌ System Bot Logged Out.');
-                systemSock = null;
-            }
+            if (shouldReconnect) initSystemBot();
+            else console.log('❌ System Bot Logged Out.');
         } else if (connection === 'open') {
             console.log('✅ System Bot is READY for Filtering!');
         }
     });
 }
 
-initSystemBot(); // تشغيل البوت
+initSystemBot();
 
 // ================================================================= //
 // ================= 6. USER BOT (CLIENTS) ========================= //
@@ -241,16 +238,15 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    // =======================================================
-    // === SINGLE FILTER LOGIC (FIXED & STOPPABLE) ===========
-    // =======================================================
+    // ============================================================ //
+    // === SMART FILTER LOGIC (PROFILE PIC STRATEGY + STOP) ======= //
+    // ============================================================ //
     socket.on('check-numbers', async ({ numbers }) => {
-        // 1. Check if System Bot is Online
         if (!systemSock || !systemSock.user) {
-            return socket.emit('filter-error', 'System Bot غير متصل! (Single Mode)');
+            return socket.emit('filter-error', 'System Bot غير متصل! المرجو الاتصال بالدعم.');
         }
 
-        const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
+        const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
@@ -258,43 +254,60 @@ io.on('connection', (socket) => {
         // Reset Stop Flag
         stopFilterFlags[activeUserId] = false;
 
-        socket.emit('log', { message: `⏳ Checking ${totalNumbers} numbers...`, color: 'blue' });
+        socket.emit('log', { message: `⏳ بدأ الفحص الذكي (طريقة الصور) لـ ${totalNumbers} رقم...`, color: 'purple' });
 
         for (let i = 0; i < totalNumbers; i++) {
             
             // 🛑 STOP CHECK
             if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
-                socket.emit('log', { message: "🛑 Stopped by user.", color: 'red' });
-                break; 
+                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
+                break;
             }
 
             const phone = allPhones[i];
 
             // Anti-Ban Pauses
             if (i > 0 && i % 1000 === 0) {
-                const pause = getRandomDelay(300000, 900000); 
-                socket.emit('log', { message: `⏸️ Long Pause (Anti-Ban)...`, color: 'orange' });
+                const pause = getRandomDelay(300000, 600000); 
+                socket.emit('log', { message: `⏸️ استراحة طويلة...`, color: 'orange' });
                 await sleep(pause);
             } else if (i > 0 && i % 100 === 0) {
-                const pause = getRandomDelay(60000, 180000);
-                socket.emit('log', { message: `⏸️ Short Pause (Anti-Ban)...`, color: 'orange' });
+                const pause = getRandomDelay(60000, 120000);
+                socket.emit('log', { message: `⏸️ استراحة قصيرة...`, color: 'orange' });
                 await sleep(pause);
             }
 
-            await sleep(getRandomDelay(300, 1000));
+            await sleep(getRandomDelay(1000, 3000)); // Smart Delay
 
             try {
-                // Correct Check: Send Raw Phone String
-                const [result] = await systemSock.onWhatsApp(phone);
+                const jid = `${phone}@s.whatsapp.net`;
                 
-                if (result?.exists) {
-                    validCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'valid' });
-                } else {
-                    invalidCount++;
-                    socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                // === HYBRID CHECK: PROFILE PICTURE FIRST ===
+                try {
+                    const ppUrl = await systemSock.profilePictureUrl(jid, 'image');
+                    
+                    if (ppUrl) {
+                        validCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'valid' });
+                    }
+                } catch (e) {
+                    // If Profile Pic fails (404/401), try presence check as backup
+                    try {
+                       const [result] = await systemSock.onWhatsApp(jid);
+                       if (result?.exists) {
+                           validCount++;
+                           socket.emit('filter-result', { phone: phone, status: 'valid' });
+                       } else {
+                           invalidCount++;
+                           socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                       }
+                    } catch (err2) {
+                        invalidCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                    }
                 }
+
             } catch (err) {
                 invalidCount++;
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
@@ -355,6 +368,7 @@ app.get('/api/auth/google/callback', passport.authenticate('google', { failureRe
     res.redirect(req.user.email === ADMIN_EMAIL ? `/admin.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
 
+// Signup with Email Validation + Blocklist
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ message: 'البيانات ناقصة' });
