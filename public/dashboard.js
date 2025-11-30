@@ -1,5 +1,5 @@
 // ================================================================= //
-// ============ 0. معالجة التوكن عند الدخول عبر جوجل ============ //
+// ============ 0. معالجة التوكن (Auth Token Handling) ============= //
 // ================================================================= //
 const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get('token');
@@ -8,79 +8,94 @@ if (tokenFromUrl) {
     window.history.replaceState({}, document.title, "/dashboard.html");
 }
 
-// ================================================================= //
-// ==================== 1. التحقق من الأمان أولاً =================== //
-// ================================================================= //
+// التحقق من التوكن
 const token = localStorage.getItem('authToken');
 if (!token) {
     window.location.replace('index.html');
 }
 
 // ================================================================= //
-// ======================== 2. إعدادات عامة ======================== //
+// ======================== 1. إعدادات عامة ======================== //
 // ================================================================= //
 let clients = [];
 let importedClients = [];
 let promos = [];
 let selectedPromoId = null;
 let socket = null;
-let isWhatsappReady = false;
+let isWhatsappReady = false; // المتغير الأساسي لحالة الاتصال
 
 // متغيرات العداد (Stats)
 let isCampaignRunning = false;
 let globalSuccessCount = 0;
 let globalFailCount = 0;
 
-// متغيرات فلتر الأرقام (Filter)
+// متغيرات فلتر الأرقام
 let validNumbersBuffer = [];
 
+// تعريف عناصر الواجهة (UI Elements)
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
     mainContent: document.getElementById('main-content'),
     statusMessage: document.getElementById('status-message-display') || document.getElementById('status-message'),
     qrcodeCanvas: document.getElementById('qrcode-canvas'),
+    
+    // القوائم
     clientsList: document.getElementById('clientsList'),
     importedClientsList: document.getElementById('importedClientsList'),
     promosList: document.getElementById('promosList'),
     logsContainer: document.getElementById('logs'),
+    
+    // أزرار الإرسال والاستيراد
     sendSequentiallyClientsBtn: document.getElementById('sendSequentiallyClientsBtn'),
     csvFileInput: document.getElementById('csvFileInput'),
     importCsvBtn: document.getElementById('importCsvBtn'),
     sendSequentiallyImportedBtn: document.getElementById('sendSequentiallyImportedBtn'),
     deleteAllImportedBtn: document.getElementById('deleteAllImportedBtn'),
+    exportClientsBtn: document.getElementById('exportClientsBtn'),
+    
+    // العروض (Promos)
     newPromoText: document.getElementById('newPromoText'),
     newPromoImage: document.getElementById('newPromoImage'),
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
+    
+    // الإرسال الفردي
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
-    exportClientsBtn: document.getElementById('exportClientsBtn'),
+    
+    // الشات بوت
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
     syncContactsBtn: document.getElementById('syncContactsBtn'),
     chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
     generateSpintaxBtn: document.getElementById('generateSpintaxBtn'),
+    
+    // زر فصل الواتساب
     disconnectWhatsappBtn: document.getElementById('disconnectWhatsappBtn'),
+    
+    // العدادات
     statSuccess: document.getElementById('stat-sent-success'),
     statFailed: document.getElementById('stat-sent-failed'),
     statTotal: document.getElementById('stat-total-contacts'),
     
-    // عناصر الفلتر الجديدة
+    // === عناصر الفلتر (Filter Elements) ===
     filterInput: document.getElementById('filterInput'),
     startFilterBtn: document.getElementById('startFilterBtn'),
-    stopFilterBtn: document.getElementById('stopFilterBtn'), 
-    exportValidBtn: document.getElementById('exportValidBtn'),
+    stopFilterBtn: document.getElementById('stopFilterBtn'), // زر التوقف
+    exportValidBtn: document.getElementById('exportValidBtn'), // زر التحميل
     listValid: document.getElementById('listValid'),
     listInvalid: document.getElementById('listInvalid'),
     countValid: document.getElementById('countValid'),
     countInvalid: document.getElementById('countInvalid'),
     filterStatus: document.getElementById('filterStatus'),
+    
+    // رفع ملف الفلتر
     filterFileInput: document.getElementById('filterFileInput'),
     btnUploadFilter: document.getElementById('btnUploadFilter')
 };
 
 // ================================================================= //
-// ==================== 3. نقطة انطلاق التطبيق ===================== //
+// ==================== 2. تشغيل التطبيق (Init) ==================== //
 // ================================================================= //
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
@@ -89,30 +104,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeEventListeners() {
-    // 1. تفعيل القائمة الجانبية (Sidebar)
+    // 1. القائمة الجانبية (Sidebar Navigation)
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const tabName = item.getAttribute('data-tab');
-            if (tabName) {
-                switchTab(tabName);
-            }
+            if (tabName) switchTab(tabName);
         });
     });
 
-    // 2. الأزرار الرئيسية
+    // 2. الأزرار العامة
     uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     
-    // FIX: تأكد من أن الزر موجود قبل إضافة الحدث
+    // زر استيراد العملاء (CSV Import)
     if (uiElements.importCsvBtn) {
         uiElements.importCsvBtn.addEventListener('click', importCSV);
     }
     
+    // أزرار الإرسال
     if(uiElements.sendSequentiallyClientsBtn) uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(clients, false); });
     if(uiElements.sendSequentiallyImportedBtn) uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(importedClients, true); });
     if(uiElements.sendSelectedPromoBtn) uiElements.sendSelectedPromoBtn.addEventListener('click', () => { startNewCampaign(); sendSelectedPromo(); });
 
+    // أزرار أخرى
     if (uiElements.deleteAllImportedBtn) uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     if (uiElements.exportClientsBtn) uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
     if (uiElements.savePromptBtn) uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
@@ -120,10 +135,10 @@ function initializeEventListeners() {
     if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
     if (uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
 
-    // 3. زر فصل الواتساب
+    // زر فصل الواتساب
     if (uiElements.disconnectWhatsappBtn) {
         uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
-            if(confirm("هل أنت متأكد أنك تريد فصل الرقم؟")) {
+            if(confirm("هل أنت متأكد أنك تريد فصل الرقم؟ ستفقد الجلسة الحالية.")) {
                 if(socket) {
                     socket.emit('logout-whatsapp'); 
                     uiElements.statusMessage.innerText = "جاري الفصل...";
@@ -133,12 +148,18 @@ function initializeEventListeners() {
         });
     }
 
-    // 4. أزرار الفلتر
+    // === 3. أزرار الفلتر (Filter Logic) ===
+    
+    // زر البدء
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
+    
+    // زر التوقف (New)
     if (uiElements.stopFilterBtn) uiElements.stopFilterBtn.addEventListener('click', stopNumberFilter);
+    
+    // زر التحميل
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
     
-    // زر رفع ملف الفلتر
+    // زر رفع ملف الفلتر (Upload .txt/.csv)
     if (uiElements.btnUploadFilter && uiElements.filterFileInput) {
         uiElements.btnUploadFilter.addEventListener('click', () => {
             uiElements.filterFileInput.click();
@@ -151,14 +172,14 @@ function initializeEventListeners() {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const content = event.target.result;
-                // استخراج الأرقام
+                // استخراج الأرقام فقط وتنظيف النص
                 const numbers = content.split(/\r?\n/)
                                     .map(line => line.trim().replace(/[^0-9]/g, ''))
                                     .filter(n => n.length > 5)
                                     .join('\n');
                 
                 uiElements.filterInput.value = numbers;
-                uiElements.filterFileInput.value = '';
+                uiElements.filterFileInput.value = ''; // Reset
             };
             reader.readAsText(file);
         });
@@ -176,43 +197,61 @@ function switchTab(tabName) {
 }
 
 // ================================================================= //
-// =============== 5. الاتصال بواتساب عبر Socket.IO ================ //
+// =============== 3. الاتصال بواتساب (Socket.IO Logic) ============ //
 // ================================================================= //
 function initializeWhatsAppConnection() {
     socket = io({ auth: { token } });
     
     socket.on('connect', () => { 
-        log('🔌 متصل بالخادم...', 'blue'); 
+        log('🔌 الاتصال بالسيرفر...', 'blue'); 
+        // نطلب تهيئة الواتساب ولكن لا نفترض أنه جاهز
         socket.emit('init-whatsapp', token); 
     });
 
+    // عند طلب QR Code
     socket.on('qr', (qr) => {
         isWhatsappReady = false;
-        uiElements.statusMessage.textContent = 'امسح QR Code:';
+        uiElements.statusMessage.textContent = 'يرجى مسح QR Code:';
+        uiElements.statusMessage.style.color = 'orange';
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
         QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => {});
     });
 
+    // حالة الاتصال
     socket.on('status', (status) => {
         uiElements.statusMessage.textContent = status.message;
+        
         if (status.ready) {
+            // متصل فعلاً
             isWhatsappReady = true;
+            uiElements.statusMessage.style.color = '#00d26a';
             uiElements.qrcodeCanvas.style.display = 'none';
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'inline-block';
+            
+            // تحميل البيانات فقط عند الاتصال الناجح
             loadInitialData();
             log('✅ WhatsApp Connected!', 'green');
         } else {
+            // غير متصل أو ينتظر
             isWhatsappReady = false;
+            uiElements.statusMessage.style.color = 'orange';
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
         }
     });
 
+    // عند تسجيل الخروج
     socket.on('whatsapp-logged-out', () => {
-        log('ℹ️ Logged out.', 'orange');
-        clients = []; importedClients = [];
-        if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p>فارغ</p>';
-        if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p>فارغ</p>';
+        log('ℹ️ تم تسجيل الخروج.', 'orange');
+        clients = []; 
+        importedClients = [];
+        
+        // تصفير الواجهة
+        if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
+        if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
+        if(uiElements.statTotal) uiElements.statTotal.innerText = '0';
+        
+        // إعادة طلب QR
         socket.emit('init-whatsapp', token);
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
@@ -223,7 +262,7 @@ function initializeWhatsAppConnection() {
         else log(`❌ Failed +${status.phone}: ${status.error}`, "red");
     });
 
-    // --- FILTER EVENTS ---
+    // === أحداث الفلتر (Filter Events) ===
     socket.on('filter-result', (data) => {
         const div = document.createElement('div');
         div.innerText = data.phone;
@@ -236,7 +275,7 @@ function initializeWhatsAppConnection() {
             validNumbersBuffer.push(data.phone);
             uiElements.countValid.innerText = validNumbersBuffer.length;
             
-            // تفعيل التحميل فوراً
+            // === تفعيل زر التحميل فوراً (Instant Export Enable) ===
             if (uiElements.exportValidBtn.disabled) {
                 uiElements.exportValidBtn.disabled = false;
                 uiElements.exportValidBtn.classList.remove('btn-secondary');
@@ -258,7 +297,7 @@ function initializeWhatsAppConnection() {
     socket.on('filter-stopped', () => {
         resetFilterUI(false);
         uiElements.filterStatus.innerText = "🛑 تم الإيقاف.";
-        log('🛑 Stopped.', 'orange');
+        log('🛑 Stopped by user.', 'orange');
     });
 
     socket.on('filter-error', (msg) => {
@@ -267,41 +306,54 @@ function initializeWhatsAppConnection() {
         uiElements.filterStatus.innerText = "❌ خطأ.";
     });
 
-    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 Disconnected.', 'orange'); });
+    socket.on('disconnect', () => { 
+        isWhatsappReady = false; 
+        log('🔌 انقطع الاتصال بالسيرفر.', 'red'); 
+    });
+    
     socket.on('log', (data) => log(data.message, data.color));
-    socket.on('sync-complete', () => { log('✅ Synced.', 'green'); loadClients(); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; });
+    socket.on('sync-complete', () => { 
+        log('✅ تمت المزامنة.', 'green'); 
+        loadClients(); 
+        if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; 
+    });
 }
 
 // ================================================================= //
-// ================= 6. FUNCTIONS (FILTER, UPLOAD) ================= //
+// ================= 4. دوال الفلتر (Filter Functions) ============= //
 // ================================================================= //
 
 function startNumberFilter() {
     const text = uiElements.filterInput.value.trim();
-    if (!text) return alert("أدخل أرقاماً.");
+    if (!text) return alert("أدخل أرقاماً للفحص.");
     
+    // تهيئة الواجهة
     uiElements.listValid.innerHTML = '';
     uiElements.listInvalid.innerHTML = '';
     uiElements.countValid.innerText = '0';
     uiElements.countInvalid.innerText = '0';
-    uiElements.filterStatus.innerText = "جاري الفحص...";
+    uiElements.filterStatus.innerText = "جاري الفحص... ⏳";
     
     validNumbersBuffer = [];
 
+    // تبديل الأزرار
     uiElements.startFilterBtn.style.display = 'none';
     if(uiElements.stopFilterBtn) {
         uiElements.stopFilterBtn.style.display = 'inline-block';
         uiElements.stopFilterBtn.disabled = false;
+        uiElements.stopFilterBtn.textContent = "توقف";
     }
     
     uiElements.exportValidBtn.disabled = true;
+
+    // إرسال الطلب
     socket.emit('check-numbers', { numbers: text });
 }
 
 function stopNumberFilter() {
-    if(confirm("إيقاف؟")) {
+    if(confirm("هل تريد إيقاف الفحص؟")) {
         if(uiElements.stopFilterBtn) {
-            uiElements.stopFilterBtn.textContent = "Waiting...";
+            uiElements.stopFilterBtn.textContent = "جاري التوقف...";
             uiElements.stopFilterBtn.disabled = true;
         }
         socket.emit('stop-filter');
@@ -311,27 +363,29 @@ function stopNumberFilter() {
 function resetFilterUI(isRunning) {
     if (!isRunning) {
         uiElements.startFilterBtn.style.display = 'inline-block';
-        if(uiElements.stopFilterBtn) {
-            uiElements.stopFilterBtn.style.display = 'none';
-            uiElements.stopFilterBtn.textContent = "توقف";
+        if(uiElements.stopFilterBtn) uiElements.stopFilterBtn.style.display = 'none';
+        
+        // إبقاء زر التحميل مفعلاً إذا وجدت نتائج
+        if (validNumbersBuffer.length > 0) {
+            uiElements.exportValidBtn.disabled = false;
         }
-        if (validNumbersBuffer.length > 0) uiElements.exportValidBtn.disabled = false;
     }
 }
 
 function exportValidNumbers() {
     if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام.");
+
     const csvContent = "Phone\n" + validNumbersBuffer.join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `valid_${Date.now()}.csv`;
+    link.download = `valid_numbers_${Date.now()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    if(confirm("مسح النتائج؟")) {
+
+    if(confirm("هل تريد مسح النتائج لبدء فحص جديد؟")) {
         uiElements.listValid.innerHTML = '';
         uiElements.listInvalid.innerHTML = '';
         uiElements.countValid.innerText = '0';
@@ -340,16 +394,21 @@ function exportValidNumbers() {
         uiElements.exportValidBtn.disabled = true;
         uiElements.exportValidBtn.classList.remove('btn-success');
         uiElements.exportValidBtn.classList.add('btn-secondary');
+        uiElements.filterStatus.innerText = "...";
         validNumbersBuffer = [];
     }
 }
 
-// === FIXED CSV IMPORT FUNCTION ===
+// ================================================================= //
+// ================== 5. دوال الرفع والاستيراد ===================== //
+// ================================================================= //
+
+// دالة استيراد العملاء (CSV Import for Contacts)
 async function importCSV() { 
     const fileInput = document.getElementById('csvFileInput');
     const file = fileInput.files[0]; 
     
-    if (!file) return alert('⚠️ اختر ملف CSV.'); 
+    if (!file) return alert('⚠️ المرجو اختيار ملف CSV.'); 
     
     const btn = document.getElementById('importCsvBtn');
     const originalText = btn.innerHTML;
@@ -362,12 +421,12 @@ async function importCSV() {
     try { 
         const res = await apiFetch('/import-csv', { method: 'POST', body: formData }); 
         if (res && res.message) {
-            log(`✅ تم استيراد ${res.imported}.`, 'green'); 
-            alert(`تم استيراد ${res.imported} رقم.`);
+            log(`✅ تم استيراد ${res.imported} رقم.`, 'green'); 
+            alert(`تم استيراد ${res.imported} عميل بنجاح.`);
             fileInput.value = ''; 
             loadImportedClients(); 
         } else {
-            alert("حدث خطأ، راجع Console.");
+            alert("حدث خطأ.");
         }
     } catch (err) {
         console.error(err);
@@ -378,9 +437,37 @@ async function importCSV() {
     }
 }
 
+async function addNewPromo() {
+    const text = uiElements.newPromoText.value.trim();
+    const imageFile = uiElements.newPromoImage.files[0];
+    if (!text && !imageFile) return alert('أدخل النص أو الصورة.');
+    
+    const btn = uiElements.addNewPromoBtn;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+
+    const formData = new FormData(); 
+    formData.append('text', text);
+    if (imageFile) formData.append('image', imageFile);
+    
+    try { 
+        await apiFetch('/addPromo', { method: 'POST', body: formData }); 
+        log("✅ تم إضافة العرض.", 'green'); 
+        uiElements.newPromoText.value = ''; 
+        uiElements.newPromoImage.value = '';
+        loadPromos(); 
+    } catch (err) {
+        alert("خطأ في الحفظ");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> حفظ العرض';
+    }
+}
+
 // ================================================================= //
-// ==================== 7. General Helpers ========================= //
+// ==================== 6. Helper Functions ======================== //
 // ================================================================= //
+
 function startNewCampaign() {
     isCampaignRunning = true; globalSuccessCount = 0; globalFailCount = 0;
     if(uiElements.statSuccess) uiElements.statSuccess.innerText = "0";
@@ -429,7 +516,10 @@ async function apiFetch(url, options = {}) {
     } catch (error) { throw error; }
 }
 
-function loadInitialData() { loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus(); }
+function loadInitialData() { 
+    loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus();
+}
+
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
@@ -452,21 +542,12 @@ function displayPromos() {
         const div = document.createElement("div");
         div.className = "promo";
         div.id = `promo-${promo.id}`;
-        const imageHtml = promo.image ? `<img src="promos/${promo.image}">` : '';
+        const imageHtml = promo.image ? `<img src="promos/${promo.image}" alt="Promo">` : '';
         div.innerHTML = `${imageHtml}<p>${promo.text.slice(0, 50)}...</p><div class="promo-buttons"><button class="btn-select">اختيار</button><button class="btn-delete">حذف</button></div>`;
         div.querySelector('.btn-select').addEventListener('click', () => selectPromo(promo.id));
         div.querySelector('.btn-delete').addEventListener('click', () => deletePromo(promo.id));
         uiElements.promosList.appendChild(div);
     });
-}
-
-async function addNewPromo() {
-    const text = uiElements.newPromoText.value.trim();
-    const imageFile = uiElements.newPromoImage.files[0];
-    if (!text && !imageFile) return alert('أدخل بيانات.');
-    const formData = new FormData(); formData.append('text', text);
-    if (imageFile) formData.append('image', imageFile);
-    try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ Added.", 'green'); uiElements.newPromoText.value = ''; loadPromos(); } catch (err) {}
 }
 
 function selectPromo(id) { selectedPromoId = id; log(`🔵 Selected #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
