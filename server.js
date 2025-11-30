@@ -1,5 +1,5 @@
 // ================================================================= //
-// ==================== 1. Libraries & Config ===================== //
+// ==================== SERVER.JS (FINAL FIX) ====================== //
 // ================================================================= //
 require('dotenv').config();
 
@@ -49,11 +49,10 @@ const blogFile = path.join(__dirname, 'blog_posts.json');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
 
-// === ENSURE FOLDERS EXIST (CRITICAL FIX) ===
+// === ENSURE FOLDERS EXIST ===
 [promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
-        console.log(`📁 Created directory: ${dir}`);
     }
 });
 if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
@@ -68,7 +67,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 let systemSock = null; 
 
 // ================================================================= //
-// ================= 2. Multer Setup (Upload Fixed) ================ //
+// ================= 2. Multer Setup =============================== //
 // ================================================================= //
 const storagePromo = multer.diskStorage({
     destination: (req, file, cb) => cb(null, promosUploadFolder),
@@ -85,7 +84,7 @@ const uploadPromoImage = multer({
 
 const uploadCSV = multer({ 
     dest: uploadsFolder,
-    limits: { fileSize: 50 * 1024 * 1024 } // Increased limit for CSV
+    limits: { fileSize: 50 * 1024 * 1024 } 
 });
 
 app.use(cors());
@@ -168,7 +167,7 @@ async function initSystemBot() {
 initSystemBot();
 
 // ================================================================= //
-// ================= 6. USER BOT (CLIENTS) ========================= //
+// ================= 6. USER BOT (CLIENTS - FIXED SYNC) ============ //
 // ================================================================= //
 
 async function startWhatsAppSession(userId, socket = null) {
@@ -204,6 +203,30 @@ async function startWhatsAppSession(userId, socket = null) {
         } else if (connection === 'open') {
             if (socket) socket.emit('status', { message: "Connected!", ready: true });
         }
+    });
+
+    // === CRITICAL: SYNC CONTACTS FROM WHATSAPP TO DB ===
+    sock.ev.on('contacts.upsert', async (contacts) => {
+        if (!contacts || contacts.length === 0) return;
+        
+        const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
+        
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            for (const contact of contacts) {
+                // Filter out groups and status
+                if (contact.id.endsWith('@s.whatsapp.net')) {
+                    const phone = contact.id.replace('@s.whatsapp.net', '');
+                    const name = contact.name || contact.notify || phone;
+                    stmt.run(name, phone, userId);
+                }
+            }
+            stmt.finalize();
+            db.run("COMMIT", () => {
+                // Notify frontend to refresh list
+                if(socket) socket.emit('sync-complete'); 
+            });
+        });
     });
 
     sock.ev.on('messages.upsert', async (m) => {
@@ -263,7 +286,7 @@ io.on('connection', (socket) => {
     });
 
     // =======================================================
-    // === SMART FILTER LOGIC (STOP + PIC STRATEGY) ==========
+    // === FILTER LOGIC (PROFILE PIC + STOP) =================
     // =======================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock || !systemSock.user) {
@@ -277,38 +300,24 @@ io.on('connection', (socket) => {
 
         stopFilterFlags[activeUserId] = false;
 
-        socket.emit('log', { message: `⏳ بدأ الفحص الذكي (طريقة الصور) لـ ${totalNumbers} رقم...`, color: 'purple' });
+        socket.emit('log', { message: `⏳ بدأ الفحص الذكي (${totalNumbers} رقم)...`, color: 'purple' });
 
         for (let i = 0; i < totalNumbers; i++) {
-            
-            // 🛑 STOP CHECK
             if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
-                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
                 break;
             }
 
             const phone = allPhones[i];
             const jid = `${phone}@s.whatsapp.net`;
 
-            // Anti-Ban Pauses
-            if (i > 0 && i % 1000 === 0) {
-                const pause = getRandomDelay(300000, 600000);
-                socket.emit('log', { message: `⏸️ استراحة طويلة...`, color: 'orange' });
-                await sleep(pause);
-            } else if (i > 0 && i % 100 === 0) {
-                const pause = getRandomDelay(60000, 120000);
-                socket.emit('log', { message: `⏸️ استراحة قصيرة...`, color: 'orange' });
-                await sleep(pause);
-            }
+            if (i > 0 && i % 1000 === 0) await sleep(getRandomDelay(300000, 600000));
+            else if (i > 0 && i % 100 === 0) await sleep(getRandomDelay(60000, 120000));
+            
+            await sleep(getRandomDelay(500, 2000));
 
-            await sleep(getRandomDelay(1000, 3000));
-
-            // === SMART CHECK STRATEGY ===
             try {
                 let found = false;
-
-                // 1. Try Profile Pic (Safe)
                 try {
                     const ppUrl = await systemSock.profilePictureUrl(jid, 'image');
                     if (ppUrl) {
@@ -319,7 +328,6 @@ io.on('connection', (socket) => {
                     }
                 } catch (e) {}
 
-                // 2. Try Presence Check (Fallback)
                 if (!found) {
                     try {
                         const [result] = await systemSock.onWhatsApp(jid);
@@ -336,6 +344,7 @@ io.on('connection', (socket) => {
                         socket.emit('filter-result', { phone: phone, status: 'invalid' });
                     }
                 }
+
             } catch (err) {
                 invalidCount++;
                 socket.emit('filter-result', { phone: phone, status: 'invalid' });
@@ -373,7 +382,14 @@ io.on('connection', (socket) => {
             socket.emit('send-promo-status', {success:true, phone});
         } catch(e) { socket.emit('send-promo-status', {success:false, phone, error:e.message}); }
     });
-    socket.on('sync-contacts', () => socket.emit('sync-complete'));
+    
+    // FIX: Manual Sync Request
+    socket.on('sync-contacts', () => {
+        // We trigger nothing here, but rely on 'contacts.upsert' when connecting
+        // Or we can force a resync if needed (advanced)
+        socket.emit('sync-complete'); 
+    });
+    socket.on('disconnect', () => {});
 });
 
 // ==================== ROUTES ====================
@@ -430,7 +446,7 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// === PROMO & UPLOAD ROUTES (CSV IMPORT FIX) ===
+// === PROMO & UPLOAD ROUTES (FIXED CSV IMPORT) ===
 app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
 
 app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
@@ -442,50 +458,39 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
         promos.push(newPromo);
         writePromos(userId, promos);
         res.json({ status: "success", promo: newPromo });
-    } catch (err) { res.status(500).json({ message: "Server Error during upload." }); }
+    } catch (err) {
+        console.error("Upload Error:", err);
+        res.status(500).json({ message: "Server Error during upload." });
+    }
 });
 
-// === CRITICAL FIX: CSV IMPORT ===
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    
     const { userId } = req.userData;
     const results = [];
     
-    console.log(`📂 Processing CSV: ${req.file.path}`);
+    console.log(`Processing CSV: ${req.file.path}`);
 
     fs.createReadStream(req.file.path)
-        .pipe(csvParser({ headers: ['phone'], skipLines: 0 })) // Assuming first col is phone
+        .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
         .on('data', (data) => {
-            // Try to get phone from 'phone' key or first column
-            let phone = data.phone || Object.values(data)[0];
-            phone = String(phone).replace(/\D/g, ""); // Keep only digits
-            
+            // Ensure we grab the first column if 'phone' key is missing
+            const phone = String(data.phone || Object.values(data)[0] || "").replace(/\D/g, "");
             if (phone.length >= 8) results.push(phone);
         })
         .on('end', () => {
-            fs.unlinkSync(req.file.path); // Cleanup
-            
+            fs.unlinkSync(req.file.path);
             const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
             let importedCount = 0;
-            
             db.serialize(() => {
                 db.run("BEGIN TRANSACTION");
-                results.forEach(phone => {
-                    stmt.run(phone, userId, function(err) { 
-                        if(!err && this.changes > 0) importedCount++; 
-                    });
-                });
+                results.forEach(phone => stmt.run(phone, userId, function(err) { if(!err && this.changes>0) importedCount++; }));
                 stmt.finalize();
                 db.run("COMMIT", () => {
-                    console.log(`✅ Imported ${importedCount} numbers for ${userId}`);
+                    console.log(`Imported ${importedCount} contacts for User ${userId}`);
                     res.status(200).json({ message: "Imported", imported: importedCount });
                 });
             });
-        })
-        .on('error', (err) => {
-            console.error("CSV Parse Error:", err);
-            res.status(500).json({ message: "Failed to parse CSV" });
         });
 });
 
