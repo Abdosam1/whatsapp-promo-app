@@ -65,7 +65,7 @@ const uiElements = {
     statFailed: document.getElementById('stat-sent-failed'),
     statTotal: document.getElementById('stat-total-contacts'),
     
-    // عناصر الفلتر الجديدة والمحدثة
+    // === عناصر الفلتر الجديدة (تمت إضافتها) ===
     filterInput: document.getElementById('filterInput'),
     startFilterBtn: document.getElementById('startFilterBtn'),
     stopFilterBtn: document.getElementById('stopFilterBtn'), // زر التوقف
@@ -139,15 +139,15 @@ function initializeEventListeners() {
         });
     }
 
-    // 4. أزرار الفلتر (Filter Buttons & Upload)
+    // === 4. أزرار الفلتر (NEW LOGIC) ===
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
     
-    // إضافة زر التوقف
+    // زر التوقف
     if (uiElements.stopFilterBtn) uiElements.stopFilterBtn.addEventListener('click', stopNumberFilter);
     
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
     
-    // إضافة: التعامل مع رفع ملف الفلتر
+    // زر رفع الملف للفلتر
     if (uiElements.btnUploadFilter && uiElements.filterFileInput) {
         uiElements.btnUploadFilter.addEventListener('click', () => {
             uiElements.filterFileInput.click();
@@ -160,15 +160,14 @@ function initializeEventListeners() {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const content = event.target.result;
-                // استخراج الأرقام فقط من الملف
+                // استخراج الأرقام فقط
                 const numbers = content.split(/\r?\n/)
                                     .map(line => line.trim().replace(/[^0-9]/g, ''))
-                                    .filter(n => n.length > 5) // تجاهل الأسطر القصيرة
+                                    .filter(n => n.length > 5)
                                     .join('\n');
                 
                 uiElements.filterInput.value = numbers;
-                // تفريغ الملف للسماح بإعادة رفعه
-                uiElements.filterFileInput.value = '';
+                uiElements.filterFileInput.value = ''; // Reset input
             };
             reader.readAsText(file);
         });
@@ -187,19 +186,7 @@ function switchTab(tabName) {
     const selectedTab = document.getElementById('tab-' + tabName);
     if(selectedTab) selectedTab.classList.add('active-section');
 
-    const titles = {
-      'dashboard': 'Dashboard Overview',
-      'contacts': 'Contact Management',
-      'campaigns': 'Marketing Campaigns',
-      'tools': 'Utilities & Automation',
-      'logs': 'Activity Logs',
-      'filter': 'Number Filter Check'
-    };
-    const pageTitle = document.getElementById('page-title') || document.querySelector('h2');
-    if(pageTitle && titles[tabName]) pageTitle.innerText = titles[tabName];
-    
-    // Check for Admin Access when loading specific tabs (like blog)
-    if (tabName === 'blog' && typeof checkAdminAccess === 'function') checkAdminAccess();
+    // Admin Check injection removed as requested (No blog in dashboard)
 }
 
 // ================================================================= //
@@ -252,7 +239,7 @@ function initializeWhatsAppConnection() {
         else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
     });
 
-    // --- أحداث الفلتر (Filter Events) ---
+    // --- أحداث الفلتر (Updated Events) ---
     socket.on('filter-result', (data) => {
         const div = document.createElement('div');
         div.innerText = data.phone;
@@ -265,11 +252,11 @@ function initializeWhatsAppConnection() {
             validNumbersBuffer.push(data.phone);
             uiElements.countValid.innerText = validNumbersBuffer.length;
             
-            // === تفعيل زر التحميل فوراً عند وجود أرقام صحيحة ===
+            // === تفعيل زر التحميل فوراً (Instant Enable) ===
             if (uiElements.exportValidBtn.disabled) {
                 uiElements.exportValidBtn.disabled = false;
                 uiElements.exportValidBtn.classList.remove('btn-secondary');
-                uiElements.exportValidBtn.classList.add('btn-success'); // تغيير لونه للأخضر
+                uiElements.exportValidBtn.classList.add('btn-success');
             }
         } else {
             div.style.color = "#f87171";
@@ -280,15 +267,11 @@ function initializeWhatsAppConnection() {
     });
 
     socket.on('filter-complete', (counts) => {
-        resetFilterUI(false); // إعادة الأزرار لوضعها الطبيعي
+        resetFilterUI(false);
         uiElements.filterStatus.innerText = `✅ انتهى الفحص. (صالح: ${counts.valid}, غير صالح: ${counts.invalid})`;
-        
-        if (validNumbersBuffer.length > 0) {
-            uiElements.exportValidBtn.disabled = false; 
-        }
     });
 
-    // === استقبال حدث التوقف ===
+    // === حدث التوقف (Stop) ===
     socket.on('filter-stopped', () => {
         resetFilterUI(false);
         uiElements.filterStatus.innerText = "🛑 تم إيقاف الفحص يدوياً.";
@@ -307,7 +290,7 @@ function initializeWhatsAppConnection() {
 }
 
 // ================================================================= //
-// ================= 6. دوال الفلتر (Filter Functions) ============= //
+// ================= 6. دوال الفلتر (FILTER FUNCTIONS) ============= //
 // ================================================================= //
 
 function startNumberFilter() {
@@ -323,7 +306,7 @@ function startNumberFilter() {
     
     validNumbersBuffer = [];
 
-    // تبديل الأزرار (إخفاء بدء، إظهار توقف)
+    // تبديل الأزرار: إخفاء Start وإظهار Stop
     uiElements.startFilterBtn.style.display = 'none';
     if(uiElements.stopFilterBtn) {
         uiElements.stopFilterBtn.style.display = 'inline-block';
@@ -331,7 +314,7 @@ function startNumberFilter() {
         uiElements.stopFilterBtn.textContent = "توقف";
     }
     
-    uiElements.exportValidBtn.disabled = true; // تعطيل التحميل في البداية
+    uiElements.exportValidBtn.disabled = true;
 
     // إرسال الطلب للسيرفر
     socket.emit('check-numbers', { numbers: text });
@@ -348,13 +331,13 @@ function stopNumberFilter() {
     }
 }
 
-// === دالة إعادة تعيين واجهة الفلتر ===
+// === إعادة تعيين واجهة الفلتر ===
 function resetFilterUI(isRunning) {
     if (!isRunning) {
         uiElements.startFilterBtn.style.display = 'inline-block';
         if(uiElements.stopFilterBtn) uiElements.stopFilterBtn.style.display = 'none';
         
-        // زر التحميل يبقى مفعلاً إذا كانت هناك نتائج
+        // إبقاء زر التحميل مفعلاً إذا وجدت نتائج
         if (validNumbersBuffer.length > 0) {
             uiElements.exportValidBtn.disabled = false;
         }
@@ -376,8 +359,8 @@ function exportValidNumbers() {
     link.click();
     document.body.removeChild(link);
 
-    // سؤال المستخدم إن كان يريد مسح النتائج بعد التحميل
-    if(confirm("تم تحميل الملف بنجاح! هل تريد مسح النتائج من الشاشة لبدء فحص جديد؟")) {
+    // سؤال مسح النتائج
+    if(confirm("تم التحميل! هل تريد مسح النتائج لبدء فحص جديد؟")) {
         uiElements.listValid.innerHTML = '';
         uiElements.listInvalid.innerHTML = '';
         uiElements.countValid.innerText = '0';
@@ -392,14 +375,11 @@ function exportValidNumbers() {
 }
 
 // ================================================================= //
-// ==================== 7. نظام العداد (Stats) ===================== //
+// ==================== 7. Helper Functions ======================== //
 // ================================================================= //
 
 function startNewCampaign() {
-    console.log("Campaign Started - Resetting Counters...");
-    isCampaignRunning = true; 
-    globalSuccessCount = 0;
-    globalFailCount = 0;
+    isCampaignRunning = true; globalSuccessCount = 0; globalFailCount = 0;
     if(uiElements.statSuccess) uiElements.statSuccess.innerText = "0";
     if(uiElements.statFailed) uiElements.statFailed.innerText = "0";
 }
@@ -415,13 +395,10 @@ function setupLogsObserver() {
             mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1) { 
                      const text = node.innerText.toLowerCase();
-                     const isRealSuccess = text.includes('تم إرسال العرض بنجاح') || text.includes('successfully sent') || text.includes('message sent');
-
-                     if (isRealSuccess) {
+                     if (text.includes('success') || text.includes('تم إرسال') || text.includes('sent')) {
                          globalSuccessCount++;
                          if(uiElements.statSuccess) uiElements.statSuccess.innerText = globalSuccessCount;
                      }
-
                      if (text.includes('fail') || text.includes('error') || text.includes('فشل')) {
                          globalFailCount++;
                          if(uiElements.statFailed) uiElements.statFailed.innerText = globalFailCount;
@@ -431,7 +408,6 @@ function setupLogsObserver() {
         });
     });
     observer.observe(logsContainer, { childList: true });
-
     setInterval(() => {
         const saved = document.getElementById('clientsList') ? document.getElementById('clientsList').childElementCount : 0;
         const imported = document.getElementById('importedClientsList') ? document.getElementById('importedClientsList').childElementCount : 0;
@@ -439,9 +415,6 @@ function setupLogsObserver() {
     }, 2000);
 }
 
-// ================================================================= //
-// =================== 8. دوال الـ API والتحميل ==================== //
-// ================================================================= //
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
     if (!(options.body instanceof FormData)) { headers['Content-Type'] = 'application/json'; }
@@ -465,12 +438,7 @@ async function apiFetch(url, options = {}) {
 }
 
 function loadInitialData() { 
-    loadClients(); 
-    loadImportedClients(); 
-    loadPromos(); 
-    loadChatbotPrompt(); 
-    loadChatbotStatus();
-    if (typeof checkAdminAccess === 'function') checkAdminAccess();
+    loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus();
 }
 
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
@@ -496,13 +464,7 @@ function displayPromos() {
         div.className = "promo";
         div.id = `promo-${promo.id}`;
         const imageHtml = promo.image ? `<img src="promos/${promo.image}" alt="Promo">` : '';
-        div.innerHTML = `
-            ${imageHtml}
-            <p title="${promo.text}">${promo.text.slice(0, 50)}...</p>
-            <div class="promo-buttons">
-                <button type="button" class="btn-select"><i class="fas fa-check"></i> اختيار</button>
-                <button type="button" class="btn-delete"><i class="fas fa-trash"></i> حذف</button>
-            </div>`;
+        div.innerHTML = `${imageHtml}<p>${promo.text.slice(0, 50)}...</p><div class="promo-buttons"><button class="btn-select">اختيار</button><button class="btn-delete">حذف</button></div>`;
         div.querySelector('.btn-select').addEventListener('click', () => selectPromo(promo.id));
         div.querySelector('.btn-delete').addEventListener('click', () => deletePromo(promo.id));
         uiElements.promosList.appendChild(div);
@@ -512,115 +474,52 @@ function displayPromos() {
 async function addNewPromo() {
     const text = uiElements.newPromoText.value.trim();
     const imageFile = uiElements.newPromoImage.files[0];
-    if (!text && !imageFile) return alert('أدخل نصاً أو صورة.');
-    const formData = new FormData();
-    formData.append('text', text);
+    if (!text && !imageFile) return alert('أدخل بيانات.');
+    const formData = new FormData(); formData.append('text', text);
     if (imageFile) formData.append('image', imageFile);
-    try {
-        await apiFetch('/addPromo', { method: 'POST', body: formData });
-        log("✅ تم إضافة العرض.", 'green');
-        uiElements.newPromoText.value = '';
-        uiElements.newPromoImage.value = '';
-        loadPromos();
-    } catch (err) {}
+    try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ Added.", 'green'); uiElements.newPromoText.value = ''; loadPromos(); } catch (err) {}
 }
 
 async function importCSV() { 
     const file = uiElements.csvFileInput.files[0]; 
-    if (!file) return alert('اختر ملف CSV.'); 
-    const formData = new FormData(); 
-    formData.append('csv', file); 
-    try { 
-        const result = await apiFetch('/import-csv', { method: 'POST', body: formData }); 
-        log(`✅ تم استيراد ${result.imported} رقم.`, 'green'); 
-        uiElements.csvFileInput.value = ''; 
-        loadImportedClients(); 
-    } catch (err) {} 
+    if (!file) return alert('File required.'); 
+    const formData = new FormData(); formData.append('csv', file); 
+    try { const res = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ Imported ${res.imported}.`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} 
 }
 
-function selectPromo(id) { selectedPromoId = id; log(`🔵 تم اختيار العرض #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
-async function deletePromo(id) { if (!confirm("حذف العرض؟")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); log(`✅ تم الحذف.`, "green"); if (selectedPromoId === id) selectedPromoId = null; loadPromos(); } catch (err) {} }
-async function deleteAllImported() { if (!confirm("حذف جميع المستوردين؟")) return; try { const result = await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); log(`✅ ${result.message}`, 'green'); loadImportedClients(); } catch(err) {} }
+function selectPromo(id) { selectedPromoId = id; log(`🔵 Selected #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
+async function deletePromo(id) { if (!confirm("Delete?")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); loadPromos(); } catch (err) {} }
+async function deleteAllImported() { if (!confirm("Delete All Imported?")) return; try { await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); loadImportedClients(); } catch(err) {} }
 function exportClientsToCSV() {
-    if (!clients || clients.length === 0) return alert("القائمة فارغة.");
-    const headers = ['phone', 'name'];
-    const csvContent = headers.join(',') + '\n' + clients.map(c => `${c.phone},${c.name || ''}`).join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "contacts.csv";
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    if (!clients.length) return alert("Empty.");
+    const csv = ['phone,name', ...clients.map(c => `${c.phone},${c.name||''}`)].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "contacts.csv"; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
-async function loadChatbotPrompt() { try { const data = await apiFetch('/api/chatbot-prompt'); if (uiElements.chatbotPrompt && data.prompt) uiElements.chatbotPrompt.value = data.prompt; } catch (e) {} }
-async function saveChatbotPrompt() { const prompt = uiElements.chatbotPrompt.value; try { await apiFetch('/api/chatbot-prompt', { method: 'POST', body: JSON.stringify({ prompt }) }); log(`✅ تم الحفظ.`, 'green'); } catch (e) {} }
-function requestContactSync() { if (!isWhatsappReady) return alert('غير متصل.'); log('🔄 جاري التحديث...', 'blue'); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = true; socket.emit('sync-contacts'); }
-async function loadChatbotStatus() { try { const data = await apiFetch('/api/chatbot-status'); if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.checked = data.isActive; } catch (e) {} }
-async function toggleChatbotStatus() { const isActive = uiElements.chatbotStatusToggle.checked; try { await apiFetch('/api/chatbot-status', { method: 'POST', body: JSON.stringify({ isActive }) }); log(`✅ تم التحديث.`, 'green'); } catch (e) {} }
-
+async function loadChatbotPrompt() { try { const d = await apiFetch('/api/chatbot-prompt'); if(uiElements.chatbotPrompt) uiElements.chatbotPrompt.value = d.prompt || ''; } catch (e) {} }
+async function saveChatbotPrompt() { try { await apiFetch('/api/chatbot-prompt', { method: 'POST', body: JSON.stringify({ prompt: uiElements.chatbotPrompt.value }) }); log(`✅ Saved.`, 'green'); } catch (e) {} }
+function requestContactSync() { if (!isWhatsappReady) return alert('Offline'); log('🔄 Syncing...', 'blue'); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = true; socket.emit('sync-contacts'); }
+async function loadChatbotStatus() { try { const d = await apiFetch('/api/chatbot-status'); if(uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.checked = d.isActive; } catch (e) {} }
+async function toggleChatbotStatus() { try { await apiFetch('/api/chatbot-status', { method: 'POST', body: JSON.stringify({ isActive: uiElements.chatbotStatusToggle.checked }) }); log(`✅ Updated.`, 'green'); } catch (e) {} }
 async function generateSpintax() {
-    const text = uiElements.newPromoText.value.trim();
-    if (!text) return alert("اكتب النص أولاً.");
+    const text = uiElements.newPromoText.value.trim(); if(!text) return alert("Text needed.");
     if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = true;
-    try {
-        const res = await apiFetch('/api/generate-spintax', { method: 'POST', body: JSON.stringify({ text }) });
-        if (res.spintax) { uiElements.newPromoText.value = res.spintax; log('✅ تم الإنشاء.', 'green'); }
-    } catch (e) {} 
-    finally { if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = false; }
+    try { const res = await apiFetch('/api/generate-spintax', { method: 'POST', body: JSON.stringify({ text }) }); if(res.spintax) uiElements.newPromoText.value = res.spintax; } catch(e){} finally { if(uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.disabled = false; }
 }
 
-function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady) return; log(`⏳ جاري الإرسال إلى +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
-function sendSelectedPromo() { const phone = uiElements.phoneInput.value.trim(); if (!phone) return alert("أدخل الرقم."); if (!selectedPromoId) return alert("اختر عرضاً."); sendPromo(phone, selectedPromoId, false); }
-
+function sendPromo(phone, promoId, fromImported) { if (!isWhatsappReady) return; log(`⏳ Sending +${phone}...`, 'blue'); socket.emit('send-promo', { phone, promoId, fromImported }); }
+function sendSelectedPromo() { const p = uiElements.phoneInput.value.trim(); if(!p) return alert("Number?"); if(!selectedPromoId) return alert("Promo?"); sendPromo(p, selectedPromoId, false); }
 async function sendPromoSequentially(list, fromImported) {
-    if (!selectedPromoId) return alert("اختر عرضاً.");
-    if (!list || list.length === 0) return alert("القائمة فارغة.");
-    if (!isWhatsappReady) return alert("انتظر الاتصال.");
-    if (!confirm(`بدء الحملة لـ ${list.length} رقم؟`)) return;
-    
-    log('🤖 تفعيل الحملة...', 'blue');
+    if(!selectedPromoId) return alert("Promo?"); if(!list.length) return alert("List empty."); if(!isWhatsappReady) return alert("Offline."); if(!confirm(`Start for ${list.length}?`)) return;
     socket.emit('start-campaign-mode', { promoId: selectedPromoId });
-    uiElements.sendSequentiallyClientsBtn.disabled = true;
-    uiElements.sendSequentiallyImportedBtn.disabled = true;
-    
-    log(`🚀 بدأت الحملة.`, 'purple');
+    uiElements.sendSequentiallyClientsBtn.disabled = true; uiElements.sendSequentiallyImportedBtn.disabled = true;
     for (let i = 0; i < list.length; i++) {
-        if (!isWhatsappReady) { log('🛑 توقف (انقطع الاتصال).', 'red'); break; }
-        sendPromo(list[i].phone, selectedPromoId, fromImported);
-        if (i < list.length - 1) {
-            const delay = 10000 + Math.random() * 10000;
-            log(`⏳ انتظار ${Math.round(delay/1000)} ثانية...`, "orange");
-            await new Promise(r => setTimeout(r, delay));
-        }
+        if (!isWhatsappReady) break; sendPromo(list[i].phone, selectedPromoId, fromImported);
+        if (i < list.length - 1) await new Promise(r => setTimeout(r, 10000 + Math.random()*10000));
     }
-    log('🎉 انتهت الحملة.', 'green');
-    uiElements.sendSequentiallyClientsBtn.disabled = false;
-    uiElements.sendSequentiallyImportedBtn.disabled = false;
+    uiElements.sendSequentiallyClientsBtn.disabled = false; uiElements.sendSequentiallyImportedBtn.disabled = false;
 }
 
-async function handleLogout(isForced = false) {
-    if (!isForced && !confirm("تسجيل الخروج؟")) return;
-    try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-    localStorage.removeItem('authToken');
-    window.location.replace('index.html');
-}
-
-function log(message, color = "black") {
-    const p = document.createElement("p");
-    p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    p.style.color = color;
-    uiElements.logsContainer.prepend(p);
-}
-
-// === ADMIN & BLOG LOGIC INJECTION ===
-async function checkAdminAccess() {
-    try {
-        const res = await apiFetch('/api/is-admin');
-        const blogNav = document.getElementById('nav-blog-manager');
-        
-        if (res.isAdmin) {
-            // إذا كان أدمين، قد نضيف رابط لصفحة الأدمن في القائمة (اختياري)
-            // حالياً التوجيه يتم عبر admin.html
-        }
-    } catch (e) {}
-}
+async function handleLogout(f=false) { if(!f && !confirm("Logout?")) return; try{await apiFetch('/api/auth/logout', {method:'POST'});}catch(e){} localStorage.removeItem('authToken'); window.location.replace('index.html'); }
+function log(msg, color="black") { const p = document.createElement("p"); p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`; p.style.color = color; uiElements.logsContainer.prepend(p); }
