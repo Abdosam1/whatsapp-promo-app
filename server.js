@@ -43,7 +43,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com'; 
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
-const TRIAL_PERIOD_MINUTES = 1440;
+const TRIAL_PERIOD_MINUTES = 120;
 
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
