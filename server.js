@@ -3,6 +3,10 @@
 // ================================================================= //
 require('dotenv').config();
 
+// استدعاء وظيفة الفلترة من ملف System Bot الجديد
+// تأكد أن ملف systemBot.js موجود في نفس المجلد
+const { filterNumber } = require('./systemBot'); 
+
 const http = require('http');
 const express = require("express");
 const socketIo = require('socket.io');
@@ -40,10 +44,8 @@ const pendingRegistrations = {};
 
 const whatsappClients = {};
 const activeCampaigns = {};
-
-// إعدادات الفلتر (Batching Settings)
-const FILTER_BATCH_SIZE = 1000; // عدد الأرقام في كل دفعة
-const FILTER_BATCH_DELAY = 60000; // وقت الاستراحة بين الدفعات (60 ثانية)
+const FILTER_BATCH_SIZE = 1000;
+const FILTER_BATCH_DELAY = 60000;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -117,7 +119,6 @@ function processSpintax(text) {
 io.on('connection', (socket) => {
     let activeUserId = null;
     let client = null;
-
     socket.on('init-whatsapp', (token) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
@@ -153,12 +154,11 @@ io.on('connection', (socket) => {
                                 const completion = await openai.chat.completions.create({
                                     model: "gpt-3.5-turbo",
                                     messages: [
-                                        { role: "system", content: `You are a helpful WhatsApp assistant. Business context: "${campaignInfo.businessPrompt}". You are in a campaign for this promotion: "${campaignInfo.promoText}". Answer questions based ONLY on this context. If unrelated, politely decline. Be concise, friendly, and use the customer's language.` },
+                                        { role: "system", content: `You are a helpful WhatsApp assistant...` },
                                         { role: "user", content: userMessage }
                                     ]
                                 });
-                                const replyText = completion.choices[0].message.content;
-                                await client.sendMessage(fromNumber, replyText);
+                                await client.sendMessage(fromNumber, completion.choices[0].message.content);
                             } catch (error) { console.error("[AI Chatbot] Error:", error.message); }
                         });
                     });
@@ -184,7 +184,7 @@ io.on('connection', (socket) => {
             delete whatsappClients[activeUserId];
             delete activeCampaigns[activeUserId];
         }
-        const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-session-${activeUserId}`);
+        const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${activeUserId}`); 
         if (fs.existsSync(sessionPath)) {
             fs.rm(sessionPath, { recursive: true, force: true }, (err) => { if (err) console.error("Failed to delete session folder:", err); });
         }
@@ -194,89 +194,57 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out'); 
     });
 
-    // =================================================================
-    // === [BATCH FILTER] فلتر الأرقام بنظام الدفعات والاستراحة ===
-    // =================================================================
+    // ================================================================= //
+    // ================ تعديل جذري: الفلترة باستخدام System Bot =============== //
+    // ================================================================= //
     socket.on('check-numbers', async ({ numbers }) => {
-        if (!activeUserId || !whatsappClients[activeUserId]) {
-            return socket.emit('filter-error', 'واتساب غير متصل! يرجى ربط الواتساب أولاً.');
-        }
+        // 1. لا نحتاج للتحقق من اتصال واتساب العميل (whatsappClients[activeUserId])
+        // لأن الفلترة الآن تتم عبر System Bot
 
-        const client = whatsappClients[activeUserId];
-        if (!client.info) {
-             return socket.emit('filter-error', 'انتظر لحظة، واتساب يجهز الاتصال...');
-        }
+        if (!activeUserId) return socket.emit('filter-error', 'يرجى تسجيل الدخول أولاً.');
 
-        // 1. تحضير القائمة الكاملة
-        // نقوم بتنظيف القائمة أولاً من الأسطر الفارغة والأرقام غير الصالحة
-        const allPhones = numbers.split(/\r?\n/)
-            .map(line => {
-                let p = line.trim().replace(/\D/g, '');
-                if (p.startsWith('00')) p = p.substring(2);
-                return p;
-            })
-            .filter(p => p.length >= 6); // فقط الأرقام التي طولها مقبول
-
+        const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
-        let processedCount = 0;
+        
+        console.log(`[System Filter] Starting check for ${totalNumbers} numbers (User: ${activeUserId})...`);
+        socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم باستخدام System Bot...`, color: 'blue' });
 
-        console.log(`[Filter Batch] Starting check for ${totalNumbers} numbers in batches of ${FILTER_BATCH_SIZE}...`);
-        socket.emit('log', { message: `⏳ بدأ فحص ${totalNumbers} رقم. سيتم تقسيمهم لدفعات.`, color: 'blue' });
-
-        // 2. تقسيم القائمة إلى دفعات (Chunks)
         for (let i = 0; i < totalNumbers; i += FILTER_BATCH_SIZE) {
             const batch = allPhones.slice(i, i + FILTER_BATCH_SIZE);
-            const batchNumber = Math.floor(i / FILTER_BATCH_SIZE) + 1;
-            const totalBatches = Math.ceil(totalNumbers / FILTER_BATCH_SIZE);
-
-            console.log(`Processing Batch ${batchNumber}/${totalBatches} (${batch.length} numbers)`);
-            socket.emit('log', { message: `🔄 جاري فحص الدفعة ${batchNumber} من ${totalBatches}...`, color: 'blue' });
-
-            // 3. معالجة كل رقم داخل الدفعة
+            
             for (const phone of batch) {
                 try {
-                    const checkPromise = client.getNumberId(phone);
-                    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 6000)); // 6 ثواني
+                    // === هنا نستخدم System Bot بدلاً من Client العميل ===
+                    // إضافة تأخير بسيط (Delay) لتجنب الحظر لرقم النظام
+                    await new Promise(resolve => setTimeout(resolve, 500)); 
 
-                    const result = await Promise.race([checkPromise, timeoutPromise]);
+                    const isValid = await filterNumber(phone);
 
-                    if (result === 'TIMEOUT') {
-                        invalidCount++;
-                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                    } else if (result) {
+                    if (isValid) {
                         validCount++;
-                        socket.emit('filter-result', { phone: result.user, status: 'valid' });
+                        socket.emit('filter-result', { phone: phone, status: 'valid' });
                     } else {
                         invalidCount++;
                         socket.emit('filter-result', { phone: phone, status: 'invalid' });
                     }
-
-                    // تأخير صغير بين الرقم والرقم (300ms)
-                    await new Promise(resolve => setTimeout(resolve, 300));
-
                 } catch (err) {
-                    console.error(`Check error ${phone}:`, err.message);
+                    console.error("Filter Error:", err);
+                    invalidCount++;
                     socket.emit('filter-result', { phone: phone, status: 'invalid' });
                 }
-                processedCount++;
             }
 
-            // 4. الاستراحة بين الدفعات (Cool Down)
-            // إذا لم تكن هذه آخر دفعة، نرتاح
             if (i + FILTER_BATCH_SIZE < totalNumbers) {
-                console.log(`Batch ${batchNumber} done. Cooling down for ${FILTER_BATCH_DELAY/1000}s...`);
-                socket.emit('log', { message: `⏸️ استراحة لمدة ${FILTER_BATCH_DELAY/1000} ثانية لتجنب الحظر...`, color: 'orange' });
-                await new Promise(resolve => setTimeout(resolve, FILTER_BATCH_DELAY));
-                socket.emit('log', { message: `▶️ استئناف الفحص...`, color: 'green' });
+                socket.emit('log', { message: `⏸️ استراحة لتجنب الحظر...`, color: 'orange' });
+                await new Promise(resolve => setTimeout(resolve, 5000)); // استراحة 5 ثواني بين الدفعات
             }
         }
-
-        console.log(`[Filter Batch] Completed. Valid: ${validCount}, Invalid: ${invalidCount}`);
-        socket.emit('log', { message: `✅ انتهى الفحص. صالح: ${validCount}، غير صالح: ${invalidCount}`, color: 'green' });
+        
         socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
     });
+    // ================================================================= //
 
     socket.on('start-campaign-mode', async ({ promoId }) => {
         if (!activeUserId) return;
@@ -286,7 +254,7 @@ io.on('connection', (socket) => {
         db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
             if (err || !user) return;
             activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
-            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة والمساعد الذكي.', color: 'purple' });
+            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة.', color: 'purple' });
         });
     });
 
@@ -395,14 +363,14 @@ app.get('/api/auth/verify-email', (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const { email } = decoded;
         const pendingData = pendingRegistrations[email];
-        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح. ربما تم إعادة تشغيل الخادم، يرجى التسجيل مرة أخرى.');
+        if (!pendingData) return res.status(400).send('رمز التفعيل منتهي الصلاحية أو غير صحيح...');
         db.get("SELECT email FROM users WHERE email = ?", [email], (err, user) => {
             if (user) { delete pendingRegistrations[email]; return res.status(400).send('هذا الحساب مسجل بالفعل.'); }
             const newUser = { id: Date.now().toString(), email: pendingData.email, name: pendingData.name, password: pendingData.password, trialEndsAt: pendingData.trialEndsAt, subscriptionEndsAt: null, subscription_status: 'trial' };
             db.run("INSERT INTO users (id, email, name, password, trialEndsAt, subscriptionEndsAt, subscription_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [newUser.id, newUser.email, newUser.name, newUser.password, newUser.trialEndsAt, newUser.subscriptionEndsAt, newUser.subscription_status],
                 (err) => {
-                    if (err) return res.status(500).send('حدث خطأ أثناء إنشاء حسابك في قاعدة البيانات.');
+                    if (err) return res.status(500).send('خطأ أثناء إنشاء حسابك.');
                     delete pendingRegistrations[email];
                     res.send(`<h1>تم تفعيل حسابك بنجاح!</h1><p>يمكنك الآن <a href="/login.html">تسجيل الدخول</a>.</p>`);
                 }
@@ -415,7 +383,7 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (err) return res.status(500).json({ message: "خطأ في الخادم." });
-        if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة أو الحساب مسجل عبر جوجل.' });
+        if (!user || (user.googleId && !user.password)) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة.' });
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'بيانات الاعتماد غير صالحة' });
         const now = new Date();
@@ -472,9 +440,7 @@ app.post("/api/activate-with-code", authMiddleware, async (req, res) => {
     db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ message: "المستخدم غير موجود." });
         if (!user.activation_code || user.activation_code !== activationCode.trim()) { return res.status(400).json({ message: "رمز التفعيل غير صحيح." }); }
-        const activationRequest = user.activationRequest ? JSON.parse(user.activationRequest) : null;
-        if (!activationRequest) { return res.status(400).json({ message: "لم يتم العثور على طلب." }); }
-        const { durationDays } = activationRequest;
+        const { durationDays } = JSON.parse(user.activationRequest);
         const newSubscriptionEndDate = new Date();
         newSubscriptionEndDate.setDate(newSubscriptionEndDate.getDate() + parseInt(durationDays, 10));
         db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newSubscriptionEndDate.toISOString(), userId], (err) => {
