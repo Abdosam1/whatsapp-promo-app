@@ -49,7 +49,7 @@ const blogFile = path.join(__dirname, 'blog_posts.json');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
 
-// === ENSURE FOLDERS EXIST (Fix for Upload Errors) ===
+// === ENSURE FOLDERS EXIST ===
 [promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -73,7 +73,6 @@ let systemSock = null;
 const storagePromo = multer.diskStorage({
     destination: (req, file, cb) => cb(null, promosUploadFolder),
     filename: (req, file, cb) => {
-        // Fix: Ensure unique filename and keep extension
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
@@ -81,17 +80,17 @@ const storagePromo = multer.diskStorage({
 
 const uploadPromoImage = multer({ 
     storage: storagePromo,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
+    limits: { fileSize: 5 * 1024 * 1024 } 
 });
 
 const uploadCSV = multer({ 
     dest: uploadsFolder,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB Limit
+    limits: { fileSize: 10 * 1024 * 1024 } 
 });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Added for better form handling
+app.use(express.urlencoded({ extended: true })); 
 app.use(passport.initialize());
 app.use('/promos', express.static(promosUploadFolder));
 
@@ -263,73 +262,127 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    // =======================================================
-    // === FILTER LOGIC (STOP + PIC STRATEGY) ================
-    // =======================================================
+    // ============================================================ //
+    // === SMART FILTER LOGIC (PROFILE PIC + STOP + UPLOAD FIX) === //
+    // ============================================================ //
     socket.on('check-numbers', async ({ numbers }) => {
+        // 1. Check System Bot
         if (!systemSock || !systemSock.user) {
-            return socket.emit('filter-error', 'System Bot غير متصل! يرجى مسح QR.');
+            return socket.emit('filter-error', 'System Bot غير متصل! يرجى مسح QR في السيرفر.');
         }
 
+        // 2. Clean Numbers
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
 
+        // Reset Stop Flag
         stopFilterFlags[activeUserId] = false;
 
-        socket.emit('log', { message: `⏳ بدأ الفحص (${totalNumbers} رقم)...`, color: 'blue' });
+        socket.emit('log', { message: `⏳ بدأ الفحص الذكي (طريقة الصور) لـ ${totalNumbers} رقم...`, color: 'purple' });
 
         for (let i = 0; i < totalNumbers; i++) {
+            
+            // 🛑 STOP CHECK
             if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
+                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
                 break;
             }
 
             const phone = allPhones[i];
-            const jid = `${phone}@s.whatsapp.net`;
-
-            // Anti-Ban
-            if (i > 0 && i % 1000 === 0) await sleep(getRandomDelay(300000, 600000));
-            else if (i > 0 && i % 100 === 0) await sleep(getRandomDelay(60000, 120000));
             
-            await sleep(getRandomDelay(500, 1500));
+            // Anti-Ban Pauses
+            if (i > 0 && i % 1000 === 0) {
+                const pause = getRandomDelay(300000, 600000);
+                socket.emit('log', { message: `⏸️ استراحة طويلة...`, color: 'orange' });
+                await sleep(pause);
+            } else if (i > 0 && i % 100 === 0) {
+                const pause = getRandomDelay(60000, 120000);
+                socket.emit('log', { message: `⏸️ استراحة قصيرة...`, color: 'orange' });
+                await sleep(pause);
+            }
 
+            await sleep(getRandomDelay(1000, 3000));
+
+            // === SMART CHECK STRATEGY ===
             try {
-                // 1. Try Profile Pic (Safe)
-                try {
-                    const pp = await systemSock.profilePictureUrl(jid, 'image');
-                    if(pp) {
-                        validCount++;
-                        socket.emit('filter-result', { phone, status: 'valid' });
-                        continue; // Found, next number
-                    }
-                } catch(e) {}
+                const jid = `${phone}@s.whatsapp.net`;
+                let found = false;
 
-                // 2. Try Presence (Fallback)
-                const [res] = await systemSock.onWhatsApp(jid);
-                if (res?.exists) {
-                    validCount++;
-                    socket.emit('filter-result', { phone, status: 'valid' });
-                } else {
-                    invalidCount++;
-                    socket.emit('filter-result', { phone, status: 'invalid' });
+                // Strategy 1: Profile Picture (Safe)
+                try {
+                    const ppUrl = await systemSock.profilePictureUrl(jid, 'image');
+                    if (ppUrl) {
+                        validCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'valid' });
+                        console.log(`✅ FOUND (Pic): ${phone}`);
+                        found = true;
+                    }
+                } catch (e) {
+                     // Picture not found or private
+                }
+
+                // Strategy 2: Presence Check (Fallback)
+                if (!found) {
+                    try {
+                        const [result] = await systemSock.onWhatsApp(jid);
+                        if (result?.exists) {
+                            validCount++;
+                            socket.emit('filter-result', { phone: phone, status: 'valid' });
+                            console.log(`✅ FOUND (Presence): ${phone}`);
+                        } else {
+                            invalidCount++;
+                            socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                        }
+                    } catch (err2) {
+                        invalidCount++;
+                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                    }
                 }
 
             } catch (err) {
                 invalidCount++;
-                socket.emit('filter-result', { phone, status: 'invalid' });
+                socket.emit('filter-result', { phone: phone, status: 'invalid' });
             }
         }
 
+        // Only emit complete if not stopped
         if (!stopFilterFlags[activeUserId]) {
             socket.emit('filter-complete', { valid: validCount, invalid: invalidCount });
         }
     });
 
-    socket.on('stop-filter', () => { if(activeUserId) stopFilterFlags[activeUserId] = true; });
+    // === STOP EVENT ===
+    socket.on('stop-filter', () => {
+        if(activeUserId) stopFilterFlags[activeUserId] = true;
+    });
 
-    socket.on('start-campaign-mode', async ({ promoId }) => { /* ... */ });
+    // ... Other Campaign Events ...
+    socket.on('start-campaign-mode', async ({ promoId }) => {
+        if (!activeUserId) return;
+        const promos = readPromos(activeUserId);
+        const selectedPromo = promos.find(p => p.id === promoId);
+        if (!selectedPromo) return;
+        db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [activeUserId], (err, user) => {
+            if (err || !user) return;
+            activeCampaigns[activeUserId] = { promoText: selectedPromo.text, businessPrompt: user.chatbot_prompt || "متجر عام" };
+            socket.emit('log', { message: '🚀 تم تفعيل وضع الحملة.', color: 'purple' });
+        });
+    });
+
+    socket.on('save-valid-contacts', ({ numbers }) => {
+        if (!activeUserId) return;
+        const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            numbers.forEach(phone => { stmt.run(phone, activeUserId); });
+            stmt.finalize();
+            db.run("COMMIT", () => { socket.emit('sync-complete'); });
+        });
+    });
+
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         const sock = whatsappClients[activeUserId];
@@ -374,7 +427,7 @@ app.get('/api/auth/google/callback', passport.authenticate('google', { failureRe
 
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'بيانات ناقصة' });
+    if (!name || !email || !password) return res.status(400).json({ message: 'البيانات ناقصة' });
     const domains = ['moondyal.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
     if (domains.includes(email.split('@')[1])) return res.status(400).json({ message: 'إيميل مؤقت غير مقبول' });
     
@@ -466,7 +519,7 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
     res.json({ status: "deleted" });
 });
 
-// Blog & Other Routes
+// Blog Routes
 app.get('/api/blog-posts', (req, res) => { try{ res.json(JSON.parse(fs.readFileSync(blogFile))); } catch(e){res.json([]);} });
 app.post('/api/blog-post', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { const {title,summary,content,image}=req.body; const posts=fs.existsSync(blogFile)?JSON.parse(fs.readFileSync(blogFile)):[]; posts.unshift({id:Date.now(),title,summary,content,image,date:new Date().toISOString().split('T')[0]}); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
 app.delete('/api/blog-post/:id', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { let posts=JSON.parse(fs.readFileSync(blogFile)); posts=posts.filter(p=>p.id!==parseInt(req.params.id)); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
