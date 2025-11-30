@@ -65,17 +65,16 @@ const uiElements = {
     statFailed: document.getElementById('stat-sent-failed'),
     statTotal: document.getElementById('stat-total-contacts'),
     
-    // === عناصر الفلتر الجديدة (تمت إضافتها) ===
+    // عناصر الفلتر الجديدة
     filterInput: document.getElementById('filterInput'),
     startFilterBtn: document.getElementById('startFilterBtn'),
-    stopFilterBtn: document.getElementById('stopFilterBtn'), // زر التوقف
+    stopFilterBtn: document.getElementById('stopFilterBtn'), 
     exportValidBtn: document.getElementById('exportValidBtn'),
     listValid: document.getElementById('listValid'),
     listInvalid: document.getElementById('listInvalid'),
     countValid: document.getElementById('countValid'),
     countInvalid: document.getElementById('countInvalid'),
     filterStatus: document.getElementById('filterStatus'),
-    // عناصر رفع ملف الفلتر
     filterFileInput: document.getElementById('filterFileInput'),
     btnUploadFilter: document.getElementById('btnUploadFilter')
 };
@@ -104,20 +103,15 @@ function initializeEventListeners() {
     // 2. الأزرار الرئيسية
     uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
-    uiElements.importCsvBtn.addEventListener('click', importCSV);
     
-    uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => {
-        startNewCampaign();
-        sendPromoSequentially(clients, false);
-    });
-    uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => {
-        startNewCampaign();
-        sendPromoSequentially(importedClients, true);
-    });
-    uiElements.sendSelectedPromoBtn.addEventListener('click', () => {
-        startNewCampaign();
-        sendSelectedPromo();
-    });
+    // FIX: تأكد من أن الزر موجود قبل إضافة الحدث
+    if (uiElements.importCsvBtn) {
+        uiElements.importCsvBtn.addEventListener('click', importCSV);
+    }
+    
+    if(uiElements.sendSequentiallyClientsBtn) uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(clients, false); });
+    if(uiElements.sendSequentiallyImportedBtn) uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(importedClients, true); });
+    if(uiElements.sendSelectedPromoBtn) uiElements.sendSelectedPromoBtn.addEventListener('click', () => { startNewCampaign(); sendSelectedPromo(); });
 
     if (uiElements.deleteAllImportedBtn) uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     if (uiElements.exportClientsBtn) uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
@@ -129,25 +123,22 @@ function initializeEventListeners() {
     // 3. زر فصل الواتساب
     if (uiElements.disconnectWhatsappBtn) {
         uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
-            if(confirm("هل أنت متأكد أنك تريد فصل الرقم وحذف جميع جهات الاتصال الحالية؟")) {
+            if(confirm("هل أنت متأكد أنك تريد فصل الرقم؟")) {
                 if(socket) {
                     socket.emit('logout-whatsapp'); 
-                    uiElements.statusMessage.innerText = "جاري الفصل وحذف البيانات...";
+                    uiElements.statusMessage.innerText = "جاري الفصل...";
                     uiElements.disconnectWhatsappBtn.style.display = 'none';
                 }
             }
         });
     }
 
-    // === 4. أزرار الفلتر (NEW LOGIC) ===
+    // 4. أزرار الفلتر
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
-    
-    // زر التوقف
     if (uiElements.stopFilterBtn) uiElements.stopFilterBtn.addEventListener('click', stopNumberFilter);
-    
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
     
-    // زر رفع الملف للفلتر
+    // زر رفع ملف الفلتر
     if (uiElements.btnUploadFilter && uiElements.filterFileInput) {
         uiElements.btnUploadFilter.addEventListener('click', () => {
             uiElements.filterFileInput.click();
@@ -160,23 +151,20 @@ function initializeEventListeners() {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const content = event.target.result;
-                // استخراج الأرقام فقط
+                // استخراج الأرقام
                 const numbers = content.split(/\r?\n/)
                                     .map(line => line.trim().replace(/[^0-9]/g, ''))
                                     .filter(n => n.length > 5)
                                     .join('\n');
                 
                 uiElements.filterInput.value = numbers;
-                uiElements.filterFileInput.value = ''; // Reset input
+                uiElements.filterFileInput.value = '';
             };
             reader.readAsText(file);
         });
     }
 }
 
-// ================================================================= //
-// ==================== 4. وظيفة التبديل (Switch Tab) ============== //
-// ================================================================= //
 function switchTab(tabName) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     const selectedNav = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
@@ -185,8 +173,6 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active-section'));
     const selectedTab = document.getElementById('tab-' + tabName);
     if(selectedTab) selectedTab.classList.add('active-section');
-
-    // Admin Check injection removed as requested (No blog in dashboard)
 }
 
 // ================================================================= //
@@ -196,16 +182,16 @@ function initializeWhatsAppConnection() {
     socket = io({ auth: { token } });
     
     socket.on('connect', () => { 
-        log('🔌 متصل بالخادم، جاري تهيئة واتساب...', 'blue'); 
+        log('🔌 متصل بالخادم...', 'blue'); 
         socket.emit('init-whatsapp', token); 
     });
 
     socket.on('qr', (qr) => {
         isWhatsappReady = false;
-        uiElements.statusMessage.textContent = 'يرجى مسح هذا الـ QR Code للاتصال:';
+        uiElements.statusMessage.textContent = 'امسح QR Code:';
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
-        QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => { if (err) console.error(err); });
+        QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => {});
     });
 
     socket.on('status', (status) => {
@@ -215,7 +201,7 @@ function initializeWhatsAppConnection() {
             uiElements.qrcodeCanvas.style.display = 'none';
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'inline-block';
             loadInitialData();
-            log('✅ تم الاتصال بواتساب بنجاح!', 'green');
+            log('✅ WhatsApp Connected!', 'green');
         } else {
             isWhatsappReady = false;
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
@@ -223,23 +209,21 @@ function initializeWhatsAppConnection() {
     });
 
     socket.on('whatsapp-logged-out', () => {
-        log('ℹ️ تم فصل الواتساب ومسح البيانات. جاري طلب QR جديد...', 'orange');
-        clients = [];
-        importedClients = [];
-        if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
-        if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
-        if(uiElements.statTotal) uiElements.statTotal.innerText = '0';
+        log('ℹ️ Logged out.', 'orange');
+        clients = []; importedClients = [];
+        if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p>فارغ</p>';
+        if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p>فارغ</p>';
         socket.emit('init-whatsapp', token);
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
     });
 
     socket.on('send-promo-status', (status) => {
-        if (status.success) log(`✅ تم إرسال العرض بنجاح إلى +${status.phone}`, "green");
-        else log(`❌ فشل الإرسال إلى +${status.phone}: ${status.error}`, "red");
+        if (status.success) log(`✅ Sent to +${status.phone}`, "green");
+        else log(`❌ Failed +${status.phone}: ${status.error}`, "red");
     });
 
-    // --- أحداث الفلتر (Updated Events) ---
+    // --- FILTER EVENTS ---
     socket.on('filter-result', (data) => {
         const div = document.createElement('div');
         div.innerText = data.phone;
@@ -252,7 +236,7 @@ function initializeWhatsAppConnection() {
             validNumbersBuffer.push(data.phone);
             uiElements.countValid.innerText = validNumbersBuffer.length;
             
-            // === تفعيل زر التحميل فوراً (Instant Enable) ===
+            // تفعيل التحميل فوراً
             if (uiElements.exportValidBtn.disabled) {
                 uiElements.exportValidBtn.disabled = false;
                 uiElements.exportValidBtn.classList.remove('btn-secondary');
@@ -268,99 +252,86 @@ function initializeWhatsAppConnection() {
 
     socket.on('filter-complete', (counts) => {
         resetFilterUI(false);
-        uiElements.filterStatus.innerText = `✅ انتهى الفحص. (صالح: ${counts.valid}, غير صالح: ${counts.invalid})`;
+        uiElements.filterStatus.innerText = `✅ انتهى الفحص.`;
     });
 
-    // === حدث التوقف (Stop) ===
     socket.on('filter-stopped', () => {
         resetFilterUI(false);
-        uiElements.filterStatus.innerText = "🛑 تم إيقاف الفحص يدوياً.";
-        log('🛑 قام المستخدم بإيقاف الفحص.', 'orange');
+        uiElements.filterStatus.innerText = "🛑 تم الإيقاف.";
+        log('🛑 Stopped.', 'orange');
     });
 
     socket.on('filter-error', (msg) => {
         alert(msg);
         resetFilterUI(false);
-        uiElements.filterStatus.innerText = "❌ حدث خطأ.";
+        uiElements.filterStatus.innerText = "❌ خطأ.";
     });
 
-    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 انقطع الاتصال بالخادم.', 'orange'); });
+    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 Disconnected.', 'orange'); });
     socket.on('log', (data) => log(data.message, data.color));
-    socket.on('sync-complete', () => { log('✅ اكتمل التحديث.', 'green'); loadClients(); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; });
+    socket.on('sync-complete', () => { log('✅ Synced.', 'green'); loadClients(); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; });
 }
 
 // ================================================================= //
-// ================= 6. دوال الفلتر (FILTER FUNCTIONS) ============= //
+// ================= 6. FUNCTIONS (FILTER, UPLOAD) ================= //
 // ================================================================= //
 
 function startNumberFilter() {
     const text = uiElements.filterInput.value.trim();
-    if (!text) return alert("أدخل أرقاماً للفحص.");
+    if (!text) return alert("أدخل أرقاماً.");
     
-    // تهيئة الواجهة
     uiElements.listValid.innerHTML = '';
     uiElements.listInvalid.innerHTML = '';
     uiElements.countValid.innerText = '0';
     uiElements.countInvalid.innerText = '0';
-    uiElements.filterStatus.innerText = "جاري الفحص... ⏳";
+    uiElements.filterStatus.innerText = "جاري الفحص...";
     
     validNumbersBuffer = [];
 
-    // تبديل الأزرار: إخفاء Start وإظهار Stop
     uiElements.startFilterBtn.style.display = 'none';
     if(uiElements.stopFilterBtn) {
         uiElements.stopFilterBtn.style.display = 'inline-block';
         uiElements.stopFilterBtn.disabled = false;
-        uiElements.stopFilterBtn.textContent = "توقف";
     }
     
     uiElements.exportValidBtn.disabled = true;
-
-    // إرسال الطلب للسيرفر
     socket.emit('check-numbers', { numbers: text });
 }
 
-// === دالة إيقاف الفلتر ===
 function stopNumberFilter() {
-    if(confirm("هل تريد حقاً إيقاف عملية الفحص؟")) {
+    if(confirm("إيقاف؟")) {
         if(uiElements.stopFilterBtn) {
-            uiElements.stopFilterBtn.textContent = "جاري التوقف...";
+            uiElements.stopFilterBtn.textContent = "Waiting...";
             uiElements.stopFilterBtn.disabled = true;
         }
         socket.emit('stop-filter');
     }
 }
 
-// === إعادة تعيين واجهة الفلتر ===
 function resetFilterUI(isRunning) {
     if (!isRunning) {
         uiElements.startFilterBtn.style.display = 'inline-block';
-        if(uiElements.stopFilterBtn) uiElements.stopFilterBtn.style.display = 'none';
-        
-        // إبقاء زر التحميل مفعلاً إذا وجدت نتائج
-        if (validNumbersBuffer.length > 0) {
-            uiElements.exportValidBtn.disabled = false;
+        if(uiElements.stopFilterBtn) {
+            uiElements.stopFilterBtn.style.display = 'none';
+            uiElements.stopFilterBtn.textContent = "توقف";
         }
+        if (validNumbersBuffer.length > 0) uiElements.exportValidBtn.disabled = false;
     }
 }
 
 function exportValidNumbers() {
-    if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام صالحة للتحميل.");
-
+    if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام.");
     const csvContent = "Phone\n" + validNumbersBuffer.join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `valid_numbers_${Date.now()}.csv`);
-    link.style.visibility = 'hidden';
+    link.href = url;
+    link.download = `valid_${Date.now()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    // سؤال مسح النتائج
-    if(confirm("تم التحميل! هل تريد مسح النتائج لبدء فحص جديد؟")) {
+    
+    if(confirm("مسح النتائج؟")) {
         uiElements.listValid.innerHTML = '';
         uiElements.listInvalid.innerHTML = '';
         uiElements.countValid.innerText = '0';
@@ -369,15 +340,47 @@ function exportValidNumbers() {
         uiElements.exportValidBtn.disabled = true;
         uiElements.exportValidBtn.classList.remove('btn-success');
         uiElements.exportValidBtn.classList.add('btn-secondary');
-        uiElements.filterStatus.innerText = "...";
         validNumbersBuffer = [];
     }
 }
 
-// ================================================================= //
-// ==================== 7. Helper Functions ======================== //
-// ================================================================= //
+// === FIXED CSV IMPORT FUNCTION ===
+async function importCSV() { 
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0]; 
+    
+    if (!file) return alert('⚠️ اختر ملف CSV.'); 
+    
+    const btn = document.getElementById('importCsvBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
 
+    const formData = new FormData(); 
+    formData.append('csv', file); 
+    
+    try { 
+        const res = await apiFetch('/import-csv', { method: 'POST', body: formData }); 
+        if (res && res.message) {
+            log(`✅ تم استيراد ${res.imported}.`, 'green'); 
+            alert(`تم استيراد ${res.imported} رقم.`);
+            fileInput.value = ''; 
+            loadImportedClients(); 
+        } else {
+            alert("حدث خطأ، راجع Console.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("❌ فشل الرفع: " + err.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// ================================================================= //
+// ==================== 7. General Helpers ========================= //
+// ================================================================= //
 function startNewCampaign() {
     isCampaignRunning = true; globalSuccessCount = 0; globalFailCount = 0;
     if(uiElements.statSuccess) uiElements.statSuccess.innerText = "0";
@@ -387,19 +390,17 @@ function startNewCampaign() {
 function setupLogsObserver() {
     const logsContainer = uiElements.logsContainer;
     if(!logsContainer) return;
-
     const observer = new MutationObserver((mutations) => {
         if (!isCampaignRunning) return;
-
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1) { 
                      const text = node.innerText.toLowerCase();
-                     if (text.includes('success') || text.includes('تم إرسال') || text.includes('sent')) {
+                     if (text.includes('success') || text.includes('sent')) {
                          globalSuccessCount++;
                          if(uiElements.statSuccess) uiElements.statSuccess.innerText = globalSuccessCount;
                      }
-                     if (text.includes('fail') || text.includes('error') || text.includes('فشل')) {
+                     if (text.includes('fail') || text.includes('error')) {
                          globalFailCount++;
                          if(uiElements.statFailed) uiElements.statFailed.innerText = globalFailCount;
                      }
@@ -421,26 +422,14 @@ async function apiFetch(url, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
         if (response.status === 401) { handleLogout(true); throw new Error('Session Expired'); }
-        if (response.status === 403) {
-            const errorData = await response.json().catch(() => ({}));
-            if (errorData.subscriptionExpired) {
-                window.location.replace('/activate.html');
-                throw new Error('Subscription expired');
-            }
-        }
-        if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+        if (response.status === 403) { window.location.replace('/activate.html'); throw new Error('Expired'); }
+        if (!response.ok) throw new Error(`Server Error`);
         const text = await response.text();
         return text ? JSON.parse(text) : {};
-    } catch (error) {
-        if (error.message !== 'Subscription expired') log(`❌ Error: ${error.message}`, 'red');
-        throw error;
-    }
+    } catch (error) { throw error; }
 }
 
-function loadInitialData() { 
-    loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus();
-}
-
+function loadInitialData() { loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus(); }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
@@ -463,7 +452,7 @@ function displayPromos() {
         const div = document.createElement("div");
         div.className = "promo";
         div.id = `promo-${promo.id}`;
-        const imageHtml = promo.image ? `<img src="promos/${promo.image}" alt="Promo">` : '';
+        const imageHtml = promo.image ? `<img src="promos/${promo.image}">` : '';
         div.innerHTML = `${imageHtml}<p>${promo.text.slice(0, 50)}...</p><div class="promo-buttons"><button class="btn-select">اختيار</button><button class="btn-delete">حذف</button></div>`;
         div.querySelector('.btn-select').addEventListener('click', () => selectPromo(promo.id));
         div.querySelector('.btn-delete').addEventListener('click', () => deletePromo(promo.id));
@@ -480,16 +469,9 @@ async function addNewPromo() {
     try { await apiFetch('/addPromo', { method: 'POST', body: formData }); log("✅ Added.", 'green'); uiElements.newPromoText.value = ''; loadPromos(); } catch (err) {}
 }
 
-async function importCSV() { 
-    const file = uiElements.csvFileInput.files[0]; 
-    if (!file) return alert('File required.'); 
-    const formData = new FormData(); formData.append('csv', file); 
-    try { const res = await apiFetch('/import-csv', { method: 'POST', body: formData }); log(`✅ Imported ${res.imported}.`, 'green'); uiElements.csvFileInput.value = ''; loadImportedClients(); } catch (err) {} 
-}
-
 function selectPromo(id) { selectedPromoId = id; log(`🔵 Selected #${id}`, "blue"); document.querySelectorAll('.promo').forEach(p => p.classList.remove('selected')); document.getElementById(`promo-${id}`).classList.add('selected'); }
 async function deletePromo(id) { if (!confirm("Delete?")) return; try { await apiFetch(`/deletePromo/${id}`, { method: "DELETE" }); loadPromos(); } catch (err) {} }
-async function deleteAllImported() { if (!confirm("Delete All Imported?")) return; try { await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); loadImportedClients(); } catch(err) {} }
+async function deleteAllImported() { if (!confirm("Delete All?")) return; try { await apiFetch('/api/delete-all-imported', { method: 'DELETE' }); loadImportedClients(); } catch(err) {} }
 function exportClientsToCSV() {
     if (!clients.length) return alert("Empty.");
     const csv = ['phone,name', ...clients.map(c => `${c.phone},${c.name||''}`)].join('\n');
