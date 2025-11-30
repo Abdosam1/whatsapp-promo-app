@@ -1,5 +1,5 @@
 // ================================================================= //
-// ============ 0. معالجة التوكن (Auth Token Handling) ============= //
+// ============ 0. Auth Token ====================================== //
 // ================================================================= //
 const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get('token');
@@ -8,94 +8,71 @@ if (tokenFromUrl) {
     window.history.replaceState({}, document.title, "/dashboard.html");
 }
 
-// التحقق من التوكن
 const token = localStorage.getItem('authToken');
 if (!token) {
     window.location.replace('index.html');
 }
 
 // ================================================================= //
-// ======================== 1. إعدادات عامة ======================== //
+// ======================== 1. Global Vars ========================= //
 // ================================================================= //
 let clients = [];
 let importedClients = [];
 let promos = [];
 let selectedPromoId = null;
 let socket = null;
-let isWhatsappReady = false; // المتغير الأساسي لحالة الاتصال
-
-// متغيرات العداد (Stats)
+let isWhatsappReady = false;
 let isCampaignRunning = false;
 let globalSuccessCount = 0;
 let globalFailCount = 0;
-
-// متغيرات فلتر الأرقام
 let validNumbersBuffer = [];
 
-// تعريف عناصر الواجهة (UI Elements)
 const uiElements = {
     logoutBtn: document.getElementById('logoutBtn'),
     statusCard: document.getElementById('whatsapp-status-card'),
     mainContent: document.getElementById('main-content'),
     statusMessage: document.getElementById('status-message-display') || document.getElementById('status-message'),
     qrcodeCanvas: document.getElementById('qrcode-canvas'),
-    
-    // القوائم
     clientsList: document.getElementById('clientsList'),
     importedClientsList: document.getElementById('importedClientsList'),
     promosList: document.getElementById('promosList'),
     logsContainer: document.getElementById('logs'),
-    
-    // أزرار الإرسال والاستيراد
     sendSequentiallyClientsBtn: document.getElementById('sendSequentiallyClientsBtn'),
     csvFileInput: document.getElementById('csvFileInput'),
     importCsvBtn: document.getElementById('importCsvBtn'),
     sendSequentiallyImportedBtn: document.getElementById('sendSequentiallyImportedBtn'),
     deleteAllImportedBtn: document.getElementById('deleteAllImportedBtn'),
-    exportClientsBtn: document.getElementById('exportClientsBtn'),
-    
-    // العروض (Promos)
     newPromoText: document.getElementById('newPromoText'),
     newPromoImage: document.getElementById('newPromoImage'),
     addNewPromoBtn: document.getElementById('addNewPromoBtn'),
-    
-    // الإرسال الفردي
     phoneInput: document.getElementById('phoneInput'),
     sendSelectedPromoBtn: document.getElementById('sendSelectedPromoBtn'),
-    
-    // الشات بوت
+    exportClientsBtn: document.getElementById('exportClientsBtn'),
     chatbotPrompt: document.getElementById('chatbotPrompt'),
     savePromptBtn: document.getElementById('savePromptBtn'),
     syncContactsBtn: document.getElementById('syncContactsBtn'),
     chatbotStatusToggle: document.getElementById('chatbotStatusToggle'),
     generateSpintaxBtn: document.getElementById('generateSpintaxBtn'),
-    
-    // زر فصل الواتساب
     disconnectWhatsappBtn: document.getElementById('disconnectWhatsappBtn'),
-    
-    // العدادات
     statSuccess: document.getElementById('stat-sent-success'),
     statFailed: document.getElementById('stat-sent-failed'),
     statTotal: document.getElementById('stat-total-contacts'),
-    
-    // === عناصر الفلتر (Filter Elements) ===
+    // Filter
     filterInput: document.getElementById('filterInput'),
     startFilterBtn: document.getElementById('startFilterBtn'),
-    stopFilterBtn: document.getElementById('stopFilterBtn'), // زر التوقف
-    exportValidBtn: document.getElementById('exportValidBtn'), // زر التحميل
+    stopFilterBtn: document.getElementById('stopFilterBtn'),
+    exportValidBtn: document.getElementById('exportValidBtn'),
     listValid: document.getElementById('listValid'),
     listInvalid: document.getElementById('listInvalid'),
     countValid: document.getElementById('countValid'),
     countInvalid: document.getElementById('countInvalid'),
     filterStatus: document.getElementById('filterStatus'),
-    
-    // رفع ملف الفلتر
     filterFileInput: document.getElementById('filterFileInput'),
     btnUploadFilter: document.getElementById('btnUploadFilter')
 };
 
 // ================================================================= //
-// ==================== 2. تشغيل التطبيق (Init) ==================== //
+// ==================== 2. Init ==================================== //
 // ================================================================= //
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
@@ -104,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeEventListeners() {
-    // 1. القائمة الجانبية (Sidebar Navigation)
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -113,21 +89,15 @@ function initializeEventListeners() {
         });
     });
 
-    // 2. الأزرار العامة
     uiElements.logoutBtn.addEventListener('click', () => handleLogout(false));
     uiElements.addNewPromoBtn.addEventListener('click', addNewPromo);
     
-    // زر استيراد العملاء (CSV Import)
-    if (uiElements.importCsvBtn) {
-        uiElements.importCsvBtn.addEventListener('click', importCSV);
-    }
+    if (uiElements.importCsvBtn) uiElements.importCsvBtn.addEventListener('click', importCSV);
     
-    // أزرار الإرسال
     if(uiElements.sendSequentiallyClientsBtn) uiElements.sendSequentiallyClientsBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(clients, false); });
     if(uiElements.sendSequentiallyImportedBtn) uiElements.sendSequentiallyImportedBtn.addEventListener('click', () => { startNewCampaign(); sendPromoSequentially(importedClients, true); });
     if(uiElements.sendSelectedPromoBtn) uiElements.sendSelectedPromoBtn.addEventListener('click', () => { startNewCampaign(); sendSelectedPromo(); });
 
-    // أزرار أخرى
     if (uiElements.deleteAllImportedBtn) uiElements.deleteAllImportedBtn.addEventListener('click', deleteAllImported);
     if (uiElements.exportClientsBtn) uiElements.exportClientsBtn.addEventListener('click', exportClientsToCSV);
     if (uiElements.savePromptBtn) uiElements.savePromptBtn.addEventListener('click', saveChatbotPrompt);
@@ -135,10 +105,9 @@ function initializeEventListeners() {
     if (uiElements.chatbotStatusToggle) uiElements.chatbotStatusToggle.addEventListener('change', toggleChatbotStatus);
     if (uiElements.generateSpintaxBtn) uiElements.generateSpintaxBtn.addEventListener('click', generateSpintax);
 
-    // زر فصل الواتساب
     if (uiElements.disconnectWhatsappBtn) {
         uiElements.disconnectWhatsappBtn.addEventListener('click', () => {
-            if(confirm("هل أنت متأكد أنك تريد فصل الرقم؟ ستفقد الجلسة الحالية.")) {
+            if(confirm("هل أنت متأكد أنك تريد فصل الرقم؟")) {
                 if(socket) {
                     socket.emit('logout-whatsapp'); 
                     uiElements.statusMessage.innerText = "جاري الفصل...";
@@ -148,38 +117,22 @@ function initializeEventListeners() {
         });
     }
 
-    // === 3. أزرار الفلتر (Filter Logic) ===
-    
-    // زر البدء
+    // Filter
     if (uiElements.startFilterBtn) uiElements.startFilterBtn.addEventListener('click', startNumberFilter);
-    
-    // زر التوقف (New)
     if (uiElements.stopFilterBtn) uiElements.stopFilterBtn.addEventListener('click', stopNumberFilter);
-    
-    // زر التحميل
     if (uiElements.exportValidBtn) uiElements.exportValidBtn.addEventListener('click', exportValidNumbers);
     
-    // زر رفع ملف الفلتر (Upload .txt/.csv)
     if (uiElements.btnUploadFilter && uiElements.filterFileInput) {
-        uiElements.btnUploadFilter.addEventListener('click', () => {
-            uiElements.filterFileInput.click();
-        });
-
+        uiElements.btnUploadFilter.addEventListener('click', () => { uiElements.filterFileInput.click(); });
         uiElements.filterFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(event) {
                 const content = event.target.result;
-                // استخراج الأرقام فقط وتنظيف النص
-                const numbers = content.split(/\r?\n/)
-                                    .map(line => line.trim().replace(/[^0-9]/g, ''))
-                                    .filter(n => n.length > 5)
-                                    .join('\n');
-                
+                const numbers = content.split(/\r?\n/).map(line => line.trim().replace(/[^0-9]/g, '')).filter(n => n.length > 5).join('\n');
                 uiElements.filterInput.value = numbers;
-                uiElements.filterFileInput.value = ''; // Reset
+                uiElements.filterFileInput.value = '';
             };
             reader.readAsText(file);
         });
@@ -197,61 +150,47 @@ function switchTab(tabName) {
 }
 
 // ================================================================= //
-// =============== 3. الاتصال بواتساب (Socket.IO Logic) ============ //
+// =============== 3. WhatsApp Logic =============================== //
 // ================================================================= //
 function initializeWhatsAppConnection() {
     socket = io({ auth: { token } });
     
     socket.on('connect', () => { 
         log('🔌 الاتصال بالسيرفر...', 'blue'); 
-        // نطلب تهيئة الواتساب ولكن لا نفترض أنه جاهز
         socket.emit('init-whatsapp', token); 
     });
 
-    // عند طلب QR Code
     socket.on('qr', (qr) => {
         isWhatsappReady = false;
-        uiElements.statusMessage.textContent = 'يرجى مسح QR Code:';
+        uiElements.statusMessage.textContent = 'يرجى مسح هذا الـ QR Code للاتصال:';
         uiElements.statusMessage.style.color = 'orange';
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
         QRCode.toCanvas(uiElements.qrcodeCanvas, qr, { width: 256 }, (err) => {});
     });
 
-    // حالة الاتصال
     socket.on('status', (status) => {
         uiElements.statusMessage.textContent = status.message;
-        
         if (status.ready) {
-            // متصل فعلاً
             isWhatsappReady = true;
             uiElements.statusMessage.style.color = '#00d26a';
             uiElements.qrcodeCanvas.style.display = 'none';
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'inline-block';
-            
-            // تحميل البيانات فقط عند الاتصال الناجح
             loadInitialData();
             log('✅ WhatsApp Connected!', 'green');
         } else {
-            // غير متصل أو ينتظر
             isWhatsappReady = false;
             uiElements.statusMessage.style.color = 'orange';
             if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
         }
     });
 
-    // عند تسجيل الخروج
     socket.on('whatsapp-logged-out', () => {
         log('ℹ️ تم تسجيل الخروج.', 'orange');
-        clients = []; 
-        importedClients = [];
-        
-        // تصفير الواجهة
+        clients = []; importedClients = [];
         if(uiElements.clientsList) uiElements.clientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
         if(uiElements.importedClientsList) uiElements.importedClientsList.innerHTML = '<p class="empty-list">القائمة فارغة.</p>';
         if(uiElements.statTotal) uiElements.statTotal.innerText = '0';
-        
-        // إعادة طلب QR
         socket.emit('init-whatsapp', token);
         uiElements.qrcodeCanvas.style.display = 'block';
         if(uiElements.disconnectWhatsappBtn) uiElements.disconnectWhatsappBtn.style.display = 'none';
@@ -262,7 +201,6 @@ function initializeWhatsAppConnection() {
         else log(`❌ Failed +${status.phone}: ${status.error}`, "red");
     });
 
-    // === أحداث الفلتر (Filter Events) ===
     socket.on('filter-result', (data) => {
         const div = document.createElement('div');
         div.innerText = data.phone;
@@ -275,7 +213,6 @@ function initializeWhatsAppConnection() {
             validNumbersBuffer.push(data.phone);
             uiElements.countValid.innerText = validNumbersBuffer.length;
             
-            // === تفعيل زر التحميل فوراً (Instant Export Enable) ===
             if (uiElements.exportValidBtn.disabled) {
                 uiElements.exportValidBtn.disabled = false;
                 uiElements.exportValidBtn.classList.remove('btn-secondary');
@@ -306,28 +243,19 @@ function initializeWhatsAppConnection() {
         uiElements.filterStatus.innerText = "❌ خطأ.";
     });
 
-    socket.on('disconnect', () => { 
-        isWhatsappReady = false; 
-        log('🔌 انقطع الاتصال بالسيرفر.', 'red'); 
-    });
-    
+    socket.on('disconnect', () => { isWhatsappReady = false; log('🔌 انقطع الاتصال بالسيرفر.', 'red'); });
     socket.on('log', (data) => log(data.message, data.color));
-    socket.on('sync-complete', () => { 
-        log('✅ تمت المزامنة.', 'green'); 
-        loadClients(); 
-        if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; 
-    });
+    socket.on('sync-complete', () => { log('✅ تمت المزامنة.', 'green'); loadClients(); if(uiElements.syncContactsBtn) uiElements.syncContactsBtn.disabled = false; });
 }
 
 // ================================================================= //
-// ================= 4. دوال الفلتر (Filter Functions) ============= //
+// ================= 4. Functions (Filter & Upload) ================ //
 // ================================================================= //
 
 function startNumberFilter() {
     const text = uiElements.filterInput.value.trim();
     if (!text) return alert("أدخل أرقاماً للفحص.");
     
-    // تهيئة الواجهة
     uiElements.listValid.innerHTML = '';
     uiElements.listInvalid.innerHTML = '';
     uiElements.countValid.innerText = '0';
@@ -336,7 +264,6 @@ function startNumberFilter() {
     
     validNumbersBuffer = [];
 
-    // تبديل الأزرار
     uiElements.startFilterBtn.style.display = 'none';
     if(uiElements.stopFilterBtn) {
         uiElements.stopFilterBtn.style.display = 'inline-block';
@@ -345,8 +272,6 @@ function startNumberFilter() {
     }
     
     uiElements.exportValidBtn.disabled = true;
-
-    // إرسال الطلب
     socket.emit('check-numbers', { numbers: text });
 }
 
@@ -364,17 +289,12 @@ function resetFilterUI(isRunning) {
     if (!isRunning) {
         uiElements.startFilterBtn.style.display = 'inline-block';
         if(uiElements.stopFilterBtn) uiElements.stopFilterBtn.style.display = 'none';
-        
-        // إبقاء زر التحميل مفعلاً إذا وجدت نتائج
-        if (validNumbersBuffer.length > 0) {
-            uiElements.exportValidBtn.disabled = false;
-        }
+        if (validNumbersBuffer.length > 0) uiElements.exportValidBtn.disabled = false;
     }
 }
 
 function exportValidNumbers() {
     if (validNumbersBuffer.length === 0) return alert("لا توجد أرقام.");
-
     const csvContent = "Phone\n" + validNumbersBuffer.join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -399,11 +319,6 @@ function exportValidNumbers() {
     }
 }
 
-// ================================================================= //
-// ================== 5. دوال الرفع والاستيراد ===================== //
-// ================================================================= //
-
-// دالة استيراد العملاء (CSV Import for Contacts)
 async function importCSV() { 
     const fileInput = document.getElementById('csvFileInput');
     const file = fileInput.files[0]; 
@@ -465,7 +380,7 @@ async function addNewPromo() {
 }
 
 // ================================================================= //
-// ==================== 6. Helper Functions ======================== //
+// ==================== 5. Helper Functions ======================== //
 // ================================================================= //
 
 function startNewCampaign() {
@@ -516,10 +431,7 @@ async function apiFetch(url, options = {}) {
     } catch (error) { throw error; }
 }
 
-function loadInitialData() { 
-    loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus();
-}
-
+function loadInitialData() { loadClients(); loadImportedClients(); loadPromos(); loadChatbotPrompt(); loadChatbotStatus(); }
 async function loadClients() { try { clients = await apiFetch("/contacts") || []; displayClients(uiElements.clientsList, clients); } catch (err) {} }
 async function loadImportedClients() { try { importedClients = await apiFetch("/imported-contacts") || []; displayClients(uiElements.importedClientsList, importedClients); } catch (err) {} }
 async function loadPromos() { try { promos = await apiFetch("/promos") || []; displayPromos(); } catch (err) {} }
