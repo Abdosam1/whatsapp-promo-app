@@ -1,5 +1,5 @@
 // ================================================================= //
-// ==================== SERVER.JS (FINAL FIX) ====================== //
+// ==================== 1. Libraries & Config ===================== //
 // ================================================================= //
 require('dotenv').config();
 
@@ -20,6 +20,7 @@ const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
 const { validate } = require('deep-email-validator'); 
 
+// === BAILEYS IMPORTS ===
 const { 
     makeWASocket, 
     useMultiFileAuthState, 
@@ -31,6 +32,9 @@ const {
 const pino = require('pino');
 const qrcodeTerminal = require('qrcode-terminal');
 
+// ================================================================= //
+// ========================= 2. Variables ======================= //
+// ================================================================= //
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: '*' } });
@@ -41,18 +45,21 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
 const TRIAL_PERIOD_MINUTES = 1440;
 
-// === PATHS ===
+// === PATHS (المسارات) ===
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const dbFile = path.join(__dirname, "main_data.db");
 const blogFile = path.join(__dirname, 'blog_posts.json');
-const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
-const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
 
-// === ENSURE FOLDERS EXIST ===
+// === SESSIONS FOLDERS ===
+const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
+const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); // مجلد بوت الفلتر
+
+// === ENSURE FOLDERS EXIST (إنشاء المجلدات لضمان عمل الرفع) ===
 [promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
+        console.log(`📁 Created directory: ${dir}`);
     }
 });
 if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
@@ -60,18 +67,19 @@ if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 const pendingRegistrations = {};
 const whatsappClients = {}; 
 const activeCampaigns = {};
-const stopFilterFlags = {}; 
+const stopFilterFlags = {}; // متغير لتخزين طلبات التوقف
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-let systemSock = null; 
+let systemSock = null; // متغير لتخزين اتصال بوت الفلتر
 
 // ================================================================= //
-// ================= 2. Multer Setup =============================== //
+// ================= 2. Multer Setup (إعدادات رفع الملفات) ========= //
 // ================================================================= //
 const storagePromo = multer.diskStorage({
     destination: (req, file, cb) => cb(null, promosUploadFolder),
     filename: (req, file, cb) => {
+        // اسم فريد للملف لتجنب التكرار
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
@@ -79,12 +87,12 @@ const storagePromo = multer.diskStorage({
 
 const uploadPromoImage = multer({ 
     storage: storagePromo,
-    limits: { fileSize: 5 * 1024 * 1024 } 
+    limits: { fileSize: 5 * 1024 * 1024 } // حد 5 ميجا للصور
 });
 
 const uploadCSV = multer({ 
     dest: uploadsFolder,
-    limits: { fileSize: 50 * 1024 * 1024 } 
+    limits: { fileSize: 50 * 1024 * 1024 } // حد 50 ميجا لملفات CSV
 });
 
 app.use(cors());
@@ -108,27 +116,45 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
     db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
     db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
-    const addColumn = (t, c, type) => { db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); };
+    
+    // إضافة الأعمدة الناقصة إن لم تكن موجودة
+    const addColumn = (t, c, type) => { 
+        db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => { /* تجاهل الخطأ إذا العمود موجود */ }); 
+    };
     addColumn('users', 'subscription_status', "TEXT DEFAULT 'trial'");
     addColumn('users', 'activation_code', 'TEXT');
     addColumn('users', 'chatbot_prompt', 'TEXT');
     addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
 });
 
-function readPromos(userId) { const p = path.join(__dirname, 'user_data', `user_${userId}`, 'promos.json'); return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; }
+function readPromos(userId) { 
+    const p = path.join(__dirname, 'user_data', `user_${userId}`, 'promos.json'); 
+    return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; 
+}
 function writePromos(userId, promos) { 
     const dir = path.join(__dirname, 'user_data', `user_${userId}`);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'promos.json'), JSON.stringify(promos, null, 2)); 
 }
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
-function processSpintax(text) { if (!text) return ""; return text.replace(/\{([^{}]+)\}/g, (match, options) => { const choices = options.split('|'); return choices[Math.floor(Math.random() * choices.length)]; }); }
+function processSpintax(text) { 
+    if (!text) return ""; 
+    return text.replace(/\{([^{}]+)\}/g, (match, options) => { 
+        const choices = options.split('|'); 
+        return choices[Math.floor(Math.random() * choices.length)]; 
+    }); 
+}
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
 function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
 
+const transporter = nodemailer.createTransport({ 
+    service: 'gmail', 
+    auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } 
+});
+
 // ================================================================= //
-// ================= 5. SYSTEM BOT (SINGLE FILTER) ================= //
+// ================= 5. SYSTEM BOT (SINGLE FILTER ENGINE) ========== //
 // ================================================================= //
 
 async function initSystemBot() {
@@ -139,7 +165,7 @@ async function initSystemBot() {
     systemSock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: false, // QR يظهر في اللوغ
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -150,24 +176,27 @@ async function initSystemBot() {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-            console.log(`\n⚠️ [SYSTEM BOT] SCAN QR BELOW:\n`);
+            console.log(`\n⚠️ [SYSTEM BOT] SCAN QR BELOW FOR FILTERING:\n`);
             qrcodeTerminal.generate(qr, { small: true });
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) initSystemBot();
-            else console.log('❌ System Bot Logged Out.');
+            else {
+                console.log('❌ System Bot Logged Out.');
+                systemSock = null;
+            }
         } else if (connection === 'open') {
             console.log('✅ System Bot is READY for Filtering!');
         }
     });
 }
 
-initSystemBot();
+initSystemBot(); // تشغيل البوت تلقائياً
 
 // ================================================================= //
-// ================= 6. USER BOT (CLIENTS - FIXED SYNC) ============ //
+// ================= 6. USER BOT (CLIENTS & SYNC) ================== //
 // ================================================================= //
 
 async function startWhatsAppSession(userId, socket = null) {
@@ -190,10 +219,13 @@ async function startWhatsAppSession(userId, socket = null) {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
+        
+        // إرسال QR للداشبورد
         if (qr && socket) socket.emit('qr', qr);
 
         if (connection === 'close') {
-            if ((lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
                 startWhatsAppSession(userId, socket);
             } else {
                 if (socket) socket.emit('status', { message: "Logged out", ready: false, error: true });
@@ -214,21 +246,23 @@ async function startWhatsAppSession(userId, socket = null) {
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
             for (const contact of contacts) {
-                // Filter out groups and status
+                // تصفية المجموعات والستاتيات
                 if (contact.id.endsWith('@s.whatsapp.net')) {
                     const phone = contact.id.replace('@s.whatsapp.net', '');
-                    const name = contact.name || contact.notify || phone;
+                    const name = contact.name || contact.notify || phone; // حفظ الاسم أو الرقم
                     stmt.run(name, phone, userId);
                 }
             }
             stmt.finalize();
             db.run("COMMIT", () => {
-                // Notify frontend to refresh list
+                // إخبار الواجهة بتحديث القائمة
                 if(socket) socket.emit('sync-complete'); 
+                console.log(`✅ Contacts synced for user ${userId}`);
             });
         });
     });
 
+    // Chatbot Logic
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
@@ -266,9 +300,11 @@ io.on('connection', (socket) => {
             if(!activeUserId) return;
 
             const existing = whatsappClients[activeUserId];
+            // التحقق من الاتصال الفعلي
             if (existing && existing.user) {
                 socket.emit('status', { message: "WhatsApp متصل بالفعل!", ready: true });
             } else {
+                // إذا كان الكائن موجوداً لكن غير متصل، نعيد الاتصال
                 if(existing) { try{existing.end();}catch(e){} delete whatsappClients[activeUserId]; }
                 await startWhatsAppSession(activeUserId, socket);
             }
@@ -286,7 +322,7 @@ io.on('connection', (socket) => {
     });
 
     // =======================================================
-    // === FILTER LOGIC (PROFILE PIC + STOP) =================
+    // === FILTER LOGIC (PROFILE PIC + STOP BUTTON) ==========
     // =======================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock || !systemSock.user) {
@@ -303,21 +339,35 @@ io.on('connection', (socket) => {
         socket.emit('log', { message: `⏳ بدأ الفحص الذكي (${totalNumbers} رقم)...`, color: 'purple' });
 
         for (let i = 0; i < totalNumbers; i++) {
+            
+            // 🛑 STOP CHECK
             if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
+                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
                 break;
             }
 
             const phone = allPhones[i];
             const jid = `${phone}@s.whatsapp.net`;
 
-            if (i > 0 && i % 1000 === 0) await sleep(getRandomDelay(300000, 600000));
-            else if (i > 0 && i % 100 === 0) await sleep(getRandomDelay(60000, 120000));
-            
+            // Anti-Ban Pauses
+            if (i > 0 && i % 1000 === 0) {
+                const p = getRandomDelay(300000, 600000);
+                socket.emit('log', { message: `⏸️ استراحة طويلة...`, color: 'orange' });
+                await sleep(p);
+            } else if (i > 0 && i % 100 === 0) {
+                const p = getRandomDelay(60000, 120000);
+                socket.emit('log', { message: `⏸️ استراحة قصيرة...`, color: 'orange' });
+                await sleep(p);
+            }
+
             await sleep(getRandomDelay(500, 2000));
 
+            // === SMART CHECK STRATEGY ===
             try {
                 let found = false;
+                
+                // 1. محاولة جلب الصورة (أكثر أماناً)
                 try {
                     const ppUrl = await systemSock.profilePictureUrl(jid, 'image');
                     if (ppUrl) {
@@ -328,6 +378,7 @@ io.on('connection', (socket) => {
                     }
                 } catch (e) {}
 
+                // 2. محاولة التحقق من الوجود (خطة بديلة)
                 if (!found) {
                     try {
                         const [result] = await systemSock.onWhatsApp(jid);
@@ -356,8 +407,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('stop-filter', () => { if(activeUserId) stopFilterFlags[activeUserId] = true; });
+    // === STOP EVENT ===
+    socket.on('stop-filter', () => {
+        if(activeUserId) stopFilterFlags[activeUserId] = true;
+    });
 
+    // ... Other Events ...
     socket.on('start-campaign-mode', async ({ promoId }) => { /* ... */ });
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
@@ -383,12 +438,7 @@ io.on('connection', (socket) => {
         } catch(e) { socket.emit('send-promo-status', {success:false, phone, error:e.message}); }
     });
     
-    // FIX: Manual Sync Request
-    socket.on('sync-contacts', () => {
-        // We trigger nothing here, but rely on 'contacts.upsert' when connecting
-        // Or we can force a resync if needed (advanced)
-        socket.emit('sync-complete'); 
-    });
+    socket.on('sync-contacts', () => socket.emit('sync-complete'));
     socket.on('disconnect', () => {});
 });
 
@@ -459,22 +509,21 @@ app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single
         writePromos(userId, promos);
         res.json({ status: "success", promo: newPromo });
     } catch (err) {
-        console.error("Upload Error:", err);
         res.status(500).json({ message: "Server Error during upload." });
     }
 });
 
+// === CSV Import with Logging ===
 app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const { userId } = req.userData;
     const results = [];
     
-    console.log(`Processing CSV: ${req.file.path}`);
+    console.log(`📂 Processing CSV: ${req.file.path}`);
 
     fs.createReadStream(req.file.path)
         .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
         .on('data', (data) => {
-            // Ensure we grab the first column if 'phone' key is missing
             const phone = String(data.phone || Object.values(data)[0] || "").replace(/\D/g, "");
             if (phone.length >= 8) results.push(phone);
         })
@@ -487,7 +536,7 @@ app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv
                 results.forEach(phone => stmt.run(phone, userId, function(err) { if(!err && this.changes>0) importedCount++; }));
                 stmt.finalize();
                 db.run("COMMIT", () => {
-                    console.log(`Imported ${importedCount} contacts for User ${userId}`);
+                    console.log(`✅ Imported ${importedCount} numbers for ${userId}`);
                     res.status(200).json({ message: "Imported", imported: importedCount });
                 });
             });
@@ -509,7 +558,7 @@ app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => 
     res.json({ status: "deleted" });
 });
 
-// Blog & Other Routes
+// Blog Routes
 app.get('/api/blog-posts', (req, res) => { try{ res.json(JSON.parse(fs.readFileSync(blogFile))); } catch(e){res.json([]);} });
 app.post('/api/blog-post', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { const {title,summary,content,image}=req.body; const posts=fs.existsSync(blogFile)?JSON.parse(fs.readFileSync(blogFile)):[]; posts.unshift({id:Date.now(),title,summary,content,image,date:new Date().toISOString().split('T')[0]}); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
 app.delete('/api/blog-post/:id', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { let posts=JSON.parse(fs.readFileSync(blogFile)); posts=posts.filter(p=>p.id!==parseInt(req.params.id)); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
