@@ -20,7 +20,6 @@ const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
 const { validate } = require('deep-email-validator'); 
 
-// === BAILEYS IMPORTS ===
 const { 
     makeWASocket, 
     useMultiFileAuthState, 
@@ -32,9 +31,6 @@ const {
 const pino = require('pino');
 const qrcodeTerminal = require('qrcode-terminal');
 
-// ================================================================= //
-// ========================= 2. Variables ======================= //
-// ================================================================= //
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: '*' } });
@@ -43,16 +39,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com'; 
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
-const TRIAL_PERIOD_MINUTES = 120;
+const TRIAL_PERIOD_MINUTES = 1440;
 
+// === PATHS ===
 const promosUploadFolder = path.join(__dirname, "public", "promos");
-const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
+const dbFile = path.join(__dirname, "main_data.db");
 const blogFile = path.join(__dirname, 'blog_posts.json');
-
-// === SESSIONS FOLDERS ===
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
-const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); // بوت واحد
+const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); 
+
+// === ENSURE FOLDERS EXIST (Fix for Upload Errors) ===
+[promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`📁 Created directory: ${dir}`);
+    }
+});
+if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 
 const pendingRegistrations = {};
 const whatsappClients = {}; 
@@ -64,7 +68,38 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 let systemSock = null; 
 
 // ================================================================= //
-// ================= 3. Database & Setup ================= //
+// ================= 2. Multer Setup (Fixed) ======================= //
+// ================================================================= //
+const storagePromo = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, promosUploadFolder),
+    filename: (req, file, cb) => {
+        // Fix: Ensure unique filename and keep extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadPromoImage = multer({ 
+    storage: storagePromo,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
+});
+
+const uploadCSV = multer({ 
+    dest: uploadsFolder,
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB Limit
+});
+
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Added for better form handling
+app.use(passport.initialize());
+app.use('/promos', express.static(promosUploadFolder));
+
+const authMiddleware = require('./middleware/auth');
+const checkSubscription = require('./middleware/checkSubscription');
+
+// ================================================================= //
+// ================= 3. Database & Helpers ========================= //
 // ================================================================= //
 const db = new sqlite3.Database(dbFile, (err) => {
   if (err) { console.error("Fatal Error: DB Connect Failed", err); process.exit(1); }
@@ -82,21 +117,12 @@ db.serialize(() => {
     addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
 });
 
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
-
-[promosUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); });
-if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
-
-const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
-const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 3*1024*1024 } });
-
-app.use(cors()); app.use(express.json()); app.use(passport.initialize()); app.use('/promos', express.static(promosUploadFolder));
-const authMiddleware = require('./middleware/auth');
-const checkSubscription = require('./middleware/checkSubscription');
-
-// Helpers
 function readPromos(userId) { const p = path.join(__dirname, 'user_data', `user_${userId}`, 'promos.json'); return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; }
-function writePromos(userId, promos) { const userPromoPath = path.join(__dirname, 'user_data', `user_${userId}`); if (!fs.existsSync(userPromoPath)) fs.mkdirSync(userPromoPath, { recursive: true }); fs.writeFileSync(path.join(userPromoPath, 'promos.json'), JSON.stringify(promos, null, 2)); }
+function writePromos(userId, promos) { 
+    const dir = path.join(__dirname, 'user_data', `user_${userId}`);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'promos.json'), JSON.stringify(promos, null, 2)); 
+}
 function generateActivationCode() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let code = ''; for (let i = 0; i < 12; i++) { code += chars.charAt(Math.floor(Math.random() * chars.length)); if (i === 3 || i === 7) code += '-'; } return code; }
 function processSpintax(text) { if (!text) return ""; return text.replace(/\{([^{}]+)\}/g, (match, options) => { const choices = options.split('|'); return choices[Math.floor(Math.random() * choices.length)]; }); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -148,7 +174,6 @@ initSystemBot();
 
 async function startWhatsAppSession(userId, socket = null) {
     if (!userId) return;
-
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -238,79 +263,62 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    // ============================================================ //
-    // === SMART FILTER LOGIC (PROFILE PIC STRATEGY + STOP) ======= //
-    // ============================================================ //
+    // =======================================================
+    // === FILTER LOGIC (STOP + PIC STRATEGY) ================
+    // =======================================================
     socket.on('check-numbers', async ({ numbers }) => {
         if (!systemSock || !systemSock.user) {
-            return socket.emit('filter-error', 'System Bot غير متصل! المرجو الاتصال بالدعم.');
+            return socket.emit('filter-error', 'System Bot غير متصل! يرجى مسح QR.');
         }
 
-        const allPhones = numbers.split(/\r?\n/).map(line => line.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
+        const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         const totalNumbers = allPhones.length;
         let validCount = 0;
         let invalidCount = 0;
 
-        // Reset Stop Flag
         stopFilterFlags[activeUserId] = false;
 
-        socket.emit('log', { message: `⏳ بدأ الفحص الذكي (طريقة الصور) لـ ${totalNumbers} رقم...`, color: 'purple' });
+        socket.emit('log', { message: `⏳ بدأ الفحص (${totalNumbers} رقم)...`, color: 'blue' });
 
         for (let i = 0; i < totalNumbers; i++) {
-            
-            // 🛑 STOP CHECK
             if (stopFilterFlags[activeUserId] === true) {
                 socket.emit('filter-stopped');
-                socket.emit('log', { message: "🛑 تم الإيقاف يدوياً.", color: 'red' });
                 break;
             }
 
             const phone = allPhones[i];
+            const jid = `${phone}@s.whatsapp.net`;
 
-            // Anti-Ban Pauses
-            if (i > 0 && i % 1000 === 0) {
-                const pause = getRandomDelay(300000, 600000); 
-                socket.emit('log', { message: `⏸️ استراحة طويلة...`, color: 'orange' });
-                await sleep(pause);
-            } else if (i > 0 && i % 100 === 0) {
-                const pause = getRandomDelay(60000, 120000);
-                socket.emit('log', { message: `⏸️ استراحة قصيرة...`, color: 'orange' });
-                await sleep(pause);
-            }
-
-            await sleep(getRandomDelay(1000, 3000)); // Smart Delay
+            // Anti-Ban
+            if (i > 0 && i % 1000 === 0) await sleep(getRandomDelay(300000, 600000));
+            else if (i > 0 && i % 100 === 0) await sleep(getRandomDelay(60000, 120000));
+            
+            await sleep(getRandomDelay(500, 1500));
 
             try {
-                const jid = `${phone}@s.whatsapp.net`;
-                
-                // === HYBRID CHECK: PROFILE PICTURE FIRST ===
+                // 1. Try Profile Pic (Safe)
                 try {
-                    const ppUrl = await systemSock.profilePictureUrl(jid, 'image');
-                    
-                    if (ppUrl) {
+                    const pp = await systemSock.profilePictureUrl(jid, 'image');
+                    if(pp) {
                         validCount++;
-                        socket.emit('filter-result', { phone: phone, status: 'valid' });
+                        socket.emit('filter-result', { phone, status: 'valid' });
+                        continue; // Found, next number
                     }
-                } catch (e) {
-                    // If Profile Pic fails (404/401), try presence check as backup
-                    try {
-                       const [result] = await systemSock.onWhatsApp(jid);
-                       if (result?.exists) {
-                           validCount++;
-                           socket.emit('filter-result', { phone: phone, status: 'valid' });
-                       } else {
-                           invalidCount++;
-                           socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                       }
-                    } catch (err2) {
-                        invalidCount++;
-                        socket.emit('filter-result', { phone: phone, status: 'invalid' });
-                    }
+                } catch(e) {}
+
+                // 2. Try Presence (Fallback)
+                const [res] = await systemSock.onWhatsApp(jid);
+                if (res?.exists) {
+                    validCount++;
+                    socket.emit('filter-result', { phone, status: 'valid' });
+                } else {
+                    invalidCount++;
+                    socket.emit('filter-result', { phone, status: 'invalid' });
                 }
 
             } catch (err) {
                 invalidCount++;
-                socket.emit('filter-result', { phone: phone, status: 'invalid' });
+                socket.emit('filter-result', { phone, status: 'invalid' });
             }
         }
 
@@ -319,12 +327,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // === STOP EVENT ===
-    socket.on('stop-filter', () => {
-        if(activeUserId) stopFilterFlags[activeUserId] = true;
-    });
+    socket.on('stop-filter', () => { if(activeUserId) stopFilterFlags[activeUserId] = true; });
 
-    // ... Other Events ...
     socket.on('start-campaign-mode', async ({ promoId }) => { /* ... */ });
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
@@ -368,10 +372,9 @@ app.get('/api/auth/google/callback', passport.authenticate('google', { failureRe
     res.redirect(req.user.email === ADMIN_EMAIL ? `/admin.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
 
-// Signup with Email Validation + Blocklist
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'البيانات ناقصة' });
+    if (!name || !email || !password) return res.status(400).json({ message: 'بيانات ناقصة' });
     const domains = ['moondyal.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
     if (domains.includes(email.split('@')[1])) return res.status(400).json({ message: 'إيميل مؤقت غير مقبول' });
     
@@ -407,11 +410,78 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// Blog Routes
+// === PROMO & UPLOAD ROUTES (FIXED) ===
+app.get("/promos", authMiddleware, checkSubscription, (req, res) => res.json(readPromos(req.userData.userId)));
+
+app.post("/addPromo", authMiddleware, checkSubscription, uploadPromoImage.single("image"), (req, res) => {
+    try {
+        const { text } = req.body;
+        const { userId } = req.userData;
+        const promos = readPromos(userId);
+        const newPromo = { id: Date.now(), text: text || "", image: req.file ? req.file.filename : null };
+        promos.push(newPromo);
+        writePromos(userId, promos);
+        res.json({ status: "success", promo: newPromo });
+    } catch (err) {
+        console.error("Upload Error:", err);
+        res.status(500).json({ message: "Server Error during upload." });
+    }
+});
+
+app.post("/import-csv", authMiddleware, checkSubscription, uploadCSV.single('csv'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const { userId } = req.userData;
+    const results = [];
+    fs.createReadStream(req.file.path)
+        .pipe(csvParser({ headers: ['phone'], skipLines: 0 }))
+        .on('data', (data) => {
+            const phone = String(data.phone || "").replace(/\D/g, "");
+            if (phone.length >= 8) results.push(phone);
+        })
+        .on('end', () => {
+            fs.unlinkSync(req.file.path);
+            const stmt = db.prepare(`INSERT OR IGNORE INTO imported_clients (phone, ownerId) VALUES (?, ?)`);
+            let importedCount = 0;
+            db.serialize(() => {
+                db.run("BEGIN TRANSACTION");
+                results.forEach(phone => stmt.run(phone, userId, function(err) { if(!err && this.changes>0) importedCount++; }));
+                stmt.finalize();
+                db.run("COMMIT", () => res.status(200).json({ message: "Imported", imported: importedCount }));
+            });
+        });
+});
+
+app.delete("/deletePromo/:id", authMiddleware, checkSubscription, (req, res) => {
+    const promoId = parseInt(req.params.id);
+    const { userId } = req.userData;
+    let promos = readPromos(userId);
+    const promo = promos.find(p => p.id === promoId);
+    if (promo) {
+        if (promo.image) {
+            const imgPath = path.join(promosUploadFolder, promo.image);
+            if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+        }
+        writePromos(userId, promos.filter(p => p.id !== promoId));
+    }
+    res.json({ status: "deleted" });
+});
+
+// Blog & Other Routes
 app.get('/api/blog-posts', (req, res) => { try{ res.json(JSON.parse(fs.readFileSync(blogFile))); } catch(e){res.json([]);} });
 app.post('/api/blog-post', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { const {title,summary,content,image}=req.body; const posts=fs.existsSync(blogFile)?JSON.parse(fs.readFileSync(blogFile)):[]; posts.unshift({id:Date.now(),title,summary,content,image,date:new Date().toISOString().split('T')[0]}); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
 app.delete('/api/blog-post/:id', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.status(403).json({message:"Forbidden"}); try { let posts=JSON.parse(fs.readFileSync(blogFile)); posts=posts.filter(p=>p.id!==parseInt(req.params.id)); fs.writeFileSync(blogFile, JSON.stringify(posts,null,2)); res.json({success:true}); } catch(e){res.status(500).json({message:"Error"});} }); });
 app.get('/api/is-admin', authMiddleware, (req,res) => checkAdmin(req.userData.userId, (isAdmin)=>res.json({isAdmin})));
+
+app.delete("/api/delete-all-imported", authMiddleware, checkSubscription, (req, res) => { const { userId } = req.userData; db.run(`DELETE FROM imported_clients WHERE ownerId = ?`, [userId], function(err) { res.status(200).json({ status: "success", message: `تم الحذف.` }); }); });
+app.get("/api/chatbot-prompt", authMiddleware, (req, res) => { db.get("SELECT chatbot_prompt FROM users WHERE id = ?", [req.userData.userId], (err, row) => { res.json({ prompt: row ? row.chatbot_prompt : "" }); }); });
+app.post("/api/chatbot-prompt", authMiddleware, (req, res) => { db.run("UPDATE users SET chatbot_prompt = ? WHERE id = ?", [req.body.prompt, req.userData.userId], (err) => { res.json({ message: "تم الحفظ" }); }); });
+app.get("/api/chatbot-status", authMiddleware, (req, res) => { db.get("SELECT is_chatbot_active FROM users WHERE id = ?", [req.userData.userId], (err, row) => { res.json({ isActive: row ? !!row.is_chatbot_active : true }); }); });
+app.post("/api/chatbot-status", authMiddleware, (req, res) => { const statusValue = req.body.isActive ? 1 : 0; db.run("UPDATE users SET is_chatbot_active = ? WHERE id = ?", [statusValue, req.userData.userId], (err) => { res.json({ message: "تم التحديث" }); }); });
+app.post("/api/generate-spintax", authMiddleware, async (req, res) => { try { const completion = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "system", content: "You are a copywriter..." }, { role: "user", content: req.body.text }] }); res.json({ spintax: completion.choices[0].message.content }); } catch (error) { res.status(500).json({ message: "Error" }); } });
+
+// Admin & Verification
+app.post("/api/request-code", authMiddleware, async (req, res) => { const userId = req.userData.userId; const { durationName, durationDays } = req.body; db.get("SELECT name, email FROM users WHERE id = ?", [userId], async (err, user) => { if (err || !user) return res.status(404).json({ message: "User Not Found" }); const newActivationCode = generateActivationCode(); db.run("UPDATE users SET activation_code = ?, activationRequest = ? WHERE id = ?", [newActivationCode, JSON.stringify({ durationName, durationDays }), userId], async (err) => { if (err) return res.status(500).json({ message: "Error" }); const mailOptions = { from: SENDER_EMAIL, to: ADMIN_EMAIL, subject: `New Request`, html: `User: ${user.name} Code: ${newActivationCode}` }; await transporter.sendMail(mailOptions); res.status(200).json({ success: true }); }); }); });
+app.post("/api/activate-with-code", authMiddleware, async (req, res) => { const { activationCode } = req.body; const userId = req.userData.userId; if (!activationCode) return res.status(400).json({ message: "Code required" }); db.get("SELECT activationRequest, activation_code FROM users WHERE id = ?", [userId], (err, user) => { if (err || !user || user.activation_code !== activationCode.trim()) return res.status(400).json({ message: "Invalid Code" }); const { durationDays } = JSON.parse(user.activationRequest); const newDate = new Date(); newDate.setDate(newDate.getDate() + parseInt(durationDays)); db.run("UPDATE users SET subscriptionEndsAt = ?, subscription_status = 'active', activation_code = NULL, activationRequest = NULL WHERE id = ?", [newDate.toISOString(), userId], (err) => { if (err) return res.status(500).json({ message: "Error" }); res.status(200).json({ success: true }); }); }); });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard'); res.sendFile(path.join(__dirname, 'public', 'admin.html')); }); });
