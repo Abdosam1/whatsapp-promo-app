@@ -13,7 +13,6 @@ const multer = require("multer");
 const csvParser = require("csv-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require('nodemailer');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
@@ -28,7 +27,7 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcodeTerminal = require('qrcode-terminal'); // تأكد أن هذه المكتبة مثبتة
+const qrcodeTerminal = require('qrcode-terminal'); // تأكد من تثبيت هذه المكتبة: npm install qrcode-terminal
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -43,8 +42,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gmail.com'; 
 const TRIAL_PERIOD_MINUTES = 1440;
 
-// === SYSTEM BOTS SETTINGS (1 بوت للفحص) ===
-const NUMBER_OF_SYSTEM_BOTS = 1; 
+// === SETTINGS ===
+const NUMBER_OF_SYSTEM_BOTS = 1; // بوت واحد للفحص
+const DAILY_LIMIT = 1000; // حد الفحص اليومي لكل مستخدم
 
 // Folders
 const promosUploadFolder = path.join(__dirname, "public", "promos");
@@ -116,6 +116,10 @@ db.serialize(() => {
     addColumn('users', 'chatbot_prompt', 'TEXT');
     addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
     addColumn('clients', 'last_interaction', 'INTEGER DEFAULT 0');
+    
+    // === NEW COLUMNS FOR LIMITS ===
+    addColumn('users', 'daily_filter_count', "INTEGER DEFAULT 0");
+    addColumn('users', 'last_filter_date', "TEXT");
 });
 
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
@@ -137,6 +141,7 @@ const authMiddleware = (req, res, next) => {
 
 const checkSubscription = (req, res, next) => { next(); };
 
+// === HELPER FUNCTIONS ===
 function readPromos(userId) { 
     const p = path.join(userDataFolder, `user_${userId}`, 'promos.json'); 
     return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; 
@@ -152,8 +157,41 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
 function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
 
+// === LIMIT CHECKER FUNCTION ===
+function checkFilterLimit(userId, requestCount) {
+    return new Promise((resolve, reject) => {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+        db.get("SELECT daily_filter_count, last_filter_date FROM users WHERE id = ?", [userId], (err, row) => {
+            if (err) return reject(err);
+            
+            let currentCount = row?.daily_filter_count || 0;
+            let lastDate = row?.last_filter_date || '';
+
+            // Reset logic
+            if (lastDate !== today) {
+                currentCount = 0;
+                lastDate = today;
+            }
+
+            // Check limit
+            if (currentCount + requestCount > DAILY_LIMIT) {
+                return resolve({ allowed: false, remaining: Math.max(0, DAILY_LIMIT - currentCount) });
+            }
+
+            // Update limit
+            const newCount = currentCount + requestCount;
+            db.run("UPDATE users SET daily_filter_count = ?, last_filter_date = ? WHERE id = ?", 
+                   [newCount, lastDate, userId], (err) => {
+                if (err) return reject(err);
+                resolve({ allowed: true, remaining: DAILY_LIMIT - newCount });
+            });
+        });
+    });
+}
+
 // ================================================================= //
-// ================= 5. SYSTEM BOTS (FIXED QR LOGIC) =============== //
+// ================= 5. SYSTEM BOTS (QR FIXED) ===================== //
 // ================================================================= //
 
 async function startSingleSystemBot(botIndex) {
@@ -167,7 +205,7 @@ async function startSingleSystemBot(botIndex) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false, // <=== جعلناها false لأننا سنطبع الكود يدوياً
+        printQRInTerminal: false, // Set false to avoid Baileys warning
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -177,12 +215,11 @@ async function startSingleSystemBot(botIndex) {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // === طباعة QR Code يدوياً ===
+        // Manual QR Print
         if (qr) {
-            console.log(`\nScan this QR Code for System Bot #${botIndex + 1}:\n`);
+            console.log(`\nScan this QR for System Bot #${botIndex + 1}:\n`);
             qrcodeTerminal.generate(qr, { small: true });
         }
-        // ============================
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
@@ -248,7 +285,6 @@ async function startWhatsAppSession(userId, socket = null) {
     const upsertClient = (id, name, timestamp) => {
         if (!id || id.includes('g.us') || id.includes('status') || id.includes('broadcast')) return;
         const phone = id.split('@')[0];
-        
         db.serialize(() => {
             if (timestamp) {
                 db.run(`INSERT INTO clients (phone, ownerId, last_interaction, name) VALUES (?, ?, ?, ?)
@@ -280,13 +316,12 @@ async function startWhatsAppSession(userId, socket = null) {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
             if (!msg.message || msg.key.fromMe) continue;
-            
             const senderPhone = msg.key.remoteJid;
             const senderName = msg.pushName;
             const ts = msg.messageTimestamp ? (typeof msg.messageTimestamp === 'object' ? msg.messageTimestamp.low : msg.messageTimestamp) : Date.now();
             upsertClient(senderPhone, senderName, ts * 1000);
 
-            // Chatbot Logic
+            // Chatbot
              db.get("SELECT is_chatbot_active, chatbot_prompt FROM users WHERE id = ?", [userId], async (err, user) => {
                 if (err || !user || !user.is_chatbot_active) return;
                 const userMsg = msg.message.conversation || msg.message.extendedTextMessage?.text;
@@ -348,17 +383,32 @@ io.on('connection', (socket) => {
 
     socket.on('sync-contacts', () => { setTimeout(() => { socket.emit('sync-complete'); }, 3000); });
 
-    // FILTER LOGIC
+    // ========================================== //
+    // =========== LOGIC: NUMBER FILTER ========= //
+    // ========================================== //
     socket.on('check-numbers', async ({ numbers }) => {
+        // 1. Check Bots
         const activeBots = systemSocks.filter(s => s && s.user);
-        
-        if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Please check server logs and scan QR.');
+        if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Check server terminal to scan QR.');
 
+        // 2. Prepare Numbers
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
+        if (allPhones.length === 0) return socket.emit('filter-error', 'No valid numbers.');
+
+        // 3. CHECK LIMITS
+        try {
+            const limitCheck = await checkFilterLimit(activeUserId, allPhones.length);
+            if (!limitCheck.allowed) {
+                return socket.emit('filter-error', `⛔ Daily Limit Exceeded. Remaining: ${limitCheck.remaining} numbers today.`);
+            }
+            socket.emit('log', { message: `ℹ️ Checking ${allPhones.length} numbers. Remaining Daily Quota: ${limitCheck.remaining}`, color: 'blue' });
+        } catch (err) {
+            console.error(err);
+            return socket.emit('filter-error', 'Database Error Checking Limits.');
+        }
+
         let valid = 0, invalid = 0;
         stopFilterFlags[activeUserId] = false;
-
-        socket.emit('log', { message: `⏳ Checking ${allPhones.length} numbers...`, color: 'blue' });
 
         for (let i = 0; i < allPhones.length; i++) {
             if (stopFilterFlags[activeUserId]) {
@@ -382,7 +432,6 @@ io.on('connection', (socket) => {
                     invalid++;
                 }
 
-                // حفظ النتيجة في الداتابيس
                 if (activeUserId) {
                     db.run(`INSERT INTO filtered_numbers (phone, status, ownerId) VALUES (?, ?, ?)`, 
                            [phone, status, activeUserId]);
@@ -407,12 +456,10 @@ io.on('connection', (socket) => {
     socket.on('send-promo', async (data) => {
         const { phone, promoId, fromImported } = data;
         const sock = whatsappClients[activeUserId];
-        
         if(!activeUserId || !sock) return socket.emit('send-promo-status', {success:false, phone, error:'Not Connected'});
         
         const promos = readPromos(activeUserId);
         const promo = promos.find(p => p.id === promoId);
-        
         if(!promo) return socket.emit('send-promo-status', {success:false, phone, error:'Promo Not Found'});
 
         try {
@@ -432,7 +479,6 @@ io.on('connection', (socket) => {
             
             const t = fromImported ? 'imported_clients' : 'clients';
             db.run(`UPDATE ${t} SET last_sent=? WHERE phone=? AND ownerId=?`, [new Date().toISOString(), phone, activeUserId]);
-            
             socket.emit('send-promo-status', {success:true, phone});
         } catch(e) { 
             socket.emit('send-promo-status', {success:false, phone, error:e.message}); 
@@ -485,10 +531,6 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
-// ============================================
-// FIX: CONTACTS & IMPORT API (With Sorting)
-// ============================================
-
 app.get('/contacts', authMiddleware, (req, res) => {
     db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -505,7 +547,6 @@ app.get('/imported-contacts', authMiddleware, (req, res) => {
 
 app.post('/import-csv', authMiddleware, uploadCSV.single('csv'), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    
     const results = [];
     fs.createReadStream(req.file.path)
         .pipe(csvParser())
@@ -542,15 +583,8 @@ app.delete('/api/delete-all-imported', authMiddleware, (req, res) => {
     });
 });
 
-// ============================================
-// PROMOS API
-// ============================================
-
 app.get('/promos', authMiddleware, (req, res) => {
-    try {
-        const userPromos = readPromos(req.userData.userId);
-        res.json(userPromos);
-    } catch (e) { res.json([]); }
+    try { const userPromos = readPromos(req.userData.userId); res.json(userPromos); } catch (e) { res.json([]); }
 });
 
 app.post('/addPromo', authMiddleware, uploadPromoImage.single('image'), (req, res) => {
@@ -562,12 +596,7 @@ app.post('/addPromo', authMiddleware, uploadPromoImage.single('image'), (req, re
     const promosFile = path.join(userDir, 'promos.json');
     let userPromos = fs.existsSync(promosFile) ? JSON.parse(fs.readFileSync(promosFile)) : [];
 
-    const newPromo = {
-        id: Date.now().toString(),
-        text: text || "",
-        image: req.file ? req.file.filename : null
-    };
-
+    const newPromo = { id: Date.now().toString(), text: text || "", image: req.file ? req.file.filename : null };
     userPromos.push(newPromo);
     fs.writeFileSync(promosFile, JSON.stringify(userPromos, null, 2));
     res.json({ success: true });
@@ -584,24 +613,13 @@ app.delete('/deletePromo/:id', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/chatbot-prompt', authMiddleware, (req,res) => {
-    db.get("SELECT chatbot_prompt FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({prompt:r?.chatbot_prompt||''}));
-});
-app.post('/api/chatbot-prompt', authMiddleware, (req,res) => {
-    db.run("UPDATE users SET chatbot_prompt=? WHERE id=?", [req.body.prompt, req.userData.userId], ()=>res.json({success:true}));
-});
-app.get('/api/chatbot-status', authMiddleware, (req,res) => {
-    db.get("SELECT is_chatbot_active FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({isActive:r?.is_chatbot_active===1}));
-});
-app.post('/api/chatbot-status', authMiddleware, (req,res) => {
-    db.run("UPDATE users SET is_chatbot_active=? WHERE id=?", [req.body.isActive?1:0, req.userData.userId], ()=>res.json({success:true}));
-});
+app.get('/api/chatbot-prompt', authMiddleware, (req,res) => db.get("SELECT chatbot_prompt FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({prompt:r?.chatbot_prompt||''})));
+app.post('/api/chatbot-prompt', authMiddleware, (req,res) => db.run("UPDATE users SET chatbot_prompt=? WHERE id=?", [req.body.prompt, req.userData.userId], ()=>res.json({success:true})));
+app.get('/api/chatbot-status', authMiddleware, (req,res) => db.get("SELECT is_chatbot_active FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({isActive:r?.is_chatbot_active===1})));
+app.post('/api/chatbot-status', authMiddleware, (req,res) => db.run("UPDATE users SET is_chatbot_active=? WHERE id=?", [req.body.isActive?1:0, req.userData.userId], ()=>res.json({success:true})));
 app.post('/api/generate-spintax', authMiddleware, async (req,res) => {
     try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [{role:"user", content: `Rewrite this as Spintax {word|synonym}: ${req.body.text}`}]
-        });
+        const completion = await openai.chat.completions.create({ model: "gpt-3.5-turbo", messages: [{role:"user", content: `Rewrite this as Spintax {word|synonym}: ${req.body.text}`}] });
         res.json({spintax: completion.choices[0].message.content});
     } catch(e){ res.status(500).json({message:"Error"}); }
 });
