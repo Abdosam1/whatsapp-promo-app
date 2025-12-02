@@ -28,6 +28,7 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const qrcodeTerminal = require('qrcode-terminal'); // تأكد أن هذه المكتبة مثبتة
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -39,11 +40,10 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 // === ADMIN SETTINGS ===
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
-const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gmail.com'; 
 const TRIAL_PERIOD_MINUTES = 1440;
 
-// === SYSTEM BOTS SETTINGS (تم التعديل لـ 1 لتسهيل الفحص) ===
+// === SYSTEM BOTS SETTINGS (1 بوت للفحص) ===
 const NUMBER_OF_SYSTEM_BOTS = 1; 
 
 // Folders
@@ -97,7 +97,7 @@ db.serialize(() => {
 
     db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
     
-    // === NEW: Filtered Numbers Table (جدول الفحص) ===
+    // Filtered Numbers Table
     db.run(`CREATE TABLE IF NOT EXISTS filtered_numbers (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         phone TEXT, 
@@ -153,7 +153,7 @@ function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min
 function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
 
 // ================================================================= //
-// ================= 5. SYSTEM BOTS (MULTI-FILTER ENGINE) ========== //
+// ================= 5. SYSTEM BOTS (FIXED QR LOGIC) =============== //
 // ================================================================= //
 
 async function startSingleSystemBot(botIndex) {
@@ -167,7 +167,7 @@ async function startSingleSystemBot(botIndex) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: true, // <=== تم التفعيل لتتمكن من مسح الكود
+        printQRInTerminal: false, // <=== جعلناها false لأننا سنطبع الكود يدوياً
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -175,7 +175,15 @@ async function startSingleSystemBot(botIndex) {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        
+        // === طباعة QR Code يدوياً ===
+        if (qr) {
+            console.log(`\nScan this QR Code for System Bot #${botIndex + 1}:\n`);
+            qrcodeTerminal.generate(qr, { small: true });
+        }
+        // ============================
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startSingleSystemBot(botIndex);
@@ -340,13 +348,10 @@ io.on('connection', (socket) => {
 
     socket.on('sync-contacts', () => { setTimeout(() => { socket.emit('sync-complete'); }, 3000); });
 
-    // ========================================== //
-    // =========== LOGIC: NUMBER FILTER ========= //
-    // ========================================== //
+    // FILTER LOGIC
     socket.on('check-numbers', async ({ numbers }) => {
         const activeBots = systemSocks.filter(s => s && s.user);
         
-        // إذا لم يكن هناك بوتات نظام متصلة، نعطي خطأ
         if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Please check server logs and scan QR.');
 
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
