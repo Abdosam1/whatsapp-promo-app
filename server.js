@@ -18,7 +18,6 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
-const { validate } = require('deep-email-validator'); 
 
 const { 
     makeWASocket, 
@@ -29,7 +28,6 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcodeTerminal = require('qrcode-terminal');
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -45,14 +43,13 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
 const TRIAL_PERIOD_MINUTES = 1440;
 
-// === SYSTEM BOTS SETTINGS ===
-const NUMBER_OF_SYSTEM_BOTS = 3; 
+// === SYSTEM BOTS SETTINGS (تم التعديل لـ 1 لتسهيل الفحص) ===
+const NUMBER_OF_SYSTEM_BOTS = 1; 
 
 // Folders
 const promosUploadFolder = path.join(__dirname, "public", "promos");
 const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
-const blogFile = path.join(__dirname, 'blog_posts.json');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const userDataFolder = path.join(__dirname, 'user_data');
 
@@ -60,7 +57,6 @@ const userDataFolder = path.join(__dirname, 'user_data');
 [promosUploadFolder, uploadsFolder, sessionsFolder, userDataFolder].forEach(dir => { 
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); 
 });
-if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 
 // State Variables
 const whatsappClients = {}; 
@@ -79,7 +75,7 @@ const db = new sqlite3.Database(dbFile, (err) => {
 });
 
 db.serialize(() => {
-    // Clients Table (Updated to include timestamp for sorting)
+    // Clients Table
     db.run(`CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         name TEXT, 
@@ -101,6 +97,15 @@ db.serialize(() => {
 
     db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
     
+    // === NEW: Filtered Numbers Table (جدول الفحص) ===
+    db.run(`CREATE TABLE IF NOT EXISTS filtered_numbers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        phone TEXT, 
+        status TEXT, 
+        ownerId TEXT, 
+        created_at DATE DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     const addColumn = (t, c, type) => { 
         db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); 
     };
@@ -110,11 +115,8 @@ db.serialize(() => {
     addColumn('users', 'activation_code', 'TEXT');
     addColumn('users', 'chatbot_prompt', 'TEXT');
     addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
-    // Adding column for sorting by date
     addColumn('clients', 'last_interaction', 'INTEGER DEFAULT 0');
 });
-
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
 
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
 const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 50*1024*1024 } }); 
@@ -165,7 +167,7 @@ async function startSingleSystemBot(botIndex) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: true, // <=== تم التفعيل لتتمكن من مسح الكود
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -210,7 +212,7 @@ async function startWhatsAppSession(userId, socket = null) {
         printQRInTerminal: false, 
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
-        syncFullHistory: true // CRITICAL for mirroring
+        syncFullHistory: true
     });
 
     whatsappClients[userId] = sock;
@@ -235,76 +237,48 @@ async function startWhatsAppSession(userId, socket = null) {
         }
     });
 
-    // =======================================================
-    // === SYNC LOGIC: CHATS + CONTACTS + TIMESTAMP SORT ===
-    // =======================================================
-    
-    // دالة مساعدة لإدخال البيانات أو تحديثها
     const upsertClient = (id, name, timestamp) => {
         if (!id || id.includes('g.us') || id.includes('status') || id.includes('broadcast')) return;
-        
         const phone = id.split('@')[0];
         
         db.serialize(() => {
-            // 1. إذا كان عندنا وقت (timestamp)، يعني هادي محادثة، خاصنا نسجلوها أو نحدثو وقتها
             if (timestamp) {
-                // دخل النمرة والوقت، وإذا كانت كاينة، حدث الوقت فقط
                 db.run(`INSERT INTO clients (phone, ownerId, last_interaction, name) VALUES (?, ?, ?, ?)
                         ON CONFLICT(phone, ownerId) DO UPDATE SET last_interaction = excluded.last_interaction`, 
                         [phone, userId, timestamp, name || null]); 
             } 
-            
-            // 2. إذا كان عندنا سمية (name)، خاصنا نحدثو السمية د السيد
             if (name) {
                 db.run(`UPDATE clients SET name = ? WHERE phone = ? AND ownerId = ?`, [name, phone, userId]);
-                
-                // وإذا كانت النمرة مكايناش أصلا (جهة اتصال بدون محادثة)، ندخلوها
                 db.run(`INSERT INTO clients (phone, ownerId, name, last_interaction) 
                         SELECT ?, ?, ?, 0 WHERE (SELECT Changes() = 0)`, [phone, userId, name]);
             }
         });
     };
 
-    // هذا هو الحدث اللي كيجيب كلشي (المسجل وغير المسجل) من التاريخ
     sock.ev.on('messaging-history.set', async (history) => {
         const { chats, contacts } = history;
-        
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
-            
-            // نسبقو جهات الاتصال باش نعرفو السميات
-            if (contacts) {
-                contacts.forEach(c => {
-                    upsertClient(c.id, c.name || c.notify, null);
-                });
-            }
-
-            // دابا ندوزو للمحادثات (هنا فين كاينين النوامر الممسجلينش والترتيب)
-            if (chats) {
-                chats.forEach(c => {
-                    // تحويل التوقيت إلى ميلي ثانية
-                    const ts = c.conversationTimestamp ? (typeof c.conversationTimestamp === 'object' ? c.conversationTimestamp.low : c.conversationTimestamp) : Date.now();
-                    upsertClient(c.id, c.name, ts * 1000);
-                });
-            }
+            if (contacts) contacts.forEach(c => upsertClient(c.id, c.name || c.notify, null));
+            if (chats) chats.forEach(c => {
+                const ts = c.conversationTimestamp ? (typeof c.conversationTimestamp === 'object' ? c.conversationTimestamp.low : c.conversationTimestamp) : Date.now();
+                upsertClient(c.id, c.name, ts * 1000);
+            });
             db.run("COMMIT");
         });
     });
 
-    // تحديث مستمر عند وصول رسائل جديدة
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
-            if (!msg.message) continue;
+            if (!msg.message || msg.key.fromMe) continue;
             
             const senderPhone = msg.key.remoteJid;
-            const senderName = msg.pushName; // سمية البروفايل
+            const senderName = msg.pushName;
             const ts = msg.messageTimestamp ? (typeof msg.messageTimestamp === 'object' ? msg.messageTimestamp.low : msg.messageTimestamp) : Date.now();
-            
             upsertClient(senderPhone, senderName, ts * 1000);
 
             // Chatbot Logic
-            if (msg.key.fromMe) continue;
              db.get("SELECT is_chatbot_active, chatbot_prompt FROM users WHERE id = ?", [userId], async (err, user) => {
                 if (err || !user || !user.is_chatbot_active) return;
                 const userMsg = msg.message.conversation || msg.message.extendedTextMessage?.text;
@@ -322,11 +296,8 @@ async function startWhatsAppSession(userId, socket = null) {
         }
     });
 
-    // تحديث مستمر لجهات الاتصال
     sock.ev.on('contacts.upsert', async (contacts) => {
-        for (const contact of contacts) {
-            upsertClient(contact.id, contact.name || contact.notify, null);
-        }
+        for (const contact of contacts) upsertClient(contact.id, contact.name || contact.notify, null);
     });
 
     return sock;
@@ -367,14 +338,16 @@ io.on('connection', (socket) => {
         socket.emit('whatsapp-logged-out');
     });
 
-    socket.on('sync-contacts', () => {
-        setTimeout(() => { socket.emit('sync-complete'); }, 3000);
-    });
+    socket.on('sync-contacts', () => { setTimeout(() => { socket.emit('sync-complete'); }, 3000); });
 
-    // FILTER LOGIC
+    // ========================================== //
+    // =========== LOGIC: NUMBER FILTER ========= //
+    // ========================================== //
     socket.on('check-numbers', async ({ numbers }) => {
         const activeBots = systemSocks.filter(s => s && s.user);
-        if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline.');
+        
+        // إذا لم يكن هناك بوتات نظام متصلة، نعطي خطأ
+        if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Please check server logs and scan QR.');
 
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         let valid = 0, invalid = 0;
@@ -389,20 +362,29 @@ io.on('connection', (socket) => {
             }
             const phone = allPhones[i];
             
-            if (i > 0 && i % 50 === 0) await sleep(5000);
             await sleep(getRandomDelay(300, 1000));
 
             const bot = activeBots[i % activeBots.length];
             try {
                 const id = `${phone}@s.whatsapp.net`;
                 const [result] = await bot.onWhatsApp(id);
+                
+                let status = 'invalid';
                 if (result?.exists) {
+                    status = 'valid';
                     valid++;
-                    socket.emit('filter-result', { phone, status: 'valid' });
                 } else {
                     invalid++;
-                    socket.emit('filter-result', { phone, status: 'invalid' });
                 }
+
+                // حفظ النتيجة في الداتابيس
+                if (activeUserId) {
+                    db.run(`INSERT INTO filtered_numbers (phone, status, ownerId) VALUES (?, ?, ?)`, 
+                           [phone, status, activeUserId]);
+                }
+
+                socket.emit('filter-result', { phone, status });
+
             } catch (err) {
                 invalid++;
                 socket.emit('filter-result', { phone, status: 'invalid' });
@@ -502,9 +484,7 @@ app.post("/api/auth/login", async (req, res) => {
 // FIX: CONTACTS & IMPORT API (With Sorting)
 // ============================================
 
-// Get Saved Contacts (Sorted by latest interaction)
 app.get('/contacts', authMiddleware, (req, res) => {
-    // الترتيب: آخر تفاعل يطلع الفوق (DESC)
     db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
