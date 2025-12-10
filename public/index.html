@@ -20,7 +20,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-key="pageTitleIndex">أداة إرسال واتساب الاحترافية</title>
+    <title data-key="pageTitleIndex">WhatsApp Pro Suite</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -110,6 +110,11 @@
             padding: 160px 20px 160px;
             clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            min-height: 80vh; /* Ensure proper height */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         .hero h1 {
@@ -122,22 +127,22 @@
             font-size: 1.3em; color: var(--text-muted); max-width: 700px; margin: 0 auto 40px; line-height: 1.6;
         }
 
-        /* CTA Buttons */
+        /* CTA Buttons - UPDATED FOR SINGLE BUTTON */
         .cta-buttons a {
-            text-decoration: none; padding: 14px 40px; border-radius: 50px;
-            font-size: 1.1em; font-weight: 700; margin: 10px;
-            display: inline-block; transition: all 0.3s ease;
+            text-decoration: none; padding: 18px 60px; border-radius: 50px;
+            font-size: 1.3em; font-weight: 700; margin: 10px;
+            display: inline-flex; align-items: center; gap: 12px;
+            transition: all 0.3s ease;
         }
         .btn-main {
             background-color: var(--primary); color: #ffffff;
             box-shadow: 0 4px 20px rgba(0, 210, 106, 0.4);
         }
-        .btn-main:hover { transform: translateY(-3px); background-color: var(--primary-hover); }
-        
-        .btn-secondary {
-            background: transparent; border: 2px solid white; color: white;
+        .btn-main:hover { 
+            transform: translateY(-3px) scale(1.02); 
+            background-color: var(--primary-hover);
+            box-shadow: 0 10px 30px rgba(0, 210, 106, 0.5); 
         }
-        .btn-secondary:hover { background: white; color: #0f172a; }
 
         /* --- 5. Features Section --- */
         .features { padding: 40px 20px 80px; max-width: 1200px; margin: auto; }
@@ -213,69 +218,72 @@
         <div class="header-nav">
             <!-- Language Switcher -->
             <div class="language-switcher">
-                <button id="lang-ar" data-key="lang_ar"></button>
-                <button id="lang-en" data-key="lang_en"></button>
+                <button id="lang-ar" data-key="lang_ar">AR</button>
+                <button id="lang-en" data-key="lang_en">EN</button>
             </div>
 
-            <!-- Link to How it Works (With Translate Key) -->
+            <!-- Link to How it Works -->
             <a href="how-it-works.html" class="nav-link-item slide-link">
                 <i class="fas fa-info-circle"></i> 
-                <span data-key="navHowItWorks">كيف يعمل النظام؟</span>
+                <span data-key="navHowItWorks">كيف يعمل؟</span>
             </a>
         </div>
         
-        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle"></span></h1>
-        <p data-key="heroSubtitle"></p>
+        <!-- Main Hero Content -->
+        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle">WhatsApp Pro Suite</span></h1>
+        <p data-key="heroSubtitle">الحل المتكامل للتسويق وإدارة جهات الاتصال عبر واتساب</p>
         
+        <!-- SINGLE GET STARTED BUTTON -->
         <div class="cta-buttons">
-            <a href="signup.html" class="btn-main slide-link" data-key="ctaStart"></a>
-            <a href="login.html" class="btn-secondary slide-link" data-key="ctaLogin"></a>
+            <a href="/auth" class="btn-main slide-link">
+                <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
+            </a>
         </div>
     </div>
 
     <!-- Features Section -->
     <div class="features">
-        <h2 data-key="featuresTitle"></h2>
+        <h2 data-key="featuresTitle">المميزات الرئيسية</h2>
         <div class="features-grid">
             <!-- Card 1 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-rocket"></i></div>
-                <h3 data-key="feature1Title"></h3>
-                <p data-key="feature1Desc"></p>
+                <h3 data-key="feature1Title">إرسال سريع</h3>
+                <p data-key="feature1Desc">إرسال حملات تسويقية لآلاف العملاء بضغطة زر واحدة وبأمان تام.</p>
             </div>
             <!-- Card 2 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-file-import"></i></div>
-                <h3 data-key="feature2Title"></h3>
-                <p data-key="feature2Desc"></p>
+                <h3 data-key="feature2Title">استيراد جهات الاتصال</h3>
+                <p data-key="feature2Desc">دعم استيراد الملفات (CSV) وحفظ جهات الاتصال تلقائياً.</p>
             </div>
             <!-- Card 3 -->
             <div class="feature-card">
                 <div class="icon"><i class="fas fa-shield-alt"></i></div>
-                <h3 data-key="feature3Title"></h3>
-                <p data-key="feature3Desc"></p>
+                <h3 data-key="feature3Title">فلترة ذكية</h3>
+                <p data-key="feature3Desc">فحص الأرقام والتأكد من وجودها على واتساب قبل الإرسال لتجنب الحظر.</p>
             </div>
         </div>
     </div>
 
     <!-- Pricing Section -->
     <div class="pricing-section">
-        <h2 data-key="pricingSectionTitle"></h2>
+        <h2 data-key="pricingSectionTitle">باقات الاشتراك</h2>
         <div class="pricing-container">
             <div class="pricing-card">
-                <h3 class="card-title" data-key="planMonthlyTitle"></h3>
-                <p class="card-desc" data-key="planMonthlyDesc"></p>
+                <h3 class="card-title" data-key="planMonthlyTitle">شهري</h3>
+                <p class="card-desc" data-key="planMonthlyDesc">للمبتدئين والتجربة</p>
                 <div class="price-amount">$5</div>
             </div>
             <div class="pricing-card popular">
-                <div class="popular-badge" data-key="mostPopular"></div>
-                <h3 class="card-title" data-key="planSemiTitle"></h3>
-                <p class="card-desc" data-key="planSemiDesc"></p>
+                <div class="popular-badge" data-key="mostPopular">الأكثر طلباً</div>
+                <h3 class="card-title" data-key="planSemiTitle">نصف سنوي</h3>
+                <p class="card-desc" data-key="planSemiDesc">توفير وحرية أكثر</p>
                 <div class="price-amount">$20</div>
             </div>
             <div class="pricing-card">
-                <h3 class="card-title" data-key="planYearlyTitle"></h3>
-                <p class="card-desc" data-key="planYearlyDesc"></p>
+                <h3 class="card-title" data-key="planYearlyTitle">سنوي</h3>
+                <p class="card-desc" data-key="planYearlyDesc">للمحترفين والشركات</p>
                 <div class="price-amount">$35</div>
             </div>
         </div>
@@ -284,11 +292,11 @@
     <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-links">
-            <a href="about.html" data-key="footerAbout"></a> | 
-            <a href="privacy.html" data-key="footerPrivacy"></a>
+            <a href="about.html" data-key="footerAbout">من نحن</a> | 
+            <a href="privacy.html" data-key="footerPrivacy">الخصوصية</a>
         </div>
         <div style="margin-top: 15px;">
-            &copy; <span id="copyright-year"></span> Autosend Pro. <span data-key="footerRights"></span>
+            &copy; <span id="copyright-year"></span> WhatsApp Pro. <span data-key="footerRights">جميع الحقوق محفوظة.</span>
         </div>
     </footer>
 
