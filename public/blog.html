@@ -9,14 +9,11 @@
       gtag('js', new Date());
       gtag('config', 'G-Z3N357ZJ1W');
     </script>
-    <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="مدونة التسويق الرقمي: نصائح، استراتيجيات واتساب، وكيفية زيادة المبيعات أونلاين.">
-    <title data-key="blogPageTitle">المدونة - نصائح التسويق الرقمي</title>
+    <title>المدونة - نصائح التسويق الرقمي</title>
     
-    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -38,12 +35,20 @@
             background-color: var(--bg-main);
             color: var(--text-main);
             overflow-x: hidden;
+            top: 0 !important; /* Fix for Google Translate Bar */
         }
+
+        /* --- Google Translate Hiding CSS --- */
+        .goog-te-banner-frame.skiptranslate { display: none !important; } 
+        #google_translate_element { display: none; }
+        .goog-text-highlight { background-color: transparent !important; box-shadow: none !important; }
+        /* LTR Support for English */
+        html[lang="en"] body { font-family: 'Inter', sans-serif; }
 
         a { text-decoration: none; color: inherit; transition: 0.3s; }
         ul { list-style: none; padding: 0; margin: 0; }
         
-        /* --- Navigation (Matches Index) --- */
+        /* Navbar */
         .header-nav {
             display: flex; justify-content: space-between; align-items: center;
             padding: 15px 5%; background: rgba(15, 23, 42, 0.95);
@@ -52,15 +57,23 @@
         }
         .nav-left { display: flex; align-items: center; gap: 20px; }
         
+        .language-switcher button {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
+            cursor: pointer; font-family: inherit; font-weight: bold; font-size: 0.8em;
+        }
+        .language-switcher button:hover, .language-switcher button.active {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
+
         .btn-nav-cta {
             background-color: var(--primary); color: #000; padding: 10px 25px;
             border-radius: 30px; font-weight: bold; font-size: 0.9em;
             display: inline-flex; align-items: center; gap: 8px;
-            box-shadow: 0 0 10px rgba(0, 210, 106, 0.2);
         }
         .btn-nav-cta:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
-        /* --- Blog Hero --- */
+        /* Blog Header */
         .blog-header {
             text-align: center; padding: 60px 20px;
             background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
@@ -69,14 +82,13 @@
         .blog-header h1 { font-size: 2.5em; margin: 0 0 10px; color: white; font-weight: 900; }
         .blog-header p { color: var(--text-muted); font-size: 1.1em; max-width: 600px; margin: 0 auto; }
 
-        /* --- Layout Grid --- */
+        /* Grid */
         .blog-container {
             max-width: 1200px; margin: 40px auto; padding: 0 20px;
-            display: grid; grid-template-columns: 2fr 1fr; /* Articles vs Sidebar */
-            gap: 40px;
+            display: grid; grid-template-columns: 2fr 1fr; gap: 40px;
         }
 
-        /* --- Articles List --- */
+        /* Articles */
         .articles-list { display: flex; flex-direction: column; gap: 40px; }
 
         .article-card {
@@ -84,7 +96,7 @@
             border: 1px solid var(--border-color); transition: 0.3s;
             display: flex; flex-direction: column;
         }
-        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); }
         
         .article-img {
             width: 100%; height: 240px; background: #334155;
@@ -93,220 +105,195 @@
         }
         .article-content { padding: 25px; display: flex; flex-direction: column; flex-grow: 1; }
         
+        html[dir="ltr"] .article-content { text-align: left; }
+
         .article-meta { 
             color: var(--primary); font-size: 0.85em; font-weight: bold; 
-            margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;
-            background: rgba(0, 210, 106, 0.1); padding: 5px 10px; border-radius: 4px; display: inline-block; width: fit-content;
+            margin-bottom: 10px; background: rgba(0, 210, 106, 0.1); 
+            padding: 5px 10px; border-radius: 4px; display: inline-block; width: fit-content;
         }
         
-        .article-title { font-size: 1.6em; margin: 0 0 15px; color: white; line-height: 1.4; }
-        .article-excerpt { color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; flex-grow: 1; }
+        .article-title { font-size: 1.6em; margin: 0 0 15px; color: white; }
+        .article-excerpt { color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
         
-        .read-btn { 
-            color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 8px; margin-top: auto; 
-            transition: 0.3s;
-        }
-        .read-btn:hover { padding-right: 10px; }
+        .read-btn { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 8px; margin-top: auto; }
 
-        /* --- Sidebar --- */
+        /* Sidebar */
         .sidebar { display: flex; flex-direction: column; gap: 30px; }
-        
         .widget { background: var(--bg-card); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); }
         .widget h3 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid var(--primary); display: inline-block; color: white; margin-bottom: 15px; }
-        
+        html[dir="ltr"] .widget h3 { border-bottom: none; border-left: 3px solid var(--primary); padding-left: 10px; padding-bottom: 0; }
+
         .cat-list li { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
-        .cat-list li:last-child { border: none; }
         .cat-list li a { display: flex; justify-content: space-between; color: #ccc; }
         .cat-list li a:hover { color: var(--primary); }
 
-        /* --- ADSENSE SPACES (Placeholders) --- */
+        /* AdSense */
         .ad-space {
             background: #000; border: 1px dashed #444; width: 100%;
             display: flex; align-items: center; justify-content: center;
-            color: #666; font-family: monospace; text-align: center;
-            border-radius: 8px; overflow: hidden;
+            color: #666; font-family: monospace; text-align: center; border-radius: 8px;
         }
         .ad-horizontal { height: 120px; margin-bottom: 30px; }
         .ad-vertical { height: 350px; }
 
-        /* --- Footer --- */
         .site-footer { border-top: 1px solid var(--border-color); background: #0b1120; padding: 40px 0; color: var(--text-muted); text-align: center; margin-top: 50px; }
-        .footer-links a { margin: 0 10px; color: #ccc; }
-        .footer-links a:hover { color: var(--primary); }
-
-        /* --- Responsive --- */
+        
         @media (max-width: 900px) {
             .blog-container { grid-template-columns: 1fr; }
             .header-nav { padding: 15px 20px; }
-            .article-title { font-size: 1.4em; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Navigation -->
     <nav class="header-nav">
         <div class="nav-left">
-            <a href="index.html" style="font-weight: bold; font-size: 1.2em; color: white; display: flex; align-items: center; gap: 8px;">
-                <i class="fab fa-whatsapp" style="color:var(--primary); font-size: 1.4em;"></i> WA Pro
-            </a>
-            
-            <!-- Link back to Home -->
-            <a href="index.html" style="color: #ccc; font-size: 0.9em; margin-right: 20px;">
-                <i class="fas fa-home"></i> <span data-key="navHome">الرئيسية</span>
+            <div class="language-switcher">
+                <button id="lang-ar">AR</button>
+                <button id="lang-en">EN</button>
+            </div>
+
+            <a href="index.html" style="color: #ccc; font-size: 0.9em; margin-right: 20px; display: flex; gap: 5px;">
+                <i class="fas fa-home"></i> <span>الرئيسية</span>
             </a>
         </div>
 
         <a href="/auth" class="btn-nav-cta">
-            <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
+            <i class="fas fa-rocket"></i> <span>ابدأ الآن</span>
         </a>
     </nav>
 
-    <!-- Blog Header -->
     <header class="blog-header">
-        <h1 data-key="blogHeroTitle">المدونة & أكاديمية التسويق</h1>
-        <p data-key="blogHeroSubtitle">كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
+        <h1>المدونة & أكاديمية التسويق</h1>
+        <p>كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
     </header>
 
-    <!-- AdSpace Top (Horizontal) -->
     <div class="blog-container" style="margin-bottom: 0; padding-bottom: 0;">
         <div class="ad-space ad-horizontal">
-            <!-- ضع كود إعلان Google AdSense الأفقي هنا -->
-            &lt;!-- مساحة إعلانية (Google AdSense Banner) --&gt;
+            &lt;!-- Google AdSense Banner --&gt;
         </div>
     </div>
 
-    <!-- Main Content -->
     <div class="blog-container">
         
-        <!-- Articles Column (Dynamic Content) -->
         <main class="articles-list" id="articles-list">
-            <!-- سيتم ملء هذا الجزء بالمقالات تلقائياً عبر JavaScript -->
             <p style="text-align:center; color:#888;">جاري تحميل المقالات...</p>
         </main>
 
-        <!-- Sidebar Column -->
         <aside class="sidebar">
-            
-            <!-- Search Widget (Visual Only) -->
             <div class="widget">
                 <h3>بحث</h3>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" placeholder="ابحث في المدونة..." style="width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; outline: none;">
-                    <button style="background: var(--primary); border: none; padding: 0 15px; border-radius: 6px; cursor: pointer;"><i class="fas fa-search"></i></button>
-                </div>
+                <input type="text" placeholder="ابحث..." style="width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
             </div>
 
-            <!-- AdSpace Sidebar 1 (Vertical) -->
             <div class="ad-space ad-vertical">
-                <!-- ضع كود إعلان Google AdSense الجانبي هنا -->
-                &lt;!-- إعلان جانبي (Sidebar Ad) --&gt;
+                &lt;!-- Sidebar Ad --&gt;
             </div>
 
-            <!-- Categories Widget -->
             <div class="widget">
                 <h3>التصنيفات</h3>
                 <ul class="cat-list">
-                    <li><a href="#">التسويق الرقمي <i class="fas fa-chevron-left" style="font-size: 0.8em;"></i></a></li>
-                    <li><a href="#">شروحات واتساب <i class="fas fa-chevron-left" style="font-size: 0.8em;"></i></a></li>
-                    <li><a href="#">أتمتة وذكاء اصطناعي <i class="fas fa-chevron-left" style="font-size: 0.8em;"></i></a></li>
-                    <li><a href="#">التجارة الإلكترونية <i class="fas fa-chevron-left" style="font-size: 0.8em;"></i></a></li>
+                    <li><a href="#">التسويق الرقمي</a></li>
+                    <li><a href="#">شروحات واتساب</a></li>
+                    <li><a href="#">أتمتة وذكاء اصطناعي</a></li>
+                    <li><a href="#">التجارة الإلكترونية</a></li>
                 </ul>
             </div>
-
-            <!-- AdSpace Sidebar 2 -->
-            <div class="ad-space ad-vertical" style="height: 250px;">
-                <!-- ضع كود إعلان آخر هنا -->
-                &lt;!-- مساحة إعلانية إضافية --&gt;
-            </div>
-
         </aside>
-
     </div>
 
-    <!-- Footer -->
     <footer class="site-footer">
-        <div class="footer-links">
-            <a href="about.html" data-key="footerAbout">من نحن</a> | 
-            <a href="privacy.html" data-key="footerPrivacy">الخصوصية</a>
-        </div>
-        <div style="margin-top: 15px;">
-            &copy; <span id="copyright-year"></span> WhatsApp Pro. <span data-key="footerRights">جميع الحقوق محفوظة.</span>
-        </div>
+        <p>&copy; <span id="year"></span> WhatsApp Pro. جميع الحقوق محفوظة.</p>
     </footer>
 
-    <!-- Scripts -->
-    <script src="language.js"></script>
-    <script>
-        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    <!-- Hidden Google Translate Element -->
+    <div id="google_translate_element"></div>
 
-        // === دالة جلب المقالات من السيرفر ===
+    <!-- 1. Google Translate Script -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ar',
+                includedLanguages: 'ar,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <!-- 2. Logic for Translation & API -->
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        // --- Translation Logic ---
+        function triggerGoogleTranslate(lang) {
+            // Set Cookie: /ar/en for English, /ar/ar for Arabic
+            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
+            document.cookie = "googtrans=" + cookieValue + "; path=/";
+            location.reload(); // Reload to apply translation
+        }
+
+        // --- Check Current Language on Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnAr = document.getElementById('lang-ar');
+            const btnEn = document.getElementById('lang-en');
+            
+            // Detect Language from Cookie
+            let currentLang = 'ar';
+            if (document.cookie.includes('/en')) currentLang = 'en';
+
+            if(currentLang === 'en') {
+                btnEn.classList.add('active');
+                document.documentElement.dir = 'ltr';
+                document.documentElement.lang = 'en';
+            } else {
+                btnAr.classList.add('active');
+                document.documentElement.dir = 'rtl';
+                document.documentElement.lang = 'ar';
+            }
+
+            // Button Events
+            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
+            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
+            
+            // Load Content
+            loadBlogPosts();
+        });
+
+        // --- Fetch Posts ---
         async function loadBlogPosts() {
             try {
-                // طلب المقالات من API الذي أنشأناه في server.js
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
                 const container = document.getElementById('articles-list');
-                
-                container.innerHTML = ''; // مسح رسالة "جاري التحميل"
+                container.innerHTML = '';
 
                 if(posts.length === 0) {
-                    container.innerHTML = `
-                        <div style="text-align:center; padding: 40px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color);">
-                            <i class="fas fa-newspaper" style="font-size: 3em; color: var(--text-muted); margin-bottom: 15px;"></i>
-                            <p>لا توجد مقالات منشورة حالياً.</p>
-                        </div>`;
-                    return;
+                    container.innerHTML = '<p style="text-align:center">لا توجد مقالات.</p>'; return;
                 }
 
-                // إنشاء كود HTML لكل مقال
-                posts.forEach((post, index) => {
-                    // إضافة إعلان وسط المقالات (مثلاً بعد المقال الثاني)
-                    if (index === 2) {
-                        container.insertAdjacentHTML('beforeend', `
-                            <div class="ad-space ad-horizontal">
-                                &lt;!-- إعلان وسط المقالات (In-Feed Ad) --&gt;
-                            </div>
-                        `);
-                    }
+                posts.forEach(post => {
+                    const imgStyle = post.image ? `background-image:url('/blog_images/${post.image}');` : '';
+                    const fallback = post.image ? '' : '<i class="fas fa-image"></i>';
 
-                    // التحقق من وجود صورة
-                    const imageStyle = post.image 
-                        ? `background-image:url('/blog_images/${post.image}');` 
-                        : '';
-                    
-                    const iconFallback = post.image ? '' : '<i class="fas fa-image"></i>';
-
-                    const articleHTML = `
+                    const html = `
                         <article class="article-card">
-                            <div class="article-img" style="${imageStyle}">
-                                ${iconFallback}
-                            </div>
+                            <div class="article-img" style="${imgStyle}">${fallback}</div>
                             <div class="article-content">
                                 <span class="article-meta">${post.category || 'عام'}</span>
                                 <h2 class="article-title">${post.title}</h2>
                                 <p class="article-excerpt">${post.excerpt}</p>
-                                <a href="article-view.html?id=${post.id}" class="read-btn">اقرأ المقال كاملاً <i class="fas fa-arrow-left"></i></a>
+                                <a href="article-view.html?id=${post.id}" class="read-btn">
+                                    اقرأ المزيد <i class="fas ${document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right'}"></i>
+                                </a>
                             </div>
                         </article>
                     `;
-                    container.insertAdjacentHTML('beforeend', articleHTML);
+                    container.insertAdjacentHTML('beforeend', html);
                 });
-
-            } catch (e) {
-                console.error("Error loading posts:", e);
-                document.getElementById('articles-list').innerHTML = '<p style="text-align:center; color:red;">حدث خطأ في تحميل المقالات.</p>';
-            }
+            } catch(e) { console.error(e); }
         }
-        
-        // تشغيل الدالة عند تحميل الصفحة
-        document.addEventListener('DOMContentLoaded', () => {
-            loadBlogPosts();
-            
-            // تطبيق اللغة المحفوظة
-            const savedLang = localStorage.getItem('preferredLanguage') || 'ar';
-            if(typeof setLanguage === 'function') setLanguage(savedLang);
-        });
     </script>
 </body>
 </html>
