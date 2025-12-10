@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قراءة المقال</title>
+    <!-- نفس الستايل والروابط ديال الصفحات الاخرى -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; margin:0; }
+        .container { max-width: 800px; margin: 40px auto; padding: 20px; }
+        .post-img { width: 100%; height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; display:none; }
+        h1 { color: #00d26a; font-size: 2.5em; margin-bottom: 10px; }
+        .meta { color: #888; font-size: 0.9em; margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
+        .content { line-height: 1.8; font-size: 1.1em; color: #e2e8f0; white-space: pre-wrap; }
+        .header-nav { padding: 15px 40px; background: rgba(15, 23, 42, 0.95); display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
+        a { color: inherit; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="header-nav">
+        <a href="index.html" style="font-weight:bold; font-size:1.2em"><i class="fab fa-whatsapp" style="color:#00d26a"></i> WA Pro</a>
+        <a href="blog.html" style="color:#ccc">العودة للمدونة</a>
+    </nav>
+
+    <div class="container">
+        <div id="loading">جاري تحميل المقال...</div>
+        
+        <article id="articleContent" style="display:none;">
+            <img id="pImage" class="post-img" src="" alt="Post Image">
+            <h1 id="pTitle"></h1>
+            <div class="meta">
+                <span id="pCat" style="color:#00d26a; font-weight:bold;"></span> | 
+                <span id="pDate"></span>
+            </div>
+            
+            <!-- AdSpace Top -->
+            <div style="background:#000; border:1px dashed #444; height:100px; margin:20px 0; display:flex; align-items:center; justify-content:center; color:#555;">
+                Massa3a I3laniya (Google AdSense)
+            </div>
+
+            <div id="pContent" class="content"></div>
+        </article>
+    </div>
+
+    <script>
+        async function loadSinglePost() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if(!id) { window.location.href = 'blog.html'; return; }
+
+            try {
+                const res = await fetch(`/api/blog/post/${id}`);
+                if(!res.ok) throw new Error('Not found');
+                const post = await res.json();
+
+                document.title = post.title;
+                document.getElementById('pTitle').textContent = post.title;
+                document.getElementById('pCat').textContent = post.category || 'عام';
+                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString('ar-MA');
+                document.getElementById('pContent').innerHTML = post.content; // Use innerHTML to allow basic HTML tags if input allows
+
+                if(post.image) {
+                    const img = document.getElementById('pImage');
+                    img.src = `/blog_images/${post.image}`;
+                    img.style.display = 'block';
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('articleContent').style.display = 'block';
+
+            } catch(e) {
+                document.getElementById('loading').textContent = "عذراً، المقال غير موجود أو تم حذفه.";
+            }
+        }
+        loadSinglePost();
+    </script>
+</body>
+</html>
