@@ -1,50 +1,144 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    <!-- Google Tag Manager -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>قراءة المقال</title>
-    <!-- نفس الستايل والروابط ديال الصفحات الاخرى -->
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
     <style>
-        body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; margin:0; }
+        :root {
+            --bg-main: #0f172a; --bg-card: #1e293b; --primary: #00d26a; --text-main: #ffffff; --border-color: #334155;
+        }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Cairo', sans-serif; margin: 0; top: 0 !important; }
+        
+        /* Translate Hide */
+        .goog-te-banner-frame.skiptranslate { display: none !important; } 
+        #google_translate_element { display: none; }
+        html[lang="en"] body { font-family: 'Inter', sans-serif; }
+
+        a { text-decoration: none; color: inherit; }
+        
+        .header-nav {
+            padding: 15px 40px; background: rgba(15, 23, 42, 0.95);
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
+        }
+        
+        .language-switcher button {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold;
+        }
+        .language-switcher button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
         .container { max-width: 800px; margin: 40px auto; padding: 20px; }
-        .post-img { width: 100%; height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; display:none; }
-        h1 { color: #00d26a; font-size: 2.5em; margin-bottom: 10px; }
+        
+        .post-img { width: 100%; height: 350px; object-fit: cover; border-radius: 12px; margin-bottom: 30px; display: none; border: 1px solid var(--border-color); }
+        
+        h1 { color: var(--primary); font-size: 2.5em; margin-bottom: 15px; }
         .meta { color: #888; font-size: 0.9em; margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-        .content { line-height: 1.8; font-size: 1.1em; color: #e2e8f0; white-space: pre-wrap; }
-        .header-nav { padding: 15px 40px; background: rgba(15, 23, 42, 0.95); display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
-        a { color: inherit; text-decoration: none; }
+        
+        .content { line-height: 1.8; font-size: 1.15em; color: #e2e8f0; white-space: pre-wrap; }
+        html[dir="ltr"] .content { text-align: left; }
+
+        .ad-space { background: #000; border: 1px dashed #444; height: 120px; display: flex; align-items: center; justify-content: center; color: #666; margin: 30px 0; border-radius: 8px; }
     </style>
 </head>
 <body>
+
     <nav class="header-nav">
-        <a href="index.html" style="font-weight:bold; font-size:1.2em"><i class="fab fa-whatsapp" style="color:#00d26a"></i> WA Pro</a>
-        <a href="blog.html" style="color:#ccc">العودة للمدونة</a>
+        <div style="display:flex; gap:20px; align-items:center;">
+             <div class="language-switcher">
+                <button id="lang-ar">AR</button>
+                <button id="lang-en">EN</button>
+            </div>
+            <a href="blog.html" style="color:#ccc;">
+                <i class="fas fa-arrow-right"></i> المدونة
+            </a>
+        </div>
+        <a href="index.html" style="font-weight:bold; color:var(--primary);">WA Pro</a>
     </nav>
 
     <div class="container">
-        <div id="loading">جاري تحميل المقال...</div>
+        <div id="loading" style="text-align:center; color:#888;">جاري تحميل المقال...</div>
         
         <article id="articleContent" style="display:none;">
             <img id="pImage" class="post-img" src="" alt="Post Image">
             <h1 id="pTitle"></h1>
             <div class="meta">
-                <span id="pCat" style="color:#00d26a; font-weight:bold;"></span> | 
+                <span id="pCat" style="color:var(--primary); font-weight:bold;"></span> | 
                 <span id="pDate"></span>
             </div>
             
-            <!-- AdSpace Top -->
-            <div style="background:#000; border:1px dashed #444; height:100px; margin:20px 0; display:flex; align-items:center; justify-content:center; color:#555;">
-                Massa3a I3laniya (Google AdSense)
+            <div class="ad-space">
+                &lt;!-- Top AdSense --&gt;
             </div>
 
             <div id="pContent" class="content"></div>
+
+             <div class="ad-space">
+                &lt;!-- Bottom AdSense --&gt;
+            </div>
         </article>
     </div>
 
+    <!-- Hidden Translate -->
+    <div id="google_translate_element"></div>
+
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ar',
+                includedLanguages: 'ar,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
     <script>
+        // --- Translation Logic ---
+        function triggerGoogleTranslate(lang) {
+            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
+            document.cookie = "googtrans=" + cookieValue + "; path=/";
+            location.reload();
+        }
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnAr = document.getElementById('lang-ar');
+            const btnEn = document.getElementById('lang-en');
+            
+            let currentLang = 'ar';
+            if (document.cookie.includes('/en')) currentLang = 'en';
+
+            if(currentLang === 'en') {
+                btnEn.classList.add('active');
+                document.documentElement.dir = 'ltr';
+                document.documentElement.lang = 'en';
+            } else {
+                btnAr.classList.add('active');
+                document.documentElement.dir = 'rtl';
+                document.documentElement.lang = 'ar';
+            }
+
+            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
+            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
+            
+            loadSinglePost();
+        });
+
+        // --- Fetch Single Post ---
         async function loadSinglePost() {
             const params = new URLSearchParams(window.location.search);
             const id = params.get('id');
@@ -57,9 +151,11 @@
 
                 document.title = post.title;
                 document.getElementById('pTitle').textContent = post.title;
-                document.getElementById('pCat').textContent = post.category || 'عام';
-                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString('ar-MA');
-                document.getElementById('pContent').innerHTML = post.content; // Use innerHTML to allow basic HTML tags if input allows
+                document.getElementById('pCat').textContent = post.category || 'General';
+                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString();
+                // We use textContent for body to prevent XSS if you paste HTML in admin, 
+                // BUT if you want HTML formatting (bold, links) use innerHTML:
+                document.getElementById('pContent').innerHTML = post.content; 
 
                 if(post.image) {
                     const img = document.getElementById('pImage');
@@ -71,10 +167,9 @@
                 document.getElementById('articleContent').style.display = 'block';
 
             } catch(e) {
-                document.getElementById('loading').textContent = "عذراً، المقال غير موجود أو تم حذفه.";
+                document.getElementById('loading').textContent = "المقال غير موجود.";
             }
         }
-        loadSinglePost();
     </script>
 </body>
 </html>
