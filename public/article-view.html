@@ -14,22 +14,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>قراءة المقال</title>
     
+    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
+        /* --- Dark Theme Variables --- */
         :root {
             --bg-main: #0f172a; --bg-card: #1e293b; --primary: #00d26a; --text-main: #ffffff; --border-color: #334155;
         }
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Cairo', sans-serif; margin: 0; top: 0 !important; }
-        
-        /* Translate Hide */
-        .goog-te-banner-frame.skiptranslate { display: none !important; } 
-        #google_translate_element { display: none; }
-        html[lang="en"] body { font-family: 'Inter', sans-serif; }
 
-        a { text-decoration: none; color: inherit; }
+        /* --- General Styles --- */
+        body { 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            font-family: 'Cairo', sans-serif; 
+            margin: 0; 
+            /* Fix for Google Translate Shift */
+            top: 0 !important; 
+            position: static !important; 
+        }
+
+        /* LTR Font Support */
+        html[lang="en"] body { font-family: 'Inter', sans-serif; }
         
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+
+        /* ================================================= */
+        /* === ANTI-GOOGLE BANNER (FORCE HIDE CSS) === */
+        /* ================================================= */
+        iframe.goog-te-banner-frame {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+        }
+        body {
+            top: 0px !important; 
+            margin-top: 0 !important;
+        }
+        #google_translate_element {
+            display: none !important;
+        }
+        .goog-tooltip {
+            display: none !important;
+        }
+        .goog-text-highlight {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        /* ================================================= */
+
+        /* --- Navbar --- */
         .header-nav {
             padding: 15px 40px; background: rgba(15, 23, 42, 0.95);
             display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
@@ -37,70 +74,70 @@
         
         .language-switcher button {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold;
+            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;
         }
-        .language-switcher button.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .language-switcher button:hover, .language-switcher button.active {
+            background: var(--primary); color: white; border-color: var(--primary);
+        }
 
+        /* --- Article Container --- */
         .container { max-width: 800px; margin: 40px auto; padding: 20px; }
         
-        .post-img { width: 100%; height: 350px; object-fit: cover; border-radius: 12px; margin-bottom: 30px; display: none; border: 1px solid var(--border-color); }
+        .post-img { 
+            width: 100%; height: 350px; object-fit: cover; 
+            border-radius: 12px; margin-bottom: 30px; 
+            display: none; border: 1px solid var(--border-color); 
+        }
         
-        h1 { color: var(--primary); font-size: 2.5em; margin-bottom: 15px; }
+        h1 { color: var(--primary); font-size: 2.5em; margin-bottom: 15px; line-height: 1.3; }
+        
         .meta { color: #888; font-size: 0.9em; margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
         
+        /* Content Styling */
         .content { line-height: 1.8; font-size: 1.15em; color: #e2e8f0; white-space: pre-wrap; }
         html[dir="ltr"] .content { text-align: left; }
+        
+        /* Elements inside content (if you use HTML editor) */
+        .content h2 { color: white; margin-top: 30px; border-right: 4px solid var(--primary); padding-right: 15px; }
+        html[dir="ltr"] .content h2 { border-right: none; border-left: 4px solid var(--primary); padding-right: 0; padding-left: 15px; }
+        .content ul { margin-bottom: 20px; }
+        .content li { margin-bottom: 10px; }
 
-        .ad-space { background: #000; border: 1px dashed #444; height: 120px; display: flex; align-items: center; justify-content: center; color: #666; margin: 30px 0; border-radius: 8px; }
+        /* AdSpace */
+        .ad-space { 
+            background: #000; border: 1px dashed #444; height: 120px; 
+            display: flex; align-items: center; justify-content: center; 
+            color: #666; margin: 30px 0; border-radius: 8px; font-family: monospace;
+        }
 
-        /* ========================================= */
-/* === إخفاء شريط جوجل للترجمة نهائياً === */
-/* ========================================= */
-
-/* 1. إخفاء الإطار (Frame) العلوي */
-.goog-te-banner-frame.skiptranslate, 
-.goog-te-banner-frame {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-}
-
-/* 2. منع الصفحة من النزول للأسفل */
-body {
-    top: 0px !important; 
-    position: static !important;
-}
-
-/* 3. إخفاء التلوين والحاشية عند تمرير الماوس */
-.goog-text-highlight {
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-
-/* 4. إخفاء أي عناصر إضافية من جوجل */
-#google_translate_element {
-    display: none !important;
-}
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-nav { padding: 15px 20px; }
+            h1 { font-size: 1.8em; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- Navbar -->
     <nav class="header-nav">
         <div style="display:flex; gap:20px; align-items:center;">
              <div class="language-switcher">
                 <button id="lang-ar">AR</button>
                 <button id="lang-en">EN</button>
             </div>
-            <a href="blog.html" style="color:#ccc;">
+            <a href="blog.html" style="color:#ccc; display:flex; align-items:center; gap:5px;">
                 <i class="fas fa-arrow-right"></i> المدونة
             </a>
         </div>
-        <a href="index.html" style="font-weight:bold; color:var(--primary);">WA Pro</a>
+        <a href="index.html" style="font-weight:bold; color:var(--primary); font-size:1.2em;">WA Pro</a>
     </nav>
 
+    <!-- Main Content -->
     <div class="container">
-        <div id="loading" style="text-align:center; color:#888;">جاري تحميل المقال...</div>
+        <div id="loading" style="text-align:center; color:#888; margin-top:50px;">
+            <i class="fas fa-spinner fa-spin"></i> جاري تحميل المقال...
+        </div>
         
         <article id="articleContent" style="display:none;">
             <img id="pImage" class="post-img" src="" alt="Post Image">
@@ -110,65 +147,82 @@ body {
                 <span id="pDate"></span>
             </div>
             
+            <!-- Top AdSense -->
             <div class="ad-space">
-                &lt;!-- Top AdSense --&gt;
+                &lt;!-- Google AdSense Banner (Top) --&gt;
             </div>
 
+            <!-- Article Body -->
             <div id="pContent" class="content"></div>
 
+            <!-- Bottom AdSense -->
              <div class="ad-space">
-                &lt;!-- Bottom AdSense --&gt;
+                &lt;!-- Google AdSense Banner (Bottom) --&gt;
             </div>
         </article>
     </div>
 
-    <!-- Hidden Translate -->
+    <!-- Hidden Translate Element (Required) -->
     <div id="google_translate_element"></div>
 
+    <!-- 1. Google Translate API -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ar',
                 includedLanguages: 'ar,en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
                 autoDisplay: false
             }, 'google_translate_element');
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
+    <!-- 2. Logic: Translation & Fetching -->
     <script>
-        // --- Translation Logic ---
-        function triggerGoogleTranslate(lang) {
-            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
-            document.cookie = "googtrans=" + cookieValue + "; path=/";
-            location.reload();
+        // --- PRO TRANSLATION LOGIC (NO BANNER) ---
+        function changeLanguage(lang) {
+            // Clear old cookies to prevent conflicts
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
+
+            if (lang === 'en') {
+                document.cookie = "googtrans=/ar/en; path=/";
+                document.cookie = "googtrans=/ar/en; path=/; domain=" + document.domain;
+            } else {
+                document.cookie = "googtrans=/ar/ar; path=/";
+                document.cookie = "googtrans=/ar/ar; path=/; domain=" + document.domain;
+            }
+            window.location.reload();
         }
 
-        // --- Init ---
+        // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             const btnAr = document.getElementById('lang-ar');
             const btnEn = document.getElementById('lang-en');
             
-            let currentLang = 'ar';
-            if (document.cookie.includes('/en')) currentLang = 'en';
-
-            if(currentLang === 'en') {
-                btnEn.classList.add('active');
-                document.documentElement.dir = 'ltr';
+            // Check active language via cookie
+            if (document.cookie.includes('/en')) {
+                if(btnEn) btnEn.classList.add('active');
+                if(btnAr) btnAr.classList.remove('active');
                 document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
             } else {
-                btnAr.classList.add('active');
-                document.documentElement.dir = 'rtl';
+                if(btnAr) btnAr.classList.add('active');
+                if(btnEn) btnEn.classList.remove('active');
                 document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
             }
 
-            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
-            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
+            // Button Events
+            if(btnEn) btnEn.onclick = () => changeLanguage('en');
+            if(btnAr) btnAr.onclick = () => changeLanguage('ar');
             
+            // Load Post
             loadSinglePost();
         });
 
-        // --- Fetch Single Post ---
+        // --- FETCH POST DATA ---
         async function loadSinglePost() {
             const params = new URLSearchParams(window.location.search);
             const id = params.get('id');
@@ -179,12 +233,13 @@ body {
                 if(!res.ok) throw new Error('Not found');
                 const post = await res.json();
 
+                // Populate Data
                 document.title = post.title;
                 document.getElementById('pTitle').textContent = post.title;
                 document.getElementById('pCat').textContent = post.category || 'General';
-                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString();
-                // We use textContent for body to prevent XSS if you paste HTML in admin, 
-                // BUT if you want HTML formatting (bold, links) use innerHTML:
+                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString('ar-MA');
+                
+                // Using innerHTML allows formatting from the admin panel (bold, lists, etc)
                 document.getElementById('pContent').innerHTML = post.content; 
 
                 if(post.image) {
@@ -197,7 +252,7 @@ body {
                 document.getElementById('articleContent').style.display = 'block';
 
             } catch(e) {
-                document.getElementById('loading').textContent = "المقال غير موجود.";
+                document.getElementById('loading').innerHTML = "<span style='color:red'>عذراً، المقال غير موجود أو تم حذفه.</span>";
             }
         }
     </script>
