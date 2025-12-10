@@ -12,9 +12,8 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قراءة المقال</title>
+    <title>WhatsApp Pro - Blog</title>
     
-    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -30,9 +29,7 @@
             color: var(--text-main); 
             font-family: 'Cairo', sans-serif; 
             margin: 0; 
-            /* Fix for Google Translate Shift */
-            top: 0 !important; 
-            position: static !important; 
+            overflow-x: hidden;
         }
 
         /* LTR Font Support */
@@ -40,45 +37,21 @@
         
         a { text-decoration: none; color: inherit; transition: 0.3s; }
 
-        /* ================================================= */
-        /* === ANTI-GOOGLE BANNER (FORCE HIDE CSS) === */
-        /* ================================================= */
-        iframe.goog-te-banner-frame {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            width: 0 !important;
-        }
-        body {
-            top: 0px !important; 
-            margin-top: 0 !important;
-        }
-        #google_translate_element {
-            display: none !important;
-        }
-        .goog-tooltip {
-            display: none !important;
-        }
-        .goog-text-highlight {
-            background-color: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        /* ================================================= */
-
         /* --- Navbar --- */
         .header-nav {
-            padding: 15px 40px; background: rgba(15, 23, 42, 0.95);
-            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
+            padding: 15px 5%; background: rgba(15, 23, 42, 0.95);
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 1000;
         }
         
-        .language-switcher button {
+        .lang-btn {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;
+            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold;
         }
-        .language-switcher button:hover, .language-switcher button.active {
-            background: var(--primary); color: white; border-color: var(--primary);
-        }
+        .lang-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .nav-link { font-weight: bold; display: flex; align-items: center; gap: 8px; color: #ccc; }
+        .nav-link:hover { color: var(--primary); }
 
         /* --- Article Container --- */
         .container { max-width: 800px; margin: 40px auto; padding: 20px; }
@@ -97,12 +70,10 @@
         .content { line-height: 1.8; font-size: 1.15em; color: #e2e8f0; white-space: pre-wrap; }
         html[dir="ltr"] .content { text-align: left; }
         
-        /* Elements inside content (if you use HTML editor) */
+        /* Elements inside content */
         .content h2 { color: white; margin-top: 30px; border-right: 4px solid var(--primary); padding-right: 15px; }
         html[dir="ltr"] .content h2 { border-right: none; border-left: 4px solid var(--primary); padding-right: 0; padding-left: 15px; }
-        .content ul { margin-bottom: 20px; }
-        .content li { margin-bottom: 10px; }
-
+        
         /* AdSpace */
         .ad-space { 
             background: #000; border: 1px dashed #444; height: 120px; 
@@ -122,26 +93,30 @@
     <!-- Navbar -->
     <nav class="header-nav">
         <div style="display:flex; gap:20px; align-items:center;">
-             <div class="language-switcher">
-                <button id="lang-ar">AR</button>
-                <button id="lang-en">EN</button>
+             <div>
+                <button class="lang-btn" onclick="setLanguage('ar')">AR</button>
+                <button class="lang-btn" onclick="setLanguage('en')">EN</button>
             </div>
-            <a href="blog.html" style="color:#ccc; display:flex; align-items:center; gap:5px;">
-                <i class="fas fa-arrow-right"></i> المدونة
+            <a href="blog.html" class="nav-link">
+                <i class="fas fa-arrow-right arrow-icon"></i> <span data-i18n="nav_blog">المدونة</span>
             </a>
         </div>
-        <a href="index.html" style="font-weight:bold; color:var(--primary); font-size:1.2em;">WA Pro</a>
+        <a href="index.html" class="nav-link" style="color:var(--primary);">WA Pro</a>
     </nav>
 
     <!-- Main Content -->
     <div class="container">
+        <!-- Loading State -->
         <div id="loading" style="text-align:center; color:#888; margin-top:50px;">
-            <i class="fas fa-spinner fa-spin"></i> جاري تحميل المقال...
+            <i class="fas fa-spinner fa-spin"></i> <span data-i18n="blogLoading">جاري تحميل المقال...</span>
         </div>
         
         <article id="articleContent" style="display:none;">
             <img id="pImage" class="post-img" src="" alt="Post Image">
+            
+            <!-- Dynamic Content (From DB) -->
             <h1 id="pTitle"></h1>
+            
             <div class="meta">
                 <span id="pCat" style="color:var(--primary); font-weight:bold;"></span> | 
                 <span id="pDate"></span>
@@ -149,7 +124,7 @@
             
             <!-- Top AdSense -->
             <div class="ad-space">
-                &lt;!-- Google AdSense Banner (Top) --&gt;
+                AdSpace (Banner Top)
             </div>
 
             <!-- Article Body -->
@@ -157,68 +132,59 @@
 
             <!-- Bottom AdSense -->
              <div class="ad-space">
-                &lt;!-- Google AdSense Banner (Bottom) --&gt;
+                AdSpace (Banner Bottom)
             </div>
         </article>
     </div>
 
-    <!-- Hidden Translate Element (Required) -->
-    <div id="google_translate_element"></div>
-
-    <!-- 1. Google Translate API -->
-    <script type="text/javascript">
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'ar',
-                includedLanguages: 'ar,en',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
-    </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
-    <!-- 2. Logic: Translation & Fetching -->
+    <!-- Translation Script -->
+    <script src="translations.js"></script>
     <script>
-        // --- PRO TRANSLATION LOGIC (NO BANNER) ---
-        function changeLanguage(lang) {
-            // Clear old cookies to prevent conflicts
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
-
-            if (lang === 'en') {
-                document.cookie = "googtrans=/ar/en; path=/";
-                document.cookie = "googtrans=/ar/en; path=/; domain=" + document.domain;
-            } else {
-                document.cookie = "googtrans=/ar/ar; path=/";
-                document.cookie = "googtrans=/ar/ar; path=/; domain=" + document.domain;
-            }
-            window.location.reload();
-        }
-
-        // --- INIT ---
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnAr = document.getElementById('lang-ar');
-            const btnEn = document.getElementById('lang-en');
+        // --- Translation Logic (Same as Index) ---
+        function setLanguage(lang) {
+            // Save preference
+            localStorage.setItem('lang', lang);
             
-            // Check active language via cookie
-            if (document.cookie.includes('/en')) {
-                if(btnEn) btnEn.classList.add('active');
-                if(btnAr) btnAr.classList.remove('active');
+            // 1. Change Direction & Font
+            if (lang === 'en') {
                 document.documentElement.lang = 'en';
                 document.documentElement.dir = 'ltr';
+                // Flip Arrow Icons
+                document.querySelectorAll('.arrow-icon').forEach(el => {
+                    el.classList.remove('fa-arrow-right');
+                    el.classList.add('fa-arrow-left');
+                });
             } else {
-                if(btnAr) btnAr.classList.add('active');
-                if(btnEn) btnEn.classList.remove('active');
                 document.documentElement.lang = 'ar';
                 document.documentElement.dir = 'rtl';
+                document.querySelectorAll('.arrow-icon').forEach(el => {
+                    el.classList.remove('fa-arrow-left');
+                    el.classList.add('fa-arrow-right');
+                });
             }
 
-            // Button Events
-            if(btnEn) btnEn.onclick = () => changeLanguage('en');
-            if(btnAr) btnAr.onclick = () => changeLanguage('ar');
+            // 2. Update Active Button
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase() === lang) btn.classList.add('active');
+            });
+
+            // 3. Replace Static Text from Dictionary
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dictionary[lang] && dictionary[lang][key]) {
+                    el.innerText = dictionary[lang][key];
+                }
+            });
+        }
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load Language
+            const savedLang = localStorage.getItem('lang') || 'ar';
+            setLanguage(savedLang);
             
-            // Load Post
+            // Load Post Data
             loadSinglePost();
         });
 
@@ -233,13 +199,16 @@
                 if(!res.ok) throw new Error('Not found');
                 const post = await res.json();
 
-                // Populate Data
+                // Populate Content (This remains in DB language)
                 document.title = post.title;
                 document.getElementById('pTitle').textContent = post.title;
                 document.getElementById('pCat').textContent = post.category || 'General';
-                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString('ar-MA');
                 
-                // Using innerHTML allows formatting from the admin panel (bold, lists, etc)
+                // Format Date based on current language
+                const currentLang = localStorage.getItem('lang') || 'ar';
+                const dateLocale = currentLang === 'en' ? 'en-US' : 'ar-MA';
+                document.getElementById('pDate').textContent = new Date(post.created_at).toLocaleDateString(dateLocale);
+                
                 document.getElementById('pContent').innerHTML = post.content; 
 
                 if(post.image) {
@@ -252,7 +221,8 @@
                 document.getElementById('articleContent').style.display = 'block';
 
             } catch(e) {
-                document.getElementById('loading').innerHTML = "<span style='color:red'>عذراً، المقال غير موجود أو تم حذفه.</span>";
+                const errorMsg = localStorage.getItem('lang') === 'en' ? 'Article not found.' : 'المقال غير موجود.';
+                document.getElementById('loading').innerHTML = `<span style='color:red'>${errorMsg}</span>`;
             }
         }
     </script>
