@@ -15,6 +15,7 @@
     <meta name="description" content="أفضل أداة للتسويق عبر واتساب. أتمتة الرسائل، رد آلي بالذكاء الاصطناعي، وزيادة المبيعات.">
     <title>WhatsApp Pro & Digital Marketing Hub</title>
     
+    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -38,14 +39,11 @@
             background-color: var(--bg-main);
             color: var(--text-main);
             overflow-x: hidden;
-            top: 0 !important; /* Fix Google Translate Shift */
+            /* Fix Google Translate Shift */
+            top: 0 !important; 
+            position: static !important;
             transition: opacity 0.5s ease-in-out;
         }
-        
-        /* --- Google Translate Hiding --- */
-        .goog-te-banner-frame.skiptranslate { display: none !important; } 
-        #google_translate_element { display: none; }
-        .goog-text-highlight { background-color: transparent !important; box-shadow: none !important; }
         
         /* LTR Font Support */
         html[lang="en"] body { font-family: 'Inter', sans-serif; }
@@ -56,6 +54,37 @@
         /* Slide Animation Class */
         body.slide-out { transform: translateX(100%); opacity: 0; }
         html[dir="ltr"] body.slide-out { transform: translateX(-100%); }
+
+        /* ================================================= */
+        /* === ANTI-GOOGLE BANNER (FORCE HIDE CSS) === */
+        /* ================================================= */
+        /* 1. إخفاء البارة العلوية تماماً */
+        iframe.goog-te-banner-frame {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+        }
+        
+        /* 2. منع إزاحة الصفحة */
+        body {
+            top: 0px !important; 
+            margin-top: 0 !important;
+        }
+        
+        /* 3. إخفاء العناصر الإضافية */
+        #google_translate_element {
+            display: none !important;
+        }
+        .goog-tooltip {
+            display: none !important;
+        }
+        .goog-text-highlight {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        /* ================================================= */
 
         /* --- 3. Header Navigation --- */
         .header-nav {
@@ -204,35 +233,6 @@
             .btn-nav-cta { width: 100%; justify-content: center; }
             .hero h1 { font-size: 2.2em; }
         }
-        /* ========================================= */
-/* === إخفاء شريط جوجل للترجمة نهائياً === */
-/* ========================================= */
-
-/* 1. إخفاء الإطار (Frame) العلوي */
-.goog-te-banner-frame.skiptranslate, 
-.goog-te-banner-frame {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-}
-
-/* 2. منع الصفحة من النزول للأسفل */
-body {
-    top: 0px !important; 
-    position: static !important;
-}
-
-/* 3. إخفاء التلوين والحاشية عند تمرير الماوس */
-.goog-text-highlight {
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-
-/* 4. إخفاء أي عناصر إضافية من جوجل */
-#google_translate_element {
-    display: none !important;
-}
     </style>
 </head>
 <body>
@@ -373,26 +373,27 @@ body {
         </div>
     </footer>
 
-    <!-- Hidden Translate Element -->
+    <!-- Hidden Translate Element (Required) -->
     <div id="google_translate_element"></div>
 
-    <!-- 1. Google Translate Init -->
+    <!-- 1. Google Translate API -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ar',
                 includedLanguages: 'ar,en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
                 autoDisplay: false
             }, 'google_translate_element');
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <!-- 2. Logic Script -->
+    <!-- 2. Logic Script (Pro Cookie Method) -->
     <script>
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
         
-        // Page Transition Script
+        // --- Page Transition ---
         document.querySelectorAll('.slide-link').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -402,33 +403,42 @@ body {
             });
         });
 
-        // --- Translation Logic ---
-        function triggerGoogleTranslate(lang) {
-            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
-            document.cookie = "googtrans=" + cookieValue + "; path=/";
-            location.reload();
+        // --- Translation Logic (Cookie Manipulation) ---
+        function changeLanguage(lang) {
+            // Reset cookies first to avoid conflicts
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
+
+            if (lang === 'en') {
+                document.cookie = "googtrans=/ar/en; path=/";
+                document.cookie = "googtrans=/ar/en; path=/; domain=" + document.domain;
+            } else {
+                document.cookie = "googtrans=/ar/ar; path=/";
+                document.cookie = "googtrans=/ar/ar; path=/; domain=" + document.domain;
+            }
+            window.location.reload();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             const btnAr = document.getElementById('lang-ar');
             const btnEn = document.getElementById('lang-en');
             
-            // Check existing cookie
-            let currentLang = 'ar';
-            if (document.cookie.includes('/en')) currentLang = 'en';
-
-            if(currentLang === 'en') {
-                btnEn.classList.add('active');
-                document.documentElement.dir = 'ltr';
+            // Check current language from cookie
+            if (document.cookie.includes('/en')) {
+                if(btnEn) btnEn.classList.add('active');
+                if(btnAr) btnAr.classList.remove('active');
                 document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
             } else {
-                btnAr.classList.add('active');
-                document.documentElement.dir = 'rtl';
+                if(btnAr) btnAr.classList.add('active');
+                if(btnEn) btnEn.classList.remove('active');
                 document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
             }
 
-            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
-            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
+            // Bind click events
+            if(btnEn) btnEn.onclick = () => changeLanguage('en');
+            if(btnAr) btnAr.onclick = () => changeLanguage('ar');
         });
     </script>
 </body>
