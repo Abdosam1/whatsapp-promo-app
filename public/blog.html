@@ -66,6 +66,9 @@
         }
         .btn-nav-cta:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
+        .nav-link { color: #ccc; font-size: 0.9em; display: flex; align-items: center; gap: 5px; }
+        .nav-link:hover { color: var(--primary); }
+
         /* Blog Hero */
         .blog-header {
             text-align: center; padding: 60px 20px;
@@ -153,7 +156,7 @@
                 <button class="lang-btn" onclick="setLanguage('en')">EN</button>
             </div>
 
-            <a href="index.html" style="color: #ccc; font-size: 0.9em; margin-right: 20px; display: flex; gap: 5px;">
+            <a href="index.html" class="nav-link">
                 <i class="fas fa-home"></i> <span data-i18n="navHome">الرئيسية</span>
             </a>
         </div>
@@ -281,7 +284,9 @@
                 const posts = await res.json();
                 const container = document.getElementById('articles-list');
                 const currentLang = localStorage.getItem('lang') || 'ar';
-                const noArticlesMsg = dictionary[currentLang]['blogNoArticles'] || "No articles.";
+                
+                // Get error msg from dictionary if possible, else fallback
+                const noArticlesMsg = dictionary[currentLang] ? dictionary[currentLang]['blogNoArticles'] : "No articles.";
 
                 container.innerHTML = '';
 
@@ -294,7 +299,7 @@
                     const imgStyle = post.image ? `background-image:url('/blog_images/${post.image}');` : '';
                     const fallback = post.image ? '' : '<i class="fas fa-image"></i>';
                     
-                    // Determine arrow based on CURRENT direction (might need update if lang changes after load)
+                    // Determine arrow based on CURRENT direction
                     const arrowClass = document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right';
 
                     const html = `
@@ -313,7 +318,7 @@
                     container.insertAdjacentHTML('beforeend', html);
                 });
                 
-                // Re-apply translation to newly added elements
+                // Re-apply translation to newly added elements (Read More button)
                 setLanguage(currentLang);
 
             } catch(e) { 
