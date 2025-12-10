@@ -9,14 +9,12 @@
       gtag('js', new Date());
       gtag('config', 'G-Z3N357ZJ1W');
     </script>
-    <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="أفضل أداة للتسويق عبر واتساب. أتمتة الرسائل، رد آلي بالذكاء الاصطناعي، وزيادة المبيعات.">
-    <title data-key="pageTitleIndex">WhatsApp Pro & Digital Marketing Hub</title>
+    <title>WhatsApp Pro & Digital Marketing Hub</title>
     
-    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -40,9 +38,18 @@
             background-color: var(--bg-main);
             color: var(--text-main);
             overflow-x: hidden;
+            top: 0 !important; /* Fix Google Translate Shift */
             transition: opacity 0.5s ease-in-out;
         }
         
+        /* --- Google Translate Hiding --- */
+        .goog-te-banner-frame.skiptranslate { display: none !important; } 
+        #google_translate_element { display: none; }
+        .goog-text-highlight { background-color: transparent !important; box-shadow: none !important; }
+        
+        /* LTR Font Support */
+        html[lang="en"] body { font-family: 'Inter', sans-serif; }
+
         a { text-decoration: none; color: inherit; transition: 0.3s; }
         ul { list-style: none; padding: 0; margin: 0; }
 
@@ -50,7 +57,7 @@
         body.slide-out { transform: translateX(100%); opacity: 0; }
         html[dir="ltr"] body.slide-out { transform: translateX(-100%); }
 
-        /* --- 3. Header Navigation (Sticky) --- */
+        /* --- 3. Header Navigation --- */
         .header-nav {
             display: flex;
             justify-content: space-between;
@@ -71,7 +78,7 @@
         }
         .nav-link:hover { color: var(--primary); }
 
-        /* Get Started Button (Top Left) */
+        /* Get Started Button */
         .btn-nav-cta {
             background-color: var(--primary); color: #000;
             padding: 10px 25px; border-radius: 30px;
@@ -81,6 +88,7 @@
         }
         .btn-nav-cta:hover { background-color: var(--primary-hover); transform: translateY(-2px); }
 
+        /* Language Switcher */
         .language-switcher button {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
             color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
@@ -107,14 +115,13 @@
             font-size: 1.3em; color: var(--text-muted); max-width: 800px; margin: 0 auto; line-height: 1.6;
         }
 
-        /* --- 5. CONTENT SECTION (AdSense Ready) --- */
+        /* --- 5. Content Section (AdSense) --- */
         .content-section {
             max-width: 1200px; margin: 0 auto; padding: 20px;
-            display: grid; grid-template-columns: 2fr 1fr; /* Articles vs Sidebar */
+            display: grid; grid-template-columns: 2fr 1fr;
             gap: 40px;
         }
 
-        /* Articles Styling */
         .articles-grid { display: flex; flex-direction: column; gap: 30px; }
 
         .article-card {
@@ -131,17 +138,20 @@
             font-size: 4rem; color: #64748b;
         }
         
-        .article-body { padding: 30px; text-align: right; }
+        .article-body { padding: 30px; display: flex; flex-direction: column; }
+        
+        /* Align text based on direction */
+        html[dir="rtl"] .article-body { text-align: right; }
         html[dir="ltr"] .article-body { text-align: left; }
 
-        .tag { background: rgba(0, 210, 106, 0.15); color: var(--primary); padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
+        .tag { background: rgba(0, 210, 106, 0.15); color: var(--primary); padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; width: fit-content; }
         
         .article-title { font-size: 1.6em; margin: 15px 0; color: white; line-height: 1.4; }
         .article-desc { color: var(--text-muted); line-height: 1.7; margin-bottom: 20px; font-size: 1.05em; }
         
-        .read-more { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+        .read-more { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 5px; margin-top: auto; }
 
-        /* Ad Boxes */
+        /* Ads */
         .ad-box {
             background: #000; border: 1px dashed #444; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
@@ -151,19 +161,20 @@
         .ad-banner { height: 120px; }
         .ad-sidebar { height: 400px; }
 
-        /* Sidebar Widgets */
+        /* Sidebar */
         .sidebar { display: flex; flex-direction: column; gap: 30px; }
         
         .widget { background: var(--bg-card); padding: 25px; border-radius: 16px; border: 1px solid var(--border-color); }
         .widget h3 { margin-top: 0; color: white; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: inline-block; margin-bottom: 20px; }
-        
+        html[dir="ltr"] .widget h3 { border-bottom: none; border-left: 3px solid var(--primary); padding-left: 10px; padding-bottom: 0; }
+
         .widget-links li { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
         .widget-links li:last-child { border: none; padding-bottom: 0; }
         .widget-links a { display: flex; align-items: center; gap: 10px; color: #ccc; }
         .widget-links a:hover { color: var(--primary); transform: translateX(-5px); }
         html[dir="ltr"] .widget-links a:hover { transform: translateX(5px); }
 
-        /* --- 6. Features Grid --- */
+        /* --- Features --- */
         .section-title { text-align: center; font-size: 2.2em; margin: 80px 0 50px; color: white; }
         
         .features-grid { 
@@ -177,7 +188,7 @@
         }
         .feature-card:hover { border-color: var(--primary); transform: translateY(-5px); }
 
-        /* --- 7. Footer --- */
+        /* --- Footer --- */
         .site-footer { 
             border-top: 1px solid var(--border-color); background: #0b1120; 
             padding: 40px 0; color: var(--text-muted); text-align: center; margin-top: 80px; 
@@ -185,7 +196,7 @@
         .footer-links a { margin: 0 10px; font-weight: 600; }
         .footer-links a:hover { color: var(--primary); }
 
-        /* Mobile Responsive */
+        /* Mobile */
         @media (max-width: 900px) {
             .content-section { grid-template-columns: 1fr; }
             .header-nav { padding: 15px 20px; flex-wrap: wrap; gap: 10px; }
@@ -202,29 +213,29 @@
         <!-- Links & Lang -->
         <div class="nav-left">
             <div class="language-switcher">
-                <button id="lang-ar" data-key="lang_ar">AR</button>
-                <button id="lang-en" data-key="lang_en">EN</button>
+                <button id="lang-ar">AR</button>
+                <button id="lang-en">EN</button>
             </div>
             
             <a href="how-it-works.html" class="nav-link slide-link">
-                <i class="fas fa-info-circle"></i> <span data-key="navHowItWorks">كيف يعمل؟</span>
+                <i class="fas fa-info-circle"></i> <span>كيف يعمل؟</span>
             </a>
 
             <a href="blog.html" class="nav-link slide-link">
-                <i class="fas fa-blog"></i> <span data-key="navBlog">المدونة</span>
+                <i class="fas fa-blog"></i> <span>المدونة</span>
             </a>
         </div>
 
-        <!-- Get Started Button (Top Right/Left based on dir) -->
+        <!-- Get Started Button -->
         <a href="/auth" class="btn-nav-cta slide-link">
-            <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
+            <i class="fas fa-rocket"></i> <span>ابدأ الآن</span>
         </a>
     </nav>
 
     <!-- Hero Section -->
     <div class="hero">
-        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle">WhatsApp Pro Marketing</span></h1>
-        <p data-key="heroSubtitle">المنصة المتكاملة لإدارة حملات واتساب، الرد الآلي، وزيادة المبيعات بأمان.</p>
+        <h1><i class="fab fa-whatsapp"></i> <span>WhatsApp Pro Marketing</span></h1>
+        <p>المنصة المتكاملة لإدارة حملات واتساب، الرد الآلي، وزيادة المبيعات بأمان.</p>
     </div>
 
     <!-- MAIN CONTENT (AdSense Optimized) -->
@@ -245,7 +256,7 @@
                 <div class="article-body">
                     <span class="tag">Digital Marketing</span>
                     <h2 class="article-title">كيف تضاعف أرباحك باستخدام واتساب ماركتينج في 2025؟</h2>
-                    <p class="article-desc">تعرف على أحدث استراتيجيات التسويق عبر واتساب، وكيفية استهداف العملاء بدقة، واستخدام الرسائل التفاعلية لزيادة معدل التحويل (Conversion Rate).</p>
+                    <p class="article-desc">تعرف على أحدث استراتيجيات التسويق عبر واتساب، وكيفية استهداف العملاء بدقة، واستخدام الرسائل التفاعلية لزيادة معدل التحويل.</p>
                     <a href="blog.html" class="read-more">اقرأ المقال <i class="fas fa-arrow-left"></i></a>
                 </div>
             </article>
@@ -262,7 +273,7 @@
                 <div class="article-body">
                     <span class="tag">AI & Automation</span>
                     <h2 class="article-title">الرد الآلي الذكي: مستقبل خدمة العملاء</h2>
-                    <p class="article-desc">لماذا يجب عليك ربط ChatGPT مع واتساب؟ اكتشف كيف توفر 80% من وقت فريق الدعم الفني وتجيب على استفسارات العملاء فورياً طوال أيام الأسبوع.</p>
+                    <p class="article-desc">لماذا يجب عليك ربط ChatGPT مع واتساب؟ اكتشف كيف توفر 80% من وقت فريق الدعم الفني وتجيب على استفسارات العملاء فورياً.</p>
                     <a href="blog.html" class="read-more">اقرأ المقال <i class="fas fa-arrow-left"></i></a>
                 </div>
             </article>
@@ -303,37 +314,52 @@
     </div>
 
     <!-- Features Section -->
-    <h2 class="section-title" data-key="featuresTitle">مميزات المنصة</h2>
+    <h2 class="section-title">مميزات المنصة</h2>
     <div class="features-grid">
         <div class="feature-card">
             <i class="fas fa-paper-plane" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
-            <h3 data-key="feature1Title">إرسال فوري</h3>
-            <p data-key="feature1Desc">إرسال حملات ضخمة لآلاف العملاء بضغطة زر واحدة.</p>
+            <h3>إرسال فوري</h3>
+            <p>إرسال حملات ضخمة لآلاف العملاء بضغطة زر واحدة.</p>
         </div>
         <div class="feature-card">
             <i class="fas fa-shield-alt" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
-            <h3 data-key="feature3Title">أمان عالي</h3>
-            <p data-key="feature3Desc">خوارزميات ذكية لحماية رقمك من الحظر أثناء الإرسال.</p>
+            <h3>أمان عالي</h3>
+            <p>خوارزميات ذكية لحماية رقمك من الحظر أثناء الإرسال.</p>
         </div>
         <div class="feature-card">
             <i class="fas fa-database" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
-            <h3 data-key="feature2Title">إدارة البيانات</h3>
-            <p data-key="feature2Desc">استيراد وتصدير جهات الاتصال (CSV) بكل سهولة.</p>
+            <h3>إدارة البيانات</h3>
+            <p>استيراد وتصدير جهات الاتصال (CSV) بكل سهولة.</p>
         </div>
     </div>
 
     <!-- Footer -->
     <footer class="site-footer">
         <div class="footer-links">
-            <a href="about.html" data-key="footerAbout">من نحن</a> | 
-            <a href="privacy.html" data-key="footerPrivacy">الخصوصية</a>
+            <a href="about.html">من نحن</a> | 
+            <a href="privacy.html">الخصوصية</a>
         </div>
         <div style="margin-top: 20px;">
-            &copy; <span id="copyright-year"></span> WhatsApp Pro. <span data-key="footerRights">جميع الحقوق محفوظة.</span>
+            &copy; <span id="copyright-year"></span> WhatsApp Pro. جميع الحقوق محفوظة.
         </div>
     </footer>
 
-    <script src="language.js"></script>
+    <!-- Hidden Translate Element -->
+    <div id="google_translate_element"></div>
+
+    <!-- 1. Google Translate Init -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ar',
+                includedLanguages: 'ar,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <!-- 2. Logic Script -->
     <script>
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
         
@@ -345,6 +371,35 @@
                 document.body.classList.add('slide-out');
                 setTimeout(() => window.location.href = target, 500);
             });
+        });
+
+        // --- Translation Logic ---
+        function triggerGoogleTranslate(lang) {
+            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
+            document.cookie = "googtrans=" + cookieValue + "; path=/";
+            location.reload();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnAr = document.getElementById('lang-ar');
+            const btnEn = document.getElementById('lang-en');
+            
+            // Check existing cookie
+            let currentLang = 'ar';
+            if (document.cookie.includes('/en')) currentLang = 'en';
+
+            if(currentLang === 'en') {
+                btnEn.classList.add('active');
+                document.documentElement.dir = 'ltr';
+                document.documentElement.lang = 'en';
+            } else {
+                btnAr.classList.add('active');
+                document.documentElement.dir = 'rtl';
+                document.documentElement.lang = 'ar';
+            }
+
+            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
+            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
         });
     </script>
 </body>
