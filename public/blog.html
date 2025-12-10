@@ -14,6 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>المدونة - نصائح التسويق الرقمي</title>
     
+    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -29,26 +30,51 @@
             --border-color: #334155;
         }
 
+        /* --- General Styles --- */
         body {
             font-family: 'Cairo', sans-serif;
             margin: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
             overflow-x: hidden;
-            top: 0 !important; /* Fix for Google Translate Bar */
+            /* Fix for Google Translate Shift */
+            top: 0 !important; 
+            position: static !important;
         }
 
-        /* --- Google Translate Hiding CSS --- */
-        .goog-te-banner-frame.skiptranslate { display: none !important; } 
-        #google_translate_element { display: none; }
-        .goog-text-highlight { background-color: transparent !important; box-shadow: none !important; }
-        /* LTR Support for English */
+        /* LTR Font Support */
         html[lang="en"] body { font-family: 'Inter', sans-serif; }
 
         a { text-decoration: none; color: inherit; transition: 0.3s; }
         ul { list-style: none; padding: 0; margin: 0; }
+
+        /* ================================================= */
+        /* === ANTI-GOOGLE BANNER (FORCE HIDE CSS) === */
+        /* ================================================= */
+        iframe.goog-te-banner-frame {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+        }
+        body {
+            top: 0px !important; 
+            margin-top: 0 !important;
+        }
+        #google_translate_element {
+            display: none !important;
+        }
+        .goog-tooltip {
+            display: none !important;
+        }
+        .goog-text-highlight {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        /* ================================================= */
         
-        /* Navbar */
+        /* --- Navbar --- */
         .header-nav {
             display: flex; justify-content: space-between; align-items: center;
             padding: 15px 5%; background: rgba(15, 23, 42, 0.95);
@@ -73,7 +99,7 @@
         }
         .btn-nav-cta:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
-        /* Blog Header */
+        /* --- Blog Hero --- */
         .blog-header {
             text-align: center; padding: 60px 20px;
             background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
@@ -82,13 +108,13 @@
         .blog-header h1 { font-size: 2.5em; margin: 0 0 10px; color: white; font-weight: 900; }
         .blog-header p { color: var(--text-muted); font-size: 1.1em; max-width: 600px; margin: 0 auto; }
 
-        /* Grid */
+        /* --- Grid --- */
         .blog-container {
             max-width: 1200px; margin: 40px auto; padding: 0 20px;
             display: grid; grid-template-columns: 2fr 1fr; gap: 40px;
         }
 
-        /* Articles */
+        /* --- Articles --- */
         .articles-list { display: flex; flex-direction: column; gap: 40px; }
 
         .article-card {
@@ -96,7 +122,7 @@
             border: 1px solid var(--border-color); transition: 0.3s;
             display: flex; flex-direction: column;
         }
-        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); }
+        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         
         .article-img {
             width: 100%; height: 240px; background: #334155;
@@ -118,17 +144,18 @@
         
         .read-btn { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 8px; margin-top: auto; }
 
-        /* Sidebar */
+        /* --- Sidebar --- */
         .sidebar { display: flex; flex-direction: column; gap: 30px; }
         .widget { background: var(--bg-card); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); }
         .widget h3 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid var(--primary); display: inline-block; color: white; margin-bottom: 15px; }
         html[dir="ltr"] .widget h3 { border-bottom: none; border-left: 3px solid var(--primary); padding-left: 10px; padding-bottom: 0; }
 
         .cat-list li { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
+        .cat-list li:last-child { border: none; }
         .cat-list li a { display: flex; justify-content: space-between; color: #ccc; }
         .cat-list li a:hover { color: var(--primary); }
 
-        /* AdSense */
+        /* --- AdSense --- */
         .ad-space {
             background: #000; border: 1px dashed #444; width: 100%;
             display: flex; align-items: center; justify-content: center;
@@ -143,39 +170,11 @@
             .blog-container { grid-template-columns: 1fr; }
             .header-nav { padding: 15px 20px; }
         }
-        /* ========================================= */
-/* === إخفاء شريط جوجل للترجمة نهائياً === */
-/* ========================================= */
-
-/* 1. إخفاء الإطار (Frame) العلوي */
-.goog-te-banner-frame.skiptranslate, 
-.goog-te-banner-frame {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-}
-
-/* 2. منع الصفحة من النزول للأسفل */
-body {
-    top: 0px !important; 
-    position: static !important;
-}
-
-/* 3. إخفاء التلوين والحاشية عند تمرير الماوس */
-.goog-text-highlight {
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-
-/* 4. إخفاء أي عناصر إضافية من جوجل */
-#google_translate_element {
-    display: none !important;
-}
     </style>
 </head>
 <body>
 
+    <!-- Navbar -->
     <nav class="header-nav">
         <div class="nav-left">
             <div class="language-switcher">
@@ -193,23 +192,28 @@ body {
         </a>
     </nav>
 
+    <!-- Header -->
     <header class="blog-header">
         <h1>المدونة & أكاديمية التسويق</h1>
         <p>كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
     </header>
 
+    <!-- Top Ad -->
     <div class="blog-container" style="margin-bottom: 0; padding-bottom: 0;">
         <div class="ad-space ad-horizontal">
             &lt;!-- Google AdSense Banner --&gt;
         </div>
     </div>
 
+    <!-- Main Content -->
     <div class="blog-container">
         
+        <!-- Posts List -->
         <main class="articles-list" id="articles-list">
             <p style="text-align:center; color:#888;">جاري تحميل المقالات...</p>
         </main>
 
+        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="widget">
                 <h3>بحث</h3>
@@ -232,65 +236,74 @@ body {
         </aside>
     </div>
 
+    <!-- Footer -->
     <footer class="site-footer">
         <p>&copy; <span id="year"></span> WhatsApp Pro. جميع الحقوق محفوظة.</p>
     </footer>
 
-    <!-- Hidden Google Translate Element -->
+    <!-- Hidden Translate Element (Required) -->
     <div id="google_translate_element"></div>
 
-    <!-- 1. Google Translate Script -->
+    <!-- 1. Google Translate API -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ar',
                 includedLanguages: 'ar,en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
                 autoDisplay: false
             }, 'google_translate_element');
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <!-- 2. Logic for Translation & API -->
+    <!-- 2. Logic: Translation & Fetching -->
     <script>
         document.getElementById('year').textContent = new Date().getFullYear();
 
-        // --- Translation Logic ---
-        function triggerGoogleTranslate(lang) {
-            // Set Cookie: /ar/en for English, /ar/ar for Arabic
-            const cookieValue = lang === 'en' ? '/ar/en' : '/ar/ar';
-            document.cookie = "googtrans=" + cookieValue + "; path=/";
-            location.reload(); // Reload to apply translation
+        // --- PRO TRANSLATION LOGIC (NO BANNER) ---
+        function changeLanguage(lang) {
+            // Clear old cookies
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
+
+            if (lang === 'en') {
+                document.cookie = "googtrans=/ar/en; path=/";
+                document.cookie = "googtrans=/ar/en; path=/; domain=" + document.domain;
+            } else {
+                document.cookie = "googtrans=/ar/ar; path=/";
+                document.cookie = "googtrans=/ar/ar; path=/; domain=" + document.domain;
+            }
+            window.location.reload();
         }
 
-        // --- Check Current Language on Load ---
+        // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             const btnAr = document.getElementById('lang-ar');
             const btnEn = document.getElementById('lang-en');
             
-            // Detect Language from Cookie
-            let currentLang = 'ar';
-            if (document.cookie.includes('/en')) currentLang = 'en';
-
-            if(currentLang === 'en') {
-                btnEn.classList.add('active');
-                document.documentElement.dir = 'ltr';
+            // Check active language via cookie
+            if (document.cookie.includes('/en')) {
+                if(btnEn) btnEn.classList.add('active');
+                if(btnAr) btnAr.classList.remove('active');
                 document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
             } else {
-                btnAr.classList.add('active');
-                document.documentElement.dir = 'rtl';
+                if(btnAr) btnAr.classList.add('active');
+                if(btnEn) btnEn.classList.remove('active');
                 document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
             }
 
             // Button Events
-            btnEn.addEventListener('click', () => triggerGoogleTranslate('en'));
-            btnAr.addEventListener('click', () => triggerGoogleTranslate('ar'));
+            if(btnEn) btnEn.onclick = () => changeLanguage('en');
+            if(btnAr) btnAr.onclick = () => changeLanguage('ar');
             
             // Load Content
             loadBlogPosts();
         });
 
-        // --- Fetch Posts ---
+        // --- FETCH POSTS ---
         async function loadBlogPosts() {
             try {
                 const res = await fetch('/api/blog/posts');
