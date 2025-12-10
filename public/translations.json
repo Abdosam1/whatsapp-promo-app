@@ -2,22 +2,31 @@
   "ar": {
     "lang_ar": "العربية",
     "lang_en": "English",
+    
     "backToHome": "العودة للصفحة الرئيسية",
     "backToLogin": "العودة لصفحة تسجيل الدخول",
     "logoutBtn": "تسجيل الخروج",
     "footerAbout": "من نحن",
     "footerPrivacy": "سياسة الخصوصية",
     "footerRights": "جميع الحقوق محفوظة.",
+    
     "navHome": "الرئيسية",
     "navLogin": "دخول",
     "navStartFree": "ابدأ مجاناً",
     "navHowItWorks": "كيف يعمل النظام؟",
+    "navBlog": "المدونة",
+    
     "pageTitleIndex": "أداة إرسال واتساب الاحترافية",
     "heroTitle": "أداة إرسال واتساب الاحترافية",
     "heroSubtitle": "أتمتة حملاتك التسويقية والوصول لآلاف العملاء بضغطة زر. سهل، سريع، وآمن.",
     "ctaStart": "🚀 ابدأ تجربتك المجانية (24 ساعة)",
     "ctaLogin": "تسجيل الدخول",
     "ctaGetStarted": "ابدأ الآن",
+
+    "blogPageTitle": "المدونة - نصائح التسويق الرقمي",
+    "blogHeroTitle": "المدونة & أكاديمية التسويق",
+    "blogHeroSubtitle": "كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.",
+    
     "featuresTitle": "لماذا تختار أداتنا؟",
     "feature1Title": "إرسال فوري",
     "feature1Desc": "إرسال جماعي أو متسلسل لآلاف الأرقام بسرعة وكفاءة عالية، مع إمكانية إرفاق الصور.",
@@ -25,6 +34,7 @@
     "feature2Desc": "استيراد قوائم عملائك بسهولة من ملفات CSV دون الحاجة لإدخال الأرقام يدوياً.",
     "feature3Title": "تجربة آمنة",
     "feature3Desc": "نظام تأخير ذكي بين الرسائل لتقليل خطر الحظر، مع لوحة تحكم آمنة ومحمية بكلمة مرور.",
+    
     "pricingSectionTitle": "أسعار شفافة ومرنة",
     "billed_annually": "تُحتسب سنوياً",
     "billed_monthly": "شهرياً",
@@ -38,6 +48,7 @@
     "planYearlyPricePerMonth": "أقل من 3$ للشهر",
     "getStartedBtn": "اختر الخطة",
     "mostPopular": "الأكثر شيوعاً",
+    
     "howWorksPageTitle": "كيفية العمل - دليل الاستخدام",
     "howWorksTitle": "كيف يعمل النظام؟",
     "howWorksSubtitle": "دليل بسيط يشرح لك كيفية إطلاق حملتك الإعلانية الأولى في أقل من 5 دقائق.",
@@ -53,6 +64,7 @@
     "step5Desc": "اضغط على 'إرسال'. سيقوم النظام بإرسال الرسائل بفاصل زمني ذكي لتجنب الحظر، ويمكنك متابعة الإحصائيات مباشرة.",
     "howWorksCtaTitle": "جاهز لتجربة النظام؟",
     "howWorksCtaBtn": "ابدأ تجربتك المجانية الآن",
+    
     "pageTitleLogin": "تسجيل الدخول",
     "loginTitle": "تسجيل الدخول",
     "loginSubtitle": "أهلاً بعودتك! سجل الدخول للمتابعة.",
@@ -63,6 +75,7 @@
     "loginWithGoogle": "المتابعة بواسطة جوجل",
     "loginNoAccount": "ليس لديك حساب؟",
     "loginCreateOne": "أنشئ واحداً",
+    
     "pageTitleSignup": "إنشاء حساب جديد",
     "signupTitle": "إنشاء حساب جديد",
     "signupSubtitle": "مرحباً بك! أدخل بياناتك للبدء.",
@@ -74,9 +87,11 @@
     "signupWithGoogle": "التسجيل بواسطة جوجل",
     "signupHaveAccount": "لديك حساب بالفعل؟",
     "signupLogin": "سجل الدخول",
+    
     "pageTitleEmailConfirm": "تأكيد الإيميل",
     "emailConfirmTitle": "تم إرسال رابط التفعيل",
     "emailConfirmDesc": "تم إرسال رابط تفعيل حسابك إلى بريدك الإلكتروني. يرجى فتح صندوق الوارد (أو مجلد Spam) والنقر على الرابط لإكمال عملية التسجيل.",
+    
     "pageTitleActivate": "تفعيل الاشتراك",
     "activateTitle": "تفعيل الاشتراك",
     "activateSubtitle": "المرجو اختيار مدة الاشتراك لإتمام عملية الدفع:",
@@ -84,10 +99,12 @@
     "btn6Months": "6 أشهر",
     "btn1Year": "1 سنة",
     "activateNote": "سيتم أولاً إرسال طلب التفعيل ثم توجيهك لصفحة الدفع.",
+    
     "pageTitleValidation": "التحقق من الرمز",
     "validationTitle": "إدخال رمز التفعيل",
     "validationDesc": "المرجو إدخال رمز التفعيل الذي استلمته من المشرف لإتمام عملية تفعيل الاشتراك.",
     "validationBtn": "تفعيل الإشتراك",
+    
     "pageTitleDashboard": "لوحة التحكم - نظام إرسال WhatsApp",
     "dashHeaderTitle": "لوحة تحكم إرسال العروض",
     "dashHeaderSubtitle": "من هنا يمكنك إدارة حملاتك التسويقية بسهولة",
@@ -123,6 +140,7 @@
     "disconnectBtn": "تغيير الرقم / فصل",
     "disconnectConfirm": "هل أنت متأكد أنك تريد فصل الرقم الحالي؟ ستحتاج لمسح QR Code من جديد.",
     "disconnectingMsg": "جاري فصل الرقم...",
+    
     "menuFilter": "فلتر الأرقام",
     "filterTitle": "فحص وتنقية الأرقام",
     "filterLabel": "أدخل الأرقام هنا (كل رقم في سطر):",
@@ -133,27 +151,37 @@
     "btnSaveValid": "حفظ الأرقام الشغالة",
     "validTitle": "واتساب نشط",
     "invalidTitle": "غير مسجل",
+    
     "menuSupport": "الدعم الفني"
   },
   "en": {
     "lang_ar": "العربية",
     "lang_en": "English",
+    
     "backToHome": "Back to Homepage",
     "backToLogin": "Back to Login Page",
     "logoutBtn": "Logout",
     "footerAbout": "About Us",
     "footerPrivacy": "Privacy Policy",
     "footerRights": "All rights reserved.",
+    
     "navHome": "Home",
     "navLogin": "Login",
     "navStartFree": "Start Free",
     "navHowItWorks": "How it Works?",
+    "navBlog": "Blog",
+    
     "pageTitleIndex": "Professional WhatsApp Sender Tool",
     "heroTitle": "Professional WhatsApp Sender Tool",
     "heroSubtitle": "Automate your marketing campaigns and reach thousands of customers with one click. Easy, fast, and secure.",
     "ctaStart": "🚀 Start Your Free Trial (24 hours)",
     "ctaLogin": "Login",
     "ctaGetStarted": "Get Started",
+
+    "blogPageTitle": "Blog - Digital Marketing Tips",
+    "blogHeroTitle": "Blog & Marketing Academy",
+    "blogHeroSubtitle": "Everything you need to know about WhatsApp marketing, automation, and sales growth.",
+
     "featuresTitle": "Why Choose Our Tool?",
     "feature1Title": "Instant Sending",
     "feature1Desc": "Bulk or sequential sending to thousands of numbers with high speed and efficiency, with the ability to attach images.",
@@ -161,6 +189,7 @@
     "feature2Desc": "Easily import your customer lists from CSV files without needing to enter numbers manually.",
     "feature3Title": "Secure Experience",
     "feature3Desc": "An intelligent delay system between messages to reduce the risk of blocking, with a secure, password-protected control panel.",
+    
     "pricingSectionTitle": "Simple, Flexible Pricing",
     "billed_annually": "billed annually",
     "billed_monthly": "monthly",
@@ -174,6 +203,7 @@
     "planYearlyPricePerMonth": "Less than $3/month",
     "getStartedBtn": "Choose Plan",
     "mostPopular": "Most Popular",
+    
     "howWorksPageTitle": "How it Works - User Guide",
     "howWorksTitle": "How it Works?",
     "howWorksSubtitle": "A simple guide to launching your first ad campaign in less than 5 minutes.",
@@ -189,6 +219,7 @@
     "step5Desc": "Click 'Send'. The system will send messages with a smart delay to avoid bans, and you can track stats live.",
     "howWorksCtaTitle": "Ready to try it?",
     "howWorksCtaBtn": "Start Your Free Trial Now",
+    
     "pageTitleLogin": "Login",
     "loginTitle": "Login",
     "loginSubtitle": "Welcome back! Please login to continue.",
@@ -199,6 +230,7 @@
     "loginWithGoogle": "Continue with Google",
     "loginNoAccount": "Don't have an account?",
     "loginCreateOne": "Create one",
+    
     "pageTitleSignup": "Create a New Account",
     "signupTitle": "Create a New Account",
     "signupSubtitle": "Welcome! Enter your details to start.",
@@ -210,9 +242,11 @@
     "signupWithGoogle": "Sign up with Google",
     "signupHaveAccount": "Already have an account?",
     "signupLogin": "Login",
+    
     "pageTitleEmailConfirm": "Confirm Your Email",
     "emailConfirmTitle": "Activation Link Sent",
     "emailConfirmDesc": "An activation link has been sent to your email address. Please check your inbox (and spam folder) and click the link to complete your registration.",
+    
     "pageTitleActivate": "Activate Subscription",
     "activateTitle": "Activate Subscription",
     "activateSubtitle": "Please choose a subscription duration to complete the payment:",
@@ -220,10 +254,12 @@
     "btn6Months": "6 Months",
     "btn1Year": "1 Year",
     "activateNote": "First, an activation request will be sent, then you will be redirected to the payment page.",
+    
     "pageTitleValidation": "Verify Code",
     "validationTitle": "Enter Activation Code",
     "validationDesc": "Please enter the activation code you received from the administrator to complete the subscription activation.",
     "validationBtn": "Activate Subscription",
+    
     "pageTitleDashboard": "Dashboard - WhatsApp Sender System",
     "dashHeaderTitle": "Campaign Control Panel",
     "dashHeaderSubtitle": "Manage your marketing campaigns with ease from here",
@@ -259,6 +295,7 @@
     "disconnectBtn": "Switch Number / Disconnect",
     "disconnectConfirm": "Are you sure you want to disconnect? You will need to scan QR code again.",
     "disconnectingMsg": "Disconnecting...",
+    
     "menuFilter": "Number Filter",
     "filterTitle": "Check & Clean Numbers",
     "filterLabel": "Enter numbers here (one per line):",
@@ -269,6 +306,7 @@
     "btnSaveValid": "Save Active Numbers",
     "validTitle": "Active WhatsApp",
     "invalidTitle": "Not Registered",
+    
     "menuSupport": "Support"
   }
 }
