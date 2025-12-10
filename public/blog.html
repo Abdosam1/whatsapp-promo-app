@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <!-- Google Tag Manager -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z3N357ZJ1W');
+    </script>
+    <!-- End Google Tag Manager -->
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="مدونة التسويق الرقمي: نصائح، استراتيجيات واتساب، وكيفية زيادة المبيعات أونلاين.">
+    <title data-key="blogPageTitle">المدونة - نصائح التسويق الرقمي</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Dark Theme Same as Index --- */
+        :root {
+            --bg-main: #0f172a;         
+            --bg-card: #1e293b;         
+            --primary: #00d26a;         
+            --primary-hover: #00b359;
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        
+        /* Navbar */
+        .header-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 40px; background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 1000;
+        }
+        .nav-left { display: flex; align-items: center; gap: 20px; }
+        .btn-nav-cta {
+            background-color: var(--primary); color: #000; padding: 10px 25px;
+            border-radius: 30px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-nav-cta:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        /* Blog Header */
+        .blog-header {
+            text-align: center; padding: 60px 20px;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .blog-header h1 { font-size: 2.5em; margin: 0 0 10px; color: white; }
+        .blog-header p { color: var(--text-muted); font-size: 1.1em; }
+
+        /* Blog Layout (Grid) */
+        .blog-container {
+            max-width: 1200px; margin: 40px auto; padding: 0 20px;
+            display: grid; grid-template-columns: 2fr 1fr; gap: 40px;
+        }
+
+        /* Articles List */
+        .articles-list { display: flex; flex-direction: column; gap: 40px; }
+
+        .article-card {
+            background: var(--bg-card); border-radius: 12px; overflow: hidden;
+            border: 1px solid var(--border-color); transition: 0.3s;
+        }
+        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); }
+        
+        .article-img {
+            width: 100%; height: 220px; background: #334155;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; color: #64748b;
+        }
+        .article-content { padding: 25px; }
+        .article-meta { color: var(--primary); font-size: 0.9em; font-weight: bold; margin-bottom: 10px; display: block; }
+        .article-title { font-size: 1.6em; margin: 0 0 15px; color: white; }
+        .article-excerpt { color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+        .read-btn { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 30px; }
+        .widget { background: var(--bg-card); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .widget h3 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid var(--primary); display: inline-block; }
+        .cat-list { list-style: none; padding: 0; }
+        .cat-list li { margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 5px; }
+        .cat-list li a:hover { color: var(--primary); }
+
+        /* --- ADSENSE SPACES --- */
+        .ad-space {
+            background: #000; border: 1px dashed #555; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #777; font-family: monospace; text-align: center;
+            padding: 10px; margin: 20px 0; border-radius: 8px;
+        }
+        .ad-horizontal { height: 120px; }
+        .ad-vertical { height: 300px; }
+
+        /* Footer */
+        .site-footer { border-top: 1px solid var(--border-color); background: #0b1120; padding: 30px 0; color: var(--text-muted); text-align: center; margin-top: 50px; }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .blog-container { grid-template-columns: 1fr; }
+            .header-nav { padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <nav class="header-nav">
+        <div class="nav-left">
+            <a href="index.html" style="color: white; font-weight: bold; font-size: 1.2em;">
+                <i class="fab fa-whatsapp" style="color:var(--primary)"></i> WA Pro
+            </a>
+            <!-- Language (Simplified for blog) -->
+        </div>
+        <a href="/auth" class="btn-nav-cta">
+            <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
+        </a>
+    </nav>
+
+    <!-- Blog Hero -->
+    <header class="blog-header">
+        <h1 data-key="blogHeroTitle">المدونة & أكاديمية التسويق</h1>
+        <p data-key="blogHeroSubtitle">كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
+    </header>
+
+    <!-- AdSpace Top -->
+    <div class="blog-container" style="margin-bottom: 0; padding-bottom: 0;">
+        <div class="ad-space ad-horizontal">
+            <!-- Place Google AdSense Header Code Here -->
+            &lt;!-- مساحة إعلانية (Google AdSense) --&gt;
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="blog-container">
+        
+        <!-- Articles Column -->
+        <main class="articles-list">
+
+            <!-- Article 1 -->
+            <article class="article-card">
+                <div class="article-img"><i class="fas fa-bullhorn"></i></div>
+                <div class="article-content">
+                    <span class="article-meta">استراتيجيات التسويق</span>
+                    <h2 class="article-title">5 أسرار لزيادة مبيعاتك عبر واتساب في 2025</h2>
+                    <p class="article-excerpt">اكتشف كيف تحول جهات الاتصال الباردة إلى عملاء دائمين باستخدام استراتيجيات الرسائل النفسية والأتمتة الذكية.</p>
+                    <a href="#" class="read-btn">اقرأ المقال كاملاً <i class="fas fa-arrow-left"></i></a>
+                </div>
+            </article>
+
+            <!-- AdSpace In-Feed -->
+            <div class="ad-space ad-horizontal">
+                <!-- Place Google AdSense In-Feed Code Here -->
+                &lt;!-- إعلان وسط المقالات --&gt;
+            </div>
+
+            <!-- Article 2 -->
+            <article class="article-card">
+                <div class="article-img"><i class="fas fa-robot"></i></div>
+                <div class="article-content">
+                    <span class="article-meta">الذكاء الاصطناعي</span>
+                    <h2 class="article-title">كيف تستخدم ChatGPT للرد الآلي على العملاء؟</h2>
+                    <p class="article-excerpt">شرح خطوة بخطوة لربط الذكاء الاصطناعي مع واتساب بيزنس لتقديم دعم فني فوري 24/7 دون تدخل بشري.</p>
+                    <a href="#" class="read-btn">اقرأ المقال كاملاً <i class="fas fa-arrow-left"></i></a>
+                </div>
+            </article>
+
+            <!-- Article 3 -->
+            <article class="article-card">
+                <div class="article-img"><i class="fas fa-ban"></i></div>
+                <div class="article-content">
+                    <span class="article-meta">أمان وحماية</span>
+                    <h2 class="article-title">تجنب الحظر: الدليل الشامل لإرسال رسائل جماعية بأمان</h2>
+                    <p class="article-excerpt">تعرف على القواعد الذهبية لتسخين الأرقام والفواصل الزمنية لتجنب الحظر من شركة ميتا عند إرسال الحملات.</p>
+                    <a href="#" class="read-btn">اقرأ المقال كاملاً <i class="fas fa-arrow-left"></i></a>
+                </div>
+            </article>
+
+        </main>
+
+        <!-- Sidebar Column -->
+        <aside class="sidebar">
+            
+            <!-- Search Widget -->
+            <div class="widget">
+                <h3>بحث</h3>
+                <input type="text" placeholder="ابحث في المدونة..." style="width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
+            </div>
+
+            <!-- AdSpace Sidebar -->
+            <div class="ad-space ad-vertical">
+                <!-- Place Google AdSense Sidebar Code Here -->
+                &lt;!-- إعلان جانبي عمودي --&gt;
+            </div>
+
+            <!-- Categories Widget -->
+            <div class="widget">
+                <h3>التصنيفات</h3>
+                <ul class="cat-list">
+                    <li><a href="#">التسويق الرقمي (Digital Marketing)</a></li>
+                    <li><a href="#">أتمتة الأعمال (Automation)</a></li>
+                    <li><a href="#">شروحات واتساب (WhatsApp Tips)</a></li>
+                    <li><a href="#">التجارة الإلكترونية (E-commerce)</a></li>
+                </ul>
+            </div>
+
+            <!-- AdSpace Sidebar 2 -->
+            <div class="ad-space ad-vertical">
+                <!-- Place Google AdSense Sidebar Code Here -->
+                &lt;!-- إعلان جانبي آخر --&gt;
+            </div>
+
+        </aside>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <p>&copy; 2025 WhatsApp Pro Blog. <span data-key="footerRights">جميع الحقوق محفوظة.</span></p>
+    </footer>
+
+    <script src="language.js"></script>
+    <script>
+        // Simple logic to keep language consistent if user switches in index
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('preferredLanguage') || 'ar';
+            if(typeof setLanguage === 'function') setLanguage(savedLang);
+        });
+    </script>
+</body>
+</html>
