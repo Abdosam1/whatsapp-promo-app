@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إدارة المدونة</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        input, textarea, select { width: 100%; padding: 10px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
+        button { background: #00d26a; color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+        button:hover { background: #00b359; }
+        .post-item { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
+        .delete-btn { background: #ef4444; color: white; width: auto; padding: 5px 10px; font-size: 0.8em; }
+        h1, h2 { color: #00d26a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-edit"></i> لوحة تحكم المدونة</h1>
+        <a href="dashboard.html" style="color:#ccc; display:block; margin-bottom:20px;">&larr; العودة للوحة التحكم</a>
+
+        <!-- Form Adding Post -->
+        <div style="background: #162032; padding: 20px; border-radius: 12px; margin-bottom: 40px;">
+            <h2>إضافة مقال جديد</h2>
+            <form id="blogForm">
+                <label>عنوان المقال:</label>
+                <input type="text" id="title" required placeholder="مثلاً: 5 طرق لزيادة المبيعات">
+                
+                <label>التصنيف (Category):</label>
+                <select id="category">
+                    <option value="التسويق الرقمي">التسويق الرقمي</option>
+                    <option value="شروحات واتساب">شروحات واتساب</option>
+                    <option value="أتمتة وذكاء اصطناعي">أتمتة وذكاء اصطناعي</option>
+                    <option value="عام">عام</option>
+                </select>
+
+                <label>ملخص قصير (Excerpt):</label>
+                <input type="text" id="excerpt" required placeholder="وصف صغير يظهر في القائمة...">
+
+                <label>المحتوى الكامل (مسموح HTML):</label>
+                <textarea id="content" rows="10" required placeholder="كتب الموضوع هنا..."></textarea>
+
+                <label>صورة المقال:</label>
+                <input type="file" id="image" accept="image/*">
+
+                <button type="submit" id="submitBtn">نشر المقال</button>
+            </form>
+        </div>
+
+        <!-- List of Posts -->
+        <h2>المقالات المنشورة</h2>
+        <div id="postsList">جاري التحميل...</div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('authToken');
+        if (!token) window.location.href = 'login.html';
+
+        // 1. Submit Post
+        document.getElementById('blogForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.textContent = "جاري الرفع...";
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('title', document.getElementById('title').value);
+            formData.append('category', document.getElementById('category').value);
+            formData.append('excerpt', document.getElementById('excerpt').value);
+            formData.append('content', document.getElementById('content').value);
+            formData.append('image', document.getElementById('image').files[0]);
+
+            try {
+                const res = await fetch('/api/blog/create', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ تم نشر المقال بنجاح!');
+                    location.reload();
+                } else {
+                    alert('❌ خطأ: ' + (data.message || data.error));
+                }
+            } catch (err) { alert('خطأ في الاتصال'); }
+            btn.disabled = false;
+        });
+
+        // 2. Load Posts
+        async function loadPosts() {
+            try {
+                const res = await fetch('/api/blog/posts');
+                const posts = await res.json();
+                const container = document.getElementById('postsList');
+                container.innerHTML = '';
+                posts.forEach(post => {
+                    const div = document.createElement('div');
+                    div.className = 'post-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${post.title}</strong>
+                            <div style="font-size:0.8em; color:#888">${new Date(post.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <button class="delete-btn" onclick="deletePost(${post.id})">حذف</button>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch(e) {}
+        }
+
+        // 3. Delete Post
+        async function deletePost(id) {
+            if(!confirm("حذف هذا المقال؟")) return;
+            try {
+                await fetch(`/api/blog/delete/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadPosts();
+            } catch(e){}
+        }
+
+        loadPosts();
+    </script>
+</body>
+</html>
