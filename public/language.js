@@ -1,93 +1,119 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // هذا الكائن سيحتوي على جميع الترجمات بعد تحميلها
+    // هذا الكائن سيحتوي على جميع الترجمات
     const translations = {};
 
     /**
-     *  1. تحميل ملف الترجمة (translations.json) من السيرفر
+     *  1. تحميل ملف الترجمة (translate.json)
      */
     async function loadTranslations() {
         try {
-            const response = await fetch('translations.json');
+            // تأكد أن اسم الملف يطابق الملف الموجود لديك
+            const response = await fetch('translate.json');
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            // دمج الترجمات المحملة في الكائن الرئيسي
+            
+            // دمج الترجمات
             Object.assign(translations, data);
+            
+            // تشغيل الموقع بعد تحميل البيانات
+            initialize();
         } catch (error) {
-            console.error("Could not load translations file:", error);
+            console.error("Could not load translate.json:", error);
         }
     }
 
     /**
-     *  2. تطبيق اللغة المختارة على جميع العناصر في الصفحة
-     *  @param {string} lang - اللغة المراد تطبيقها ('ar' or 'en')
+     *  2. تطبيق اللغة
      */
     function setLanguage(lang) {
-        // التأكد من أن الترجمات لهذه اللغة موجودة
         if (!translations[lang]) return;
 
-        // تحديث النصوص العادية (innerHTML)
-        document.querySelectorAll('[data-key]').forEach(element => {
-            const key = element.getAttribute('data-key');
+        // أ. تحديث النصوص (data-i18n)
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            const key = element.getAttribute('data-i18n');
             if (translations[lang][key]) {
+                // نستخدم innerHTML للسماح بتنسيق HTML داخل الترجمة
                 element.innerHTML = translations[lang][key];
             }
         });
 
-        // --- الجزء المضاف: تحديث نصوص الـ placeholder ---
-        document.querySelectorAll('[data-key-placeholder]').forEach(element => {
-            const key = element.getAttribute('data-key-placeholder');
+        // ب. تحديث الـ Placeholders (للبحث والنماذج)
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-i18n-placeholder');
             if (translations[lang][key]) {
                 element.placeholder = translations[lang][key];
             }
         });
-        // ---------------------------------------------
 
-        // تحديث لغة واتجاه الصفحة الرئيسية (<html>)
+        // ج. تحديث الاتجاه (RTL / LTR) والخطوط
         document.documentElement.lang = lang;
-        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-
-        // تحديث حالة الأزرار (إظهار الزر النشط)
-        const langArBtn = document.getElementById('lang-ar');
-        const langEnBtn = document.getElementById('lang-en');
-        if (langArBtn && langEnBtn) {
-            langArBtn.classList.toggle('active', lang === 'ar');
-            langEnBtn.classList.toggle('active', lang === 'en');
+        if (lang === 'ar') {
+            document.documentElement.dir = 'rtl';
+            document.body.style.fontFamily = "'Cairo', sans-serif";
+            
+            // قلب أيقونات الأسهم لليمين
+            document.querySelectorAll('.arrow-icon').forEach(el => {
+                el.classList.remove('fa-arrow-right', 'fa-chevron-right');
+                el.classList.add('fa-arrow-left', 'fa-chevron-left');
+            });
+        } else {
+            document.documentElement.dir = 'ltr';
+            document.body.style.fontFamily = "'Inter', sans-serif";
+            
+            // قلب أيقونات الأسهم لليسار
+            document.querySelectorAll('.arrow-icon').forEach(el => {
+                el.classList.remove('fa-arrow-left', 'fa-chevron-left');
+                el.classList.add('fa-arrow-right', 'fa-chevron-right');
+            });
         }
+
+        // د. تحديث أزرار اللغة (Active State)
+        const btns = document.querySelectorAll('.lang-btn, #lang-ar, #lang-en');
+        btns.forEach(btn => {
+            btn.classList.remove('active');
+            // التحقق من النص داخل الزر أو الـ ID
+            if ((btn.id && btn.id.includes(lang)) || (btn.innerText.toLowerCase() === lang)) {
+                btn.classList.add('active');
+            }
+        });
         
-        // حفظ اختيار المستخدم في التخزين المحلي للمتصفح
+        // حفظ اللغة في المتصفح
         localStorage.setItem('language', lang);
     }
 
     /**
-     *  3. إعداد وظائف النقر لأزرار تغيير اللغة
+     *  3. إعداد الأزرار
      */
     function setupLanguageSwitcher() {
-        const langArBtn = document.getElementById('lang-ar');
-        const langEnBtn = document.getElementById('lang-en');
+        // نربط جميع الأزرار التي تغير اللغة
+        const arBtns = document.querySelectorAll('#lang-ar, .lang-btn:nth-child(1)'); // افتراض أن الأول هو العربية
+        const enBtns = document.querySelectorAll('#lang-en, .lang-btn:nth-child(2)'); // افتراض أن الثاني هو الإنجليزية
         
-        if (langArBtn && langEnBtn) {
-            langArBtn.addEventListener('click', () => setLanguage('ar'));
-            langEnBtn.addEventListener('click', () => setLanguage('en'));
-        }
+        // طريقة عامة لربط أي زر
+        document.addEventListener('click', (e) => {
+            if(e.target && (e.target.id === 'lang-ar' || e.target.innerText === 'AR')) {
+                setLanguage('ar');
+            }
+            if(e.target && (e.target.id === 'lang-en' || e.target.innerText === 'EN')) {
+                setLanguage('en');
+            }
+        });
     }
     
     /**
-     *  4. الدالة الرئيسية التي يتم تشغيلها عند تحميل الصفحة
+     *  4. التشغيل الأولي
      */
-    async function initialize() {
-        // أولاً، نقوم بتحميل ملف الترجمات
-        await loadTranslations();
+    function initialize() {
+        // اللغة الافتراضية: المحفوظة أو العربية
+        const savedLang = localStorage.getItem('language') || 'ar';
         
-        // ثانياً، نحدد اللغة التي يجب عرضها
-        const savedLang = localStorage.getItem('language') || (navigator.language.startsWith('ar') ? 'ar' : 'en');
-        
-        // ثالثاً، نقوم بتطبيق اللغة وإعداد الأزرار
         setLanguage(savedLang);
         setupLanguageSwitcher();
     }
 
-    // بدء تشغيل كل شيء
-    initialize();
+    // ابدأ التحميل
+    loadTranslations();
 });
