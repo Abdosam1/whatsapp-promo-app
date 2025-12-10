@@ -97,6 +97,7 @@
         .widget h3 { margin-top: 0; color: white; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: inline-block; margin-bottom: 20px; }
         html[dir="ltr"] .widget h3 { border-bottom: none; border-left: 3px solid var(--primary); padding-left: 10px; padding-bottom: 0; }
         .widget-links li { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
+        .widget-links a { display: flex; align-items: center; gap: 10px; color: #ccc; }
         .widget-links a:hover { color: var(--primary); }
 
         /* Ads */
@@ -146,6 +147,7 @@
 
     <div class="hero">
         <h1><i class="fab fa-whatsapp"></i> <span data-i18n="heroTitle">WhatsApp Pro Marketing</span></h1>
+        <!-- ✅ تمت إضافة data-i18n هنا ✅ -->
         <p data-i18n="heroSubtitle">المنصة المتكاملة لإدارة حملات واتساب، الرد الآلي، وزيادة المبيعات بأمان.</p>
     </div>
 
@@ -156,28 +158,27 @@
                 <span>Google AdSense Space (Banner)</span>
             </div>
 
+            <!-- المقال 1 -->
             <article class="article-card">
                 <div class="article-header"><i class="fas fa-bullhorn"></i></div>
                 <div class="article-body">
+                    <!-- ✅ تمت إضافة data-i18n للنصوص ✅ -->
                     <span class="tag" data-i18n="catDigital">التسويق الرقمي</span>
-                    <h2 class="article-title">كيف تضاعف أرباحك باستخدام واتساب ماركتينج في 2025؟</h2>
-                    <p class="article-desc">تعرف على أحدث استراتيجيات التسويق عبر واتساب، وكيفية استهداف العملاء بدقة...</p>
+                    <h2 class="article-title" data-i18n="article1Title">كيف تضاعف أرباحك باستخدام واتساب ماركتينج في 2025؟</h2>
+                    <p class="article-desc" data-i18n="article1Desc">تعرف على أحدث استراتيجيات التسويق عبر واتساب، وكيفية استهداف العملاء بدقة...</p>
                     <a href="blog.html" class="read-more">
                         <span data-i18n="blogReadMore">اقرأ المزيد</span> <i class="fas fa-arrow-left arrow-icon"></i>
                     </a>
                 </div>
             </article>
 
-            <div class="ad-box ad-banner">
-                <span>Google AdSense Space (In-Feed)</span>
-            </div>
-
+            <!-- المقال 2 -->
             <article class="article-card">
                 <div class="article-header"><i class="fas fa-robot"></i></div>
                 <div class="article-body">
                     <span class="tag" data-i18n="catAutomation">أتمتة وذكاء اصطناعي</span>
-                    <h2 class="article-title">الرد الآلي الذكي: مستقبل خدمة العملاء</h2>
-                    <p class="article-desc">لماذا يجب عليك ربط ChatGPT مع واتساب؟ اكتشف كيف توفر 80% من وقت فريق الدعم الفني...</p>
+                    <h2 class="article-title" data-i18n="article2Title">الرد الآلي الذكي: مستقبل خدمة العملاء</h2>
+                    <p class="article-desc" data-i18n="article2Desc">لماذا يجب عليك ربط ChatGPT مع واتساب؟ اكتشف كيف توفر 80% من وقت فريق الدعم...</p>
                     <a href="blog.html" class="read-more">
                         <span data-i18n="blogReadMore">اقرأ المزيد</span> <i class="fas fa-arrow-left arrow-icon"></i>
                     </a>
@@ -190,9 +191,9 @@
             <div class="widget">
                 <h3 data-i18n="secTopics">مواضيع رائجة</h3>
                 <ul class="widget-links">
-                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> أسرار التسويق الإلكتروني</a></li>
-                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> تجنب الحظر في واتساب</a></li>
-                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> أدوات التجارة الإلكترونية</a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> <span data-i18n="topic1">أسرار التسويق الإلكتروني</span></a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> <span data-i18n="topic2">تجنب الحظر في واتساب</span></a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left arrow-icon"></i> <span data-i18n="topic3">أدوات التجارة الإلكترونية</span></a></li>
                 </ul>
             </div>
 
@@ -203,9 +204,9 @@
             <div class="widget">
                 <h3 data-i18n="secServices">خدماتنا</h3>
                 <ul class="widget-links">
-                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="feature1Title">إرسال فوري</span></a></li>
-                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="feature3Title">أمان عالي</span></a></li>
-                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="feature2Title">استيراد سهل</span></a></li>
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="servBulk">إرسال جماعي</span></a></li>
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="servFilter">فلترة الأرقام</span></a></li>
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> <span data-i18n="servBot">شات بوت</span></a></li>
                 </ul>
             </div>
         </aside>
