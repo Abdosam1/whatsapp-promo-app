@@ -52,6 +52,36 @@
         html[dir="ltr"] .content { text-align: left; }
 
         .ad-space { background: #000; border: 1px dashed #444; height: 120px; display: flex; align-items: center; justify-content: center; color: #666; margin: 30px 0; border-radius: 8px; }
+
+        /* ========================================= */
+/* === إخفاء شريط جوجل للترجمة نهائياً === */
+/* ========================================= */
+
+/* 1. إخفاء الإطار (Frame) العلوي */
+.goog-te-banner-frame.skiptranslate, 
+.goog-te-banner-frame {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+}
+
+/* 2. منع الصفحة من النزول للأسفل */
+body {
+    top: 0px !important; 
+    position: static !important;
+}
+
+/* 3. إخفاء التلوين والحاشية عند تمرير الماوس */
+.goog-text-highlight {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* 4. إخفاء أي عناصر إضافية من جوجل */
+#google_translate_element {
+    display: none !important;
+}
     </style>
 </head>
 <body>
