@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <!-- Google tag (gtag.js) -->
+    <!-- Google Tag Manager -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z3N357ZJ1W"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -9,19 +9,14 @@
       gtag('js', new Date());
       gtag('config', 'G-Z3N357ZJ1W');
     </script>
-
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-TT65MB24');</script>
     <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-key="pageTitleIndex">WhatsApp Pro Suite</title>
+    <meta name="description" content="أفضل أداة للتسويق عبر واتساب. أتمتة الرسائل، رد آلي بالذكاء الاصطناعي، وزيادة المبيعات.">
+    <title data-key="pageTitleIndex">WhatsApp Pro & Digital Marketing Hub</title>
     
+    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -29,7 +24,7 @@
         /* --- 1. Dark Theme Variables --- */
         :root {
             --bg-main: #0f172a;         
-            --bg-hero-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --bg-hero-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
             --bg-card: #1e293b;         
             --primary: #00d26a;         
             --primary-hover: #00b359;
@@ -44,248 +39,286 @@
             margin: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
-            text-align: center;
             overflow-x: hidden;
-            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-        }
-
-        /* Slide Animation Class */
-        body.slide-out {
-            transform: translateX(100%);
-            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
         }
         
-        /* Fix for LTR slide out */
-        html[dir="ltr"] body.slide-out {
-            transform: translateX(-100%);
-        }
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; padding: 0; margin: 0; }
 
-        /* --- 3. Header Navigation --- */
+        /* Slide Animation Class */
+        body.slide-out { transform: translateX(100%); opacity: 0; }
+        html[dir="ltr"] body.slide-out { transform: translateX(-100%); }
+
+        /* --- 3. Header Navigation (Sticky) --- */
         .header-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 40px;
-            position: absolute;
+            padding: 15px 5%;
+            position: sticky; 
             top: 0;
-            width: 100%;
-            box-sizing: border-box;
-            z-index: 10;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
         }
+
+        .nav-left { display: flex; align-items: center; gap: 20px; }
+
+        .nav-link {
+            color: #ccc; font-size: 0.95em; display: flex; align-items: center; gap: 6px; font-weight: 600;
+        }
+        .nav-link:hover { color: var(--primary); }
+
+        /* Get Started Button (Top Left) */
+        .btn-nav-cta {
+            background-color: var(--primary); color: #000;
+            padding: 10px 25px; border-radius: 30px;
+            font-weight: 700; font-size: 0.95em;
+            display: inline-flex; align-items: center; gap: 8px;
+            box-shadow: 0 0 15px rgba(0, 210, 106, 0.3);
+        }
+        .btn-nav-cta:hover { background-color: var(--primary-hover); transform: translateY(-2px); }
 
         .language-switcher button {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: var(--text-muted); padding: 6px 12px; border-radius: 6px;
-            cursor: pointer; transition: 0.3s; font-family: inherit; font-weight: bold;
+            color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
+            cursor: pointer; font-family: inherit; font-weight: bold; font-size: 0.8em;
         }
         .language-switcher button:hover, .language-switcher button.active {
             background: var(--primary); color: #fff; border-color: var(--primary);
         }
 
-        /* How it Works Link */
-        .nav-link-item {
-            color: #e2e8f0;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 1em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.3s;
-            padding: 8px 15px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid transparent;
-        }
-        .nav-link-item:hover {
-            color: var(--primary);
-            border-color: var(--primary);
-            background: rgba(0, 210, 106, 0.1);
-        }
-
         /* --- 4. Hero Section --- */
         .hero {
-            position: relative;
+            text-align: center;
+            padding: 80px 20px 50px;
             background: var(--bg-hero-gradient);
-            padding: 160px 20px 160px;
-            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            min-height: 80vh; /* Ensure proper height */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
         }
 
         .hero h1 {
-            font-size: 3.5em; font-weight: 900; margin: 0 0 20px;
-            color: white; text-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-size: 3em; font-weight: 900; margin: 0 0 15px;
+            color: white; 
+            text-shadow: 0 5px 20px rgba(0,0,0,0.5);
         }
         .hero h1 i { color: var(--primary); }
-        
         .hero p {
-            font-size: 1.3em; color: var(--text-muted); max-width: 700px; margin: 0 auto 40px; line-height: 1.6;
+            font-size: 1.3em; color: var(--text-muted); max-width: 800px; margin: 0 auto; line-height: 1.6;
         }
 
-        /* CTA Buttons - UPDATED FOR SINGLE BUTTON */
-        .cta-buttons a {
-            text-decoration: none; padding: 18px 60px; border-radius: 50px;
-            font-size: 1.3em; font-weight: 700; margin: 10px;
-            display: inline-flex; align-items: center; gap: 12px;
-            transition: all 0.3s ease;
-        }
-        .btn-main {
-            background-color: var(--primary); color: #ffffff;
-            box-shadow: 0 4px 20px rgba(0, 210, 106, 0.4);
-        }
-        .btn-main:hover { 
-            transform: translateY(-3px) scale(1.02); 
-            background-color: var(--primary-hover);
-            box-shadow: 0 10px 30px rgba(0, 210, 106, 0.5); 
+        /* --- 5. CONTENT SECTION (AdSense Ready) --- */
+        .content-section {
+            max-width: 1200px; margin: 0 auto; padding: 20px;
+            display: grid; grid-template-columns: 2fr 1fr; /* Articles vs Sidebar */
+            gap: 40px;
         }
 
-        /* --- 5. Features Section --- */
-        .features { padding: 40px 20px 80px; max-width: 1200px; margin: auto; }
-        .features h2 { font-size: 2.5em; color: white; margin-bottom: 60px; }
+        /* Articles Styling */
+        .articles-grid { display: flex; flex-direction: column; gap: 30px; }
 
-        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-        
-        .feature-card { 
-            background-color: var(--bg-card);
+        .article-card {
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
-            padding: 40px; 
-            border-radius: 16px; 
-            transition: transform 0.3s ease; 
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border-radius: 16px; overflow: hidden;
+            transition: 0.3s; position: relative;
         }
-        .feature-card:hover { transform: translateY(-10px); border-color: var(--primary); }
-        
-        .feature-card .icon { 
-            font-size: 3em; color: var(--primary); margin-bottom: 25px; 
-            display: inline-block;
-        }
-        .feature-card h3 { font-size: 1.5em; color: white; margin-bottom: 15px; }
-        .feature-card p { color: var(--text-muted); line-height: 1.6; }
+        .article-card:hover { border-color: var(--primary); transform: translateY(-5px); }
 
-        /* --- 6. Pricing Section --- */
-        .pricing-section { padding: 60px 20px; background: rgba(0,0,0,0.2); }
-        .pricing-container { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: 0 auto; }
+        .article-header {
+            height: 220px; background: #334155; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 4rem; color: #64748b;
+        }
         
-        .pricing-card {
-            background: var(--bg-card); border: 1px solid var(--border-color);
-            border-radius: 16px; padding: 35px; flex: 1; min-width: 300px;
-            text-align: center; position: relative; transition: 0.3s;
+        .article-body { padding: 30px; text-align: right; }
+        html[dir="ltr"] .article-body { text-align: left; }
+
+        .tag { background: rgba(0, 210, 106, 0.15); color: var(--primary); padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
+        
+        .article-title { font-size: 1.6em; margin: 15px 0; color: white; line-height: 1.4; }
+        .article-desc { color: var(--text-muted); line-height: 1.7; margin-bottom: 20px; font-size: 1.05em; }
+        
+        .read-more { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+
+        /* Ad Boxes */
+        .ad-box {
+            background: #000; border: 1px dashed #444; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #666; font-family: monospace; width: 100%;
+            margin-bottom: 30px;
         }
-        .pricing-card.popular {
-            border-color: var(--primary); background: rgba(0, 210, 106, 0.05); transform: scale(1.05); z-index: 2;
+        .ad-banner { height: 120px; }
+        .ad-sidebar { height: 400px; }
+
+        /* Sidebar Widgets */
+        .sidebar { display: flex; flex-direction: column; gap: 30px; }
+        
+        .widget { background: var(--bg-card); padding: 25px; border-radius: 16px; border: 1px solid var(--border-color); }
+        .widget h3 { margin-top: 0; color: white; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: inline-block; margin-bottom: 20px; }
+        
+        .widget-links li { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
+        .widget-links li:last-child { border: none; padding-bottom: 0; }
+        .widget-links a { display: flex; align-items: center; gap: 10px; color: #ccc; }
+        .widget-links a:hover { color: var(--primary); transform: translateX(-5px); }
+        html[dir="ltr"] .widget-links a:hover { transform: translateX(5px); }
+
+        /* --- 6. Features Grid --- */
+        .section-title { text-align: center; font-size: 2.2em; margin: 80px 0 50px; color: white; }
+        
+        .features-grid { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 25px; max-width: 1200px; margin: 0 auto 60px; padding: 0 20px; 
         }
-        .popular-badge {
-            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
-            background: var(--primary); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.9em; font-weight: bold;
+        .feature-card { 
+            background: var(--bg-card); padding: 40px 30px; 
+            border-radius: 16px; text-align: center; 
+            border: 1px solid var(--border-color); transition: 0.3s;
         }
-        .price-amount { font-size: 2.5em; font-weight: 900; color: white; margin: 20px 0; }
-        .card-title { color: white; font-size: 1.5em; margin-bottom: 10px; font-weight: 700; }
-        .card-desc { color: var(--text-muted); }
+        .feature-card:hover { border-color: var(--primary); transform: translateY(-5px); }
 
         /* --- 7. Footer --- */
         .site-footer { 
-            border-top: 1px solid var(--border-color); background: #0b1120;
-            padding: 40px 0; color: var(--text-muted); font-size: 0.9em; margin-top: 50px;
+            border-top: 1px solid var(--border-color); background: #0b1120; 
+            padding: 40px 0; color: var(--text-muted); text-align: center; margin-top: 80px; 
         }
-        .footer-links a { color: white; text-decoration: none; margin: 0 10px; transition: 0.3s; }
+        .footer-links a { margin: 0 10px; font-weight: 600; }
         .footer-links a:hover { color: var(--primary); }
 
-        /* Mobile Responsive Header */
-        @media (max-width: 600px) {
-            .header-nav { padding: 15px; }
-            .nav-link-item span { display: none; } /* Hide text on mobile */
-            .hero h1 { font-size: 2.5em; }
+        /* Mobile Responsive */
+        @media (max-width: 900px) {
+            .content-section { grid-template-columns: 1fr; }
+            .header-nav { padding: 15px 20px; flex-wrap: wrap; gap: 10px; }
+            .nav-left { width: 100%; justify-content: space-between; margin-bottom: 10px; }
+            .btn-nav-cta { width: 100%; justify-content: center; }
+            .hero h1 { font-size: 2.2em; }
         }
-
     </style>
 </head>
 <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TT65MB24"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
 
-    <!-- Hero Section -->
-    <div class="hero">
-        
-        <!-- Top Navbar -->
-        <div class="header-nav">
-            <!-- Language Switcher -->
+    <!-- Header Navigation -->
+    <nav class="header-nav">
+        <!-- Links & Lang -->
+        <div class="nav-left">
             <div class="language-switcher">
                 <button id="lang-ar" data-key="lang_ar">AR</button>
                 <button id="lang-en" data-key="lang_en">EN</button>
             </div>
+            
+            <a href="how-it-works.html" class="nav-link slide-link">
+                <i class="fas fa-info-circle"></i> <span data-key="navHowItWorks">كيف يعمل؟</span>
+            </a>
 
-            <!-- Link to How it Works -->
-            <a href="how-it-works.html" class="nav-link-item slide-link">
-                <i class="fas fa-info-circle"></i> 
-                <span data-key="navHowItWorks">كيف يعمل؟</span>
+            <a href="blog.html" class="nav-link slide-link">
+                <i class="fas fa-blog"></i> <span data-key="navBlog">المدونة</span>
             </a>
         </div>
+
+        <!-- Get Started Button (Top Right/Left based on dir) -->
+        <a href="/auth" class="btn-nav-cta slide-link">
+            <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
+        </a>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle">WhatsApp Pro Marketing</span></h1>
+        <p data-key="heroSubtitle">المنصة المتكاملة لإدارة حملات واتساب، الرد الآلي، وزيادة المبيعات بأمان.</p>
+    </div>
+
+    <!-- MAIN CONTENT (AdSense Optimized) -->
+    <div class="content-section">
         
-        <!-- Main Hero Content -->
-        <h1><i class="fab fa-whatsapp"></i> <span data-key="heroTitle">WhatsApp Pro Suite</span></h1>
-        <p data-key="heroSubtitle">الحل المتكامل للتسويق وإدارة جهات الاتصال عبر واتساب</p>
-        
-        <!-- SINGLE GET STARTED BUTTON -->
-        <div class="cta-buttons">
-            <a href="/auth" class="btn-main slide-link">
-                <i class="fas fa-rocket"></i> <span data-key="ctaGetStarted">ابدأ الآن</span>
-            </a>
+        <!-- Articles Feed -->
+        <div class="articles-grid">
+            
+            <!-- AdSense Banner 1 -->
+            <div class="ad-box ad-banner">
+                <!-- Place AdSense Code Here -->
+                <span>Google AdSense Space (Banner)</span>
+            </div>
+
+            <!-- Article 1 -->
+            <article class="article-card">
+                <div class="article-header"><i class="fas fa-bullhorn"></i></div>
+                <div class="article-body">
+                    <span class="tag">Digital Marketing</span>
+                    <h2 class="article-title">كيف تضاعف أرباحك باستخدام واتساب ماركتينج في 2025؟</h2>
+                    <p class="article-desc">تعرف على أحدث استراتيجيات التسويق عبر واتساب، وكيفية استهداف العملاء بدقة، واستخدام الرسائل التفاعلية لزيادة معدل التحويل (Conversion Rate).</p>
+                    <a href="blog.html" class="read-more">اقرأ المقال <i class="fas fa-arrow-left"></i></a>
+                </div>
+            </article>
+
+            <!-- AdSense Banner 2 -->
+            <div class="ad-box ad-banner">
+                <!-- Place AdSense Code Here -->
+                <span>Google AdSense Space (In-Feed)</span>
+            </div>
+
+            <!-- Article 2 -->
+            <article class="article-card">
+                <div class="article-header"><i class="fas fa-robot"></i></div>
+                <div class="article-body">
+                    <span class="tag">AI & Automation</span>
+                    <h2 class="article-title">الرد الآلي الذكي: مستقبل خدمة العملاء</h2>
+                    <p class="article-desc">لماذا يجب عليك ربط ChatGPT مع واتساب؟ اكتشف كيف توفر 80% من وقت فريق الدعم الفني وتجيب على استفسارات العملاء فورياً طوال أيام الأسبوع.</p>
+                    <a href="blog.html" class="read-more">اقرأ المقال <i class="fas fa-arrow-left"></i></a>
+                </div>
+            </article>
+
         </div>
+
+        <!-- Sidebar Widgets -->
+        <aside class="sidebar">
+            
+            <!-- Topics Widget -->
+            <div class="widget">
+                <h3>مواضيع رائجة</h3>
+                <ul class="widget-links">
+                    <li><a href="#"><i class="fas fa-chevron-left"></i> أسرار التسويق الإلكتروني</a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left"></i> تجنب الحظر في واتساب</a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left"></i> أدوات التجارة الإلكترونية</a></li>
+                    <li><a href="#"><i class="fas fa-chevron-left"></i> تحسين محركات البحث (SEO)</a></li>
+                </ul>
+            </div>
+
+            <!-- AdSense Sidebar -->
+            <div class="ad-box ad-sidebar">
+                <!-- Place Vertical AdSense Code Here -->
+                <span>Google AdSense Space (Vertical)</span>
+            </div>
+
+            <!-- Services Widget -->
+            <div class="widget">
+                <h3>خدماتنا</h3>
+                <ul class="widget-links">
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> إرسال رسائل جماعية</a></li>
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> فلترة الأرقام</a></li>
+                    <li><a href="/auth"><i class="fas fa-check-circle" style="color:var(--primary)"></i> شات بوت ذكي</a></li>
+                </ul>
+            </div>
+
+        </aside>
     </div>
 
     <!-- Features Section -->
-    <div class="features">
-        <h2 data-key="featuresTitle">المميزات الرئيسية</h2>
-        <div class="features-grid">
-            <!-- Card 1 -->
-            <div class="feature-card">
-                <div class="icon"><i class="fas fa-rocket"></i></div>
-                <h3 data-key="feature1Title">إرسال سريع</h3>
-                <p data-key="feature1Desc">إرسال حملات تسويقية لآلاف العملاء بضغطة زر واحدة وبأمان تام.</p>
-            </div>
-            <!-- Card 2 -->
-            <div class="feature-card">
-                <div class="icon"><i class="fas fa-file-import"></i></div>
-                <h3 data-key="feature2Title">استيراد جهات الاتصال</h3>
-                <p data-key="feature2Desc">دعم استيراد الملفات (CSV) وحفظ جهات الاتصال تلقائياً.</p>
-            </div>
-            <!-- Card 3 -->
-            <div class="feature-card">
-                <div class="icon"><i class="fas fa-shield-alt"></i></div>
-                <h3 data-key="feature3Title">فلترة ذكية</h3>
-                <p data-key="feature3Desc">فحص الأرقام والتأكد من وجودها على واتساب قبل الإرسال لتجنب الحظر.</p>
-            </div>
+    <h2 class="section-title" data-key="featuresTitle">مميزات المنصة</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <i class="fas fa-paper-plane" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
+            <h3 data-key="feature1Title">إرسال فوري</h3>
+            <p data-key="feature1Desc">إرسال حملات ضخمة لآلاف العملاء بضغطة زر واحدة.</p>
         </div>
-    </div>
-
-    <!-- Pricing Section -->
-    <div class="pricing-section">
-        <h2 data-key="pricingSectionTitle">باقات الاشتراك</h2>
-        <div class="pricing-container">
-            <div class="pricing-card">
-                <h3 class="card-title" data-key="planMonthlyTitle">شهري</h3>
-                <p class="card-desc" data-key="planMonthlyDesc">للمبتدئين والتجربة</p>
-                <div class="price-amount">$5</div>
-            </div>
-            <div class="pricing-card popular">
-                <div class="popular-badge" data-key="mostPopular">الأكثر طلباً</div>
-                <h3 class="card-title" data-key="planSemiTitle">نصف سنوي</h3>
-                <p class="card-desc" data-key="planSemiDesc">توفير وحرية أكثر</p>
-                <div class="price-amount">$20</div>
-            </div>
-            <div class="pricing-card">
-                <h3 class="card-title" data-key="planYearlyTitle">سنوي</h3>
-                <p class="card-desc" data-key="planYearlyDesc">للمحترفين والشركات</p>
-                <div class="price-amount">$35</div>
-            </div>
+        <div class="feature-card">
+            <i class="fas fa-shield-alt" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
+            <h3 data-key="feature3Title">أمان عالي</h3>
+            <p data-key="feature3Desc">خوارزميات ذكية لحماية رقمك من الحظر أثناء الإرسال.</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-database" style="font-size: 2.5em; color: var(--primary); margin-bottom:20px;"></i>
+            <h3 data-key="feature2Title">إدارة البيانات</h3>
+            <p data-key="feature2Desc">استيراد وتصدير جهات الاتصال (CSV) بكل سهولة.</p>
         </div>
     </div>
 
@@ -295,26 +328,24 @@
             <a href="about.html" data-key="footerAbout">من نحن</a> | 
             <a href="privacy.html" data-key="footerPrivacy">الخصوصية</a>
         </div>
-        <div style="margin-top: 15px;">
+        <div style="margin-top: 20px;">
             &copy; <span id="copyright-year"></span> WhatsApp Pro. <span data-key="footerRights">جميع الحقوق محفوظة.</span>
         </div>
     </footer>
 
+    <script src="language.js"></script>
     <script>
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
-
-        // --- SLIDE ANIMATION LOGIC ---
+        
+        // Page Transition Script
         document.querySelectorAll('.slide-link').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
                 const target = this.getAttribute('href');
                 document.body.classList.add('slide-out');
-                setTimeout(() => {
-                    window.location.href = target;
-                }, 500);
+                setTimeout(() => window.location.href = target, 500);
             });
         });
     </script>
-    <script src="language.js"></script>
 </body>
 </html>
