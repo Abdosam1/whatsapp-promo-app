@@ -39,7 +39,8 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 // === ADMIN SETTINGS ===
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gmail.com'; 
+// الإيميل الذي سيتحكم في المدونة
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
 const TRIAL_PERIOD_MINUTES = 1440;
 
 // === SETTINGS ===
@@ -52,9 +53,11 @@ const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const userDataFolder = path.join(__dirname, 'user_data');
+// New Folder for Blog Images
+const blogUploadFolder = path.join(__dirname, "public", "blog_images");
 
 // Create directories if not exist
-[promosUploadFolder, uploadsFolder, sessionsFolder, userDataFolder].forEach(dir => { 
+[promosUploadFolder, uploadsFolder, sessionsFolder, userDataFolder, blogUploadFolder].forEach(dir => { 
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); 
 });
 
@@ -106,6 +109,18 @@ db.serialize(() => {
         created_at DATE DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // === NEW: BLOG POSTS TABLE ===
+    db.run(`CREATE TABLE IF NOT EXISTS blog_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        title TEXT, 
+        excerpt TEXT,
+        content TEXT, 
+        category TEXT,
+        image TEXT, 
+        created_at DATE DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Helper for adding columns safely
     const addColumn = (t, c, type) => { 
         db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); 
     };
@@ -122,13 +137,25 @@ db.serialize(() => {
     addColumn('users', 'last_filter_date', "TEXT");
 });
 
+// Multer Configs
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
 const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 50*1024*1024 } }); 
+
+// === NEW: Multer for Blog Images ===
+const uploadBlogImage = multer({ 
+    storage: multer.diskStorage({ 
+        destination: (req, file, cb) => cb(null, blogUploadFolder), 
+        filename: (req, file, cb) => cb(null, `post-${Date.now()}${path.extname(file.originalname)}`) 
+    }), 
+    limits: { fileSize: 5*1024*1024 } 
+});
 
 app.use(cors()); 
 app.use(express.json()); 
 app.use(passport.initialize()); 
+// Serve static folders
 app.use('/promos', express.static(promosUploadFolder));
+app.use('/blog_images', express.static(blogUploadFolder));
 
 const authMiddleware = (req, res, next) => {
     try {
@@ -155,7 +182,13 @@ function processSpintax(text) {
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
-function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { cb(row && row.email === ADMIN_EMAIL); }); }
+
+// Check Admin Function
+function checkAdmin(userId, cb) { 
+    db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { 
+        cb(row && row.email === ADMIN_EMAIL); 
+    }); 
+}
 
 // === LIMIT CHECKER FUNCTION ===
 function checkFilterLimit(userId, requestCount) {
@@ -503,7 +536,8 @@ passport.use(new GoogleStrategy({ clientID: process.env.GOOGLE_CLIENT_ID, client
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
-    res.redirect(req.user.email === ADMIN_EMAIL ? `/admin.html?token=${token}` : `/dashboard.html?token=${token}`);
+    // توجيه الأدمن إلى صفحة إدارة المدونة إذا كان هو، وإلا للوحة التحكم
+    res.redirect(req.user.email === ADMIN_EMAIL ? `/admin-blog.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -527,10 +561,12 @@ app.post("/api/auth/login", async (req, res) => {
     db.get("SELECT * FROM users WHERE email=?", [email], async (err, user) => {
         if (!user || !user.password || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ message: 'Invalid credentials' });
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
+        // Check if Admin for frontend logic
         res.json({ token, isAdmin: user.email === ADMIN_EMAIL });
     });
 });
 
+// Contacts APIs
 app.get('/contacts', authMiddleware, (req, res) => {
     db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -583,6 +619,7 @@ app.delete('/api/delete-all-imported', authMiddleware, (req, res) => {
     });
 });
 
+// Promos APIs
 app.get('/promos', authMiddleware, (req, res) => {
     try { const userPromos = readPromos(req.userData.userId); res.json(userPromos); } catch (e) { res.json([]); }
 });
@@ -613,6 +650,7 @@ app.delete('/deletePromo/:id', authMiddleware, (req, res) => {
     res.json({ success: true });
 });
 
+// Chatbot APIs
 app.get('/api/chatbot-prompt', authMiddleware, (req,res) => db.get("SELECT chatbot_prompt FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({prompt:r?.chatbot_prompt||''})));
 app.post('/api/chatbot-prompt', authMiddleware, (req,res) => db.run("UPDATE users SET chatbot_prompt=? WHERE id=?", [req.body.prompt, req.userData.userId], ()=>res.json({success:true})));
 app.get('/api/chatbot-status', authMiddleware, (req,res) => db.get("SELECT is_chatbot_active FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({isActive:r?.is_chatbot_active===1})));
@@ -626,15 +664,77 @@ app.post('/api/generate-spintax', authMiddleware, async (req,res) => {
 
 app.get('/api/is-admin', authMiddleware, (req,res) => checkAdmin(req.userData.userId, (isAdmin)=>res.json({isAdmin})));
 
+// ========================================== //
+// =========== BLOG SYSTEM API ROUTES ======= //
+// ========================================== //
+
+// 1. Get All Posts (Public)
+app.get('/api/blog/posts', (req, res) => {
+    db.all("SELECT * FROM blog_posts ORDER BY id DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// 2. Get Single Post (Public)
+app.get('/api/blog/post/:id', (req, res) => {
+    db.get("SELECT * FROM blog_posts WHERE id = ?", [req.params.id], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: "Not found" });
+        res.json(row);
+    });
+});
+
+// 3. Create Post (Admin Only)
+app.post('/api/blog/create', authMiddleware, uploadBlogImage.single('image'), (req, res) => {
+    // Check if user is the specific admin
+    checkAdmin(req.userData.userId, (isAdmin) => {
+        if (!isAdmin) return res.status(403).json({ message: "Forbidden: Admins Only" });
+
+        const { title, excerpt, content, category } = req.body;
+        const image = req.file ? req.file.filename : null;
+
+        db.run(`INSERT INTO blog_posts (title, excerpt, content, category, image) VALUES (?, ?, ?, ?, ?)`, 
+            [title, excerpt, content, category, image], 
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ success: true, id: this.lastID });
+            }
+        );
+    });
+});
+
+// 4. Delete Post (Admin Only)
+app.delete('/api/blog/delete/:id', authMiddleware, (req, res) => {
+    checkAdmin(req.userData.userId, (isAdmin) => {
+        if (!isAdmin) return res.status(403).json({ message: "Forbidden: Admins Only" });
+        db.run("DELETE FROM blog_posts WHERE id = ?", [req.params.id], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+    });
+});
+
+// Serve Admin Blog Page (Protected)
+app.get('/admin-blog', authMiddleware, (req, res) => {
+    checkAdmin(req.userData.userId, (isAdmin) => {
+        if (!isAdmin) return res.redirect('/dashboard.html');
+        res.sendFile(path.join(__dirname, 'public', 'admin-blog.html'));
+    });
+});
+
+// ================================================================= //
+// ==================== 9. SERVING FILES ========================= //
+// ================================================================= //
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard'); res.sendFile(path.join(__dirname, 'public', 'admin.html')); }); });
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
 
-// Updated Routes for Unified Auth
+// Unified Auth Route
 app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'auth.html')));
-app.get('/login', (req, res) => res.redirect('/auth')); // Redirect old login route
-app.get('/signup', (req, res) => res.redirect('/auth')); // Redirect old signup route
+app.get('/login', (req, res) => res.redirect('/auth')); 
+app.get('/signup', (req, res) => res.redirect('/auth'));
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
