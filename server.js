@@ -27,7 +27,7 @@ const {
     delay
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcodeTerminal = require('qrcode-terminal'); // تأكد من تثبيت هذه المكتبة: npm install qrcode-terminal
+const qrcodeTerminal = require('qrcode-terminal');
 
 // ================================================================= //
 // ========================= 2. Variables ======================= //
@@ -205,7 +205,7 @@ async function startSingleSystemBot(botIndex) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false, // Set false to avoid Baileys warning
+        printQRInTerminal: false, 
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
     });
@@ -501,7 +501,7 @@ passport.use(new GoogleStrategy({ clientID: process.env.GOOGLE_CLIENT_ID, client
 }));
 
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login.html', session: false }), (req, res) => {
+app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
     res.redirect(req.user.email === ADMIN_EMAIL ? `/admin.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
@@ -630,7 +630,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard'); res.sendFile(path.join(__dirname, 'public', 'admin.html')); }); });
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
-app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+
+// Updated Routes for Unified Auth
+app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'auth.html')));
+app.get('/login', (req, res) => res.redirect('/auth')); // Redirect old login route
+app.get('/signup', (req, res) => res.redirect('/auth')); // Redirect old signup route
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
