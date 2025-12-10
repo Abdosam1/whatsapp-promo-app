@@ -12,9 +12,8 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>المدونة - نصائح التسويق الرقمي</title>
+    <title>WhatsApp Pro - Blog</title>
     
-    <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -30,51 +29,22 @@
             --border-color: #334155;
         }
 
-        /* --- General Styles --- */
         body {
             font-family: 'Cairo', sans-serif;
             margin: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
             overflow-x: hidden;
-            /* Fix for Google Translate Shift */
-            top: 0 !important; 
-            position: static !important;
+            transition: 0.3s;
         }
 
-        /* LTR Font Support */
+        /* LTR Support */
         html[lang="en"] body { font-family: 'Inter', sans-serif; }
 
         a { text-decoration: none; color: inherit; transition: 0.3s; }
         ul { list-style: none; padding: 0; margin: 0; }
-
-        /* ================================================= */
-        /* === ANTI-GOOGLE BANNER (FORCE HIDE CSS) === */
-        /* ================================================= */
-        iframe.goog-te-banner-frame {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            width: 0 !important;
-        }
-        body {
-            top: 0px !important; 
-            margin-top: 0 !important;
-        }
-        #google_translate_element {
-            display: none !important;
-        }
-        .goog-tooltip {
-            display: none !important;
-        }
-        .goog-text-highlight {
-            background-color: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        /* ================================================= */
         
-        /* --- Navbar --- */
+        /* Navbar */
         .header-nav {
             display: flex; justify-content: space-between; align-items: center;
             padding: 15px 5%; background: rgba(15, 23, 42, 0.95);
@@ -83,14 +53,11 @@
         }
         .nav-left { display: flex; align-items: center; gap: 20px; }
         
-        .language-switcher button {
+        .lang-btn {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
-            cursor: pointer; font-family: inherit; font-weight: bold; font-size: 0.8em;
+            color: #94a3b8; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold;
         }
-        .language-switcher button:hover, .language-switcher button.active {
-            background: var(--primary); color: #fff; border-color: var(--primary);
-        }
+        .lang-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         .btn-nav-cta {
             background-color: var(--primary); color: #000; padding: 10px 25px;
@@ -99,7 +66,7 @@
         }
         .btn-nav-cta:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
-        /* --- Blog Hero --- */
+        /* Blog Hero */
         .blog-header {
             text-align: center; padding: 60px 20px;
             background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
@@ -108,13 +75,13 @@
         .blog-header h1 { font-size: 2.5em; margin: 0 0 10px; color: white; font-weight: 900; }
         .blog-header p { color: var(--text-muted); font-size: 1.1em; max-width: 600px; margin: 0 auto; }
 
-        /* --- Grid --- */
+        /* Grid */
         .blog-container {
             max-width: 1200px; margin: 40px auto; padding: 0 20px;
             display: grid; grid-template-columns: 2fr 1fr; gap: 40px;
         }
 
-        /* --- Articles --- */
+        /* Articles */
         .articles-list { display: flex; flex-direction: column; gap: 40px; }
 
         .article-card {
@@ -139,12 +106,16 @@
             padding: 5px 10px; border-radius: 4px; display: inline-block; width: fit-content;
         }
         
-        .article-title { font-size: 1.6em; margin: 0 0 15px; color: white; }
-        .article-excerpt { color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+        .article-title { font-size: 1.6em; margin: 0 0 15px; color: white; line-height: 1.4; }
+        .article-excerpt { color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; flex-grow: 1; }
         
-        .read-btn { color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 8px; margin-top: auto; }
+        .read-btn { 
+            color: var(--primary); font-weight: bold; display: inline-flex; align-items: center; gap: 8px; margin-top: auto; 
+            transition: 0.3s;
+        }
+        .read-btn:hover { padding-right: 10px; }
 
-        /* --- Sidebar --- */
+        /* Sidebar */
         .sidebar { display: flex; flex-direction: column; gap: 30px; }
         .widget { background: var(--bg-card); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); }
         .widget h3 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid var(--primary); display: inline-block; color: white; margin-bottom: 15px; }
@@ -155,7 +126,7 @@
         .cat-list li a { display: flex; justify-content: space-between; color: #ccc; }
         .cat-list li a:hover { color: var(--primary); }
 
-        /* --- AdSense --- */
+        /* AdSense */
         .ad-space {
             background: #000; border: 1px dashed #444; width: 100%;
             display: flex; align-items: center; justify-content: center;
@@ -177,25 +148,25 @@
     <!-- Navbar -->
     <nav class="header-nav">
         <div class="nav-left">
-            <div class="language-switcher">
-                <button id="lang-ar">AR</button>
-                <button id="lang-en">EN</button>
+            <div>
+                <button class="lang-btn" onclick="setLanguage('ar')">AR</button>
+                <button class="lang-btn" onclick="setLanguage('en')">EN</button>
             </div>
 
             <a href="index.html" style="color: #ccc; font-size: 0.9em; margin-right: 20px; display: flex; gap: 5px;">
-                <i class="fas fa-home"></i> <span>الرئيسية</span>
+                <i class="fas fa-home"></i> <span data-i18n="navHome">الرئيسية</span>
             </a>
         </div>
 
         <a href="/auth" class="btn-nav-cta">
-            <i class="fas fa-rocket"></i> <span>ابدأ الآن</span>
+            <i class="fas fa-rocket"></i> <span data-i18n="ctaGetStarted">ابدأ الآن</span>
         </a>
     </nav>
 
     <!-- Header -->
     <header class="blog-header">
-        <h1>المدونة & أكاديمية التسويق</h1>
-        <p>كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
+        <h1 data-i18n="blogHeroTitle">المدونة & أكاديمية التسويق</h1>
+        <p data-i18n="blogHeroSubtitle">كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.</p>
     </header>
 
     <!-- Top Ad -->
@@ -210,14 +181,14 @@
         
         <!-- Posts List -->
         <main class="articles-list" id="articles-list">
-            <p style="text-align:center; color:#888;">جاري تحميل المقالات...</p>
+            <p style="text-align:center; color:#888;" data-i18n="blogLoading">جاري تحميل المقالات...</p>
         </main>
 
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="widget">
-                <h3>بحث</h3>
-                <input type="text" placeholder="ابحث..." style="width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
+                <h3 data-i18n="blogSearchPlaceholder">بحث</h3>
+                <input type="text" data-i18n-placeholder="blogSearchPlaceholder" placeholder="ابحث..." style="width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
             </div>
 
             <div class="ad-space ad-vertical">
@@ -225,12 +196,12 @@
             </div>
 
             <div class="widget">
-                <h3>التصنيفات</h3>
+                <h3 data-i18n="blogCategoriesTitle">التصنيفات</h3>
                 <ul class="cat-list">
-                    <li><a href="#">التسويق الرقمي</a></li>
-                    <li><a href="#">شروحات واتساب</a></li>
-                    <li><a href="#">أتمتة وذكاء اصطناعي</a></li>
-                    <li><a href="#">التجارة الإلكترونية</a></li>
+                    <li><a href="#"><span data-i18n="catDigital">التسويق الرقمي</span></a></li>
+                    <li><a href="#"><span data-i18n="catWhatsApp">شروحات واتساب</span></a></li>
+                    <li><a href="#"><span data-i18n="catAutomation">أتمتة وذكاء اصطناعي</span></a></li>
+                    <li><a href="#"><span data-i18n="catEcommerce">التجارة الإلكترونية</span></a></li>
                 </ul>
             </div>
         </aside>
@@ -238,68 +209,68 @@
 
     <!-- Footer -->
     <footer class="site-footer">
-        <p>&copy; <span id="year"></span> WhatsApp Pro. جميع الحقوق محفوظة.</p>
+        <div class="footer-links">
+            <a href="about.html" data-i18n="footerAbout">من نحن</a> | 
+            <a href="privacy.html" data-i18n="footerPrivacy">الخصوصية</a>
+        </div>
+        <p>&copy; <span id="year"></span> WhatsApp Pro. <span data-i18n="footerRights">جميع الحقوق محفوظة.</span></p>
     </footer>
 
-    <!-- Hidden Translate Element (Required) -->
-    <div id="google_translate_element"></div>
-
-    <!-- 1. Google Translate API -->
-    <script type="text/javascript">
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'ar',
-                includedLanguages: 'ar,en',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
-    </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
-    <!-- 2. Logic: Translation & Fetching -->
+    <!-- Translation Script -->
+    <script src="translations.js"></script>
     <script>
         document.getElementById('year').textContent = new Date().getFullYear();
 
-        // --- PRO TRANSLATION LOGIC (NO BANNER) ---
-        function changeLanguage(lang) {
-            // Clear old cookies
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
-
+        // --- PRO TRANSLATION LOGIC ---
+        function setLanguage(lang) {
+            localStorage.setItem('lang', lang);
+            
+            // 1. Change Direction & Font
             if (lang === 'en') {
-                document.cookie = "googtrans=/ar/en; path=/";
-                document.cookie = "googtrans=/ar/en; path=/; domain=" + document.domain;
+                document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
+                // Flip arrows
+                document.querySelectorAll('.arrow-icon').forEach(el => {
+                    el.classList.remove('fa-arrow-left');
+                    el.classList.add('fa-arrow-right');
+                });
             } else {
-                document.cookie = "googtrans=/ar/ar; path=/";
-                document.cookie = "googtrans=/ar/ar; path=/; domain=" + document.domain;
+                document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
+                // Flip arrows
+                document.querySelectorAll('.arrow-icon').forEach(el => {
+                    el.classList.remove('fa-arrow-right');
+                    el.classList.add('fa-arrow-left');
+                });
             }
-            window.location.reload();
+
+            // 2. Update Active Button
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase() === lang) btn.classList.add('active');
+            });
+
+            // 3. Translate Text
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dictionary[lang] && dictionary[lang][key]) {
+                    el.innerText = dictionary[lang][key];
+                }
+            });
+
+            // 4. Translate Placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dictionary[lang] && dictionary[lang][key]) {
+                    el.placeholder = dictionary[lang][key];
+                }
+            });
         }
 
         // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
-            const btnAr = document.getElementById('lang-ar');
-            const btnEn = document.getElementById('lang-en');
-            
-            // Check active language via cookie
-            if (document.cookie.includes('/en')) {
-                if(btnEn) btnEn.classList.add('active');
-                if(btnAr) btnAr.classList.remove('active');
-                document.documentElement.lang = 'en';
-                document.documentElement.dir = 'ltr';
-            } else {
-                if(btnAr) btnAr.classList.add('active');
-                if(btnEn) btnEn.classList.remove('active');
-                document.documentElement.lang = 'ar';
-                document.documentElement.dir = 'rtl';
-            }
-
-            // Button Events
-            if(btnEn) btnEn.onclick = () => changeLanguage('en');
-            if(btnAr) btnAr.onclick = () => changeLanguage('ar');
-            
-            // Load Content
+            const savedLang = localStorage.getItem('lang') || 'ar';
+            setLanguage(savedLang);
             loadBlogPosts();
         });
 
@@ -309,15 +280,22 @@
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
                 const container = document.getElementById('articles-list');
+                const currentLang = localStorage.getItem('lang') || 'ar';
+                const noArticlesMsg = dictionary[currentLang]['blogNoArticles'] || "No articles.";
+
                 container.innerHTML = '';
 
                 if(posts.length === 0) {
-                    container.innerHTML = '<p style="text-align:center">لا توجد مقالات.</p>'; return;
+                    container.innerHTML = `<p style="text-align:center">${noArticlesMsg}</p>`; 
+                    return;
                 }
 
                 posts.forEach(post => {
                     const imgStyle = post.image ? `background-image:url('/blog_images/${post.image}');` : '';
                     const fallback = post.image ? '' : '<i class="fas fa-image"></i>';
+                    
+                    // Determine arrow based on CURRENT direction (might need update if lang changes after load)
+                    const arrowClass = document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right';
 
                     const html = `
                         <article class="article-card">
@@ -327,14 +305,20 @@
                                 <h2 class="article-title">${post.title}</h2>
                                 <p class="article-excerpt">${post.excerpt}</p>
                                 <a href="article-view.html?id=${post.id}" class="read-btn">
-                                    اقرأ المزيد <i class="fas ${document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right'}"></i>
+                                    <span data-i18n="blogReadMore">اقرأ المزيد</span> <i class="fas ${arrowClass} arrow-icon"></i>
                                 </a>
                             </div>
                         </article>
                     `;
                     container.insertAdjacentHTML('beforeend', html);
                 });
-            } catch(e) { console.error(e); }
+                
+                // Re-apply translation to newly added elements
+                setLanguage(currentLang);
+
+            } catch(e) { 
+                console.error(e); 
+            }
         }
     </script>
 </body>
