@@ -26,7 +26,21 @@
     "blogPageTitle": "المدونة - نصائح التسويق الرقمي",
     "blogHeroTitle": "المدونة & أكاديمية التسويق",
     "blogHeroSubtitle": "كل ما تحتاج معرفته عن التسويق عبر واتساب، الأتمتة، وزيادة المبيعات.",
+    "blogSearchPlaceholder": "ابحث في المدونة...",
+    "blogCategoriesTitle": "التصنيفات",
+    "blogReadMore": "اقرأ المزيد",
+    "blogLoading": "جاري تحميل المقالات...",
+    "blogNoArticles": "لا توجد مقالات منشورة حالياً.",
+    "blogErrorLoading": "حدث خطأ في تحميل المقالات.",
     
+    "catDigital": "التسويق الرقمي",
+    "catWhatsApp": "شروحات واتساب",
+    "catAutomation": "أتمتة وذكاء اصطناعي",
+    "catEcommerce": "التجارة الإلكترونية",
+
+    "secTopics": "مواضيع رائجة",
+    "secServices": "خدماتنا",
+
     "featuresTitle": "لماذا تختار أداتنا؟",
     "feature1Title": "إرسال فوري",
     "feature1Desc": "إرسال جماعي أو متسلسل لآلاف الأرقام بسرعة وكفاءة عالية، مع إمكانية إرفاق الصور.",
@@ -181,6 +195,20 @@
     "blogPageTitle": "Blog - Digital Marketing Tips",
     "blogHeroTitle": "Blog & Marketing Academy",
     "blogHeroSubtitle": "Everything you need to know about WhatsApp marketing, automation, and sales growth.",
+    "blogSearchPlaceholder": "Search blog...",
+    "blogCategoriesTitle": "Categories",
+    "blogReadMore": "Read More",
+    "blogLoading": "Loading articles...",
+    "blogNoArticles": "No articles published yet.",
+    "blogErrorLoading": "Error loading articles.",
+
+    "catDigital": "Digital Marketing",
+    "catWhatsApp": "WhatsApp Tutorials",
+    "catAutomation": "Automation & AI",
+    "catEcommerce": "E-commerce",
+
+    "secTopics": "Trending Topics",
+    "secServices": "Our Services",
 
     "featuresTitle": "Why Choose Our Tool?",
     "feature1Title": "Instant Sending",
