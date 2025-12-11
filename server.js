@@ -39,7 +39,6 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 // === ADMIN SETTINGS ===
-// الإيميل الذي سيتحكم في المدونة
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
 const TRIAL_PERIOD_MINUTES = 1440;
 
@@ -53,7 +52,6 @@ const dbFile = path.join(__dirname, "main_data.db");
 const uploadsFolder = path.join(__dirname, 'uploads');
 const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
 const userDataFolder = path.join(__dirname, 'user_data');
-// New Folder for Blog Images
 const blogUploadFolder = path.join(__dirname, "public", "blog_images");
 
 // Create directories if not exist
@@ -109,18 +107,21 @@ db.serialize(() => {
         created_at DATE DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // === NEW: BLOG POSTS TABLE ===
+    // === BLOG POSTS TABLE (Updated for Dual Language) ===
     db.run(`CREATE TABLE IF NOT EXISTS blog_posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        title TEXT, 
-        excerpt TEXT,
-        content TEXT, 
+        title_ar TEXT, 
+        title_en TEXT,
+        excerpt_ar TEXT, 
+        excerpt_en TEXT,
+        content_ar TEXT, 
+        content_en TEXT,
         category TEXT,
         image TEXT, 
         created_at DATE DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Helper for adding columns safely
+    // Helper for adding columns safely (Migrations)
     const addColumn = (t, c, type) => { 
         db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); 
     };
@@ -140,15 +141,7 @@ db.serialize(() => {
 // Multer Configs
 const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
 const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 50*1024*1024 } }); 
-
-// === NEW: Multer for Blog Images ===
-const uploadBlogImage = multer({ 
-    storage: multer.diskStorage({ 
-        destination: (req, file, cb) => cb(null, blogUploadFolder), 
-        filename: (req, file, cb) => cb(null, `post-${Date.now()}${path.extname(file.originalname)}`) 
-    }), 
-    limits: { fileSize: 5*1024*1024 } 
-});
+const uploadBlogImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, blogUploadFolder), filename: (req, file, cb) => cb(null, `post-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 5*1024*1024 } });
 
 app.use(cors()); 
 app.use(express.json()); 
@@ -248,7 +241,6 @@ async function startSingleSystemBot(botIndex) {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // Manual QR Print
         if (qr) {
             console.log(`\nScan this QR for System Bot #${botIndex + 1}:\n`);
             qrcodeTerminal.generate(qr, { small: true });
@@ -420,15 +412,12 @@ io.on('connection', (socket) => {
     // =========== LOGIC: NUMBER FILTER ========= //
     // ========================================== //
     socket.on('check-numbers', async ({ numbers }) => {
-        // 1. Check Bots
         const activeBots = systemSocks.filter(s => s && s.user);
         if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Check server terminal to scan QR.');
 
-        // 2. Prepare Numbers
         const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
         if (allPhones.length === 0) return socket.emit('filter-error', 'No valid numbers.');
 
-        // 3. CHECK LIMITS
         try {
             const limitCheck = await checkFilterLimit(activeUserId, allPhones.length);
             if (!limitCheck.allowed) {
@@ -449,7 +438,6 @@ io.on('connection', (socket) => {
                 break;
             }
             const phone = allPhones[i];
-            
             await sleep(getRandomDelay(300, 1000));
 
             const bot = activeBots[i % activeBots.length];
@@ -469,9 +457,7 @@ io.on('connection', (socket) => {
                     db.run(`INSERT INTO filtered_numbers (phone, status, ownerId) VALUES (?, ?, ?)`, 
                            [phone, status, activeUserId]);
                 }
-
                 socket.emit('filter-result', { phone, status });
-
             } catch (err) {
                 invalid++;
                 socket.emit('filter-result', { phone, status: 'invalid' });
@@ -536,7 +522,6 @@ passport.use(new GoogleStrategy({ clientID: process.env.GOOGLE_CLIENT_ID, client
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth', session: false }), (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
-    // توجيه الأدمن إلى صفحة إدارة المدونة إذا كان هو، وإلا للوحة التحكم
     res.redirect(req.user.email === ADMIN_EMAIL ? `/admin-blog.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
 
@@ -561,12 +546,10 @@ app.post("/api/auth/login", async (req, res) => {
     db.get("SELECT * FROM users WHERE email=?", [email], async (err, user) => {
         if (!user || !user.password || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ message: 'Invalid credentials' });
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
-        // Check if Admin for frontend logic
         res.json({ token, isAdmin: user.email === ADMIN_EMAIL });
     });
 });
 
-// Contacts APIs
 app.get('/contacts', authMiddleware, (req, res) => {
     db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -619,7 +602,6 @@ app.delete('/api/delete-all-imported', authMiddleware, (req, res) => {
     });
 });
 
-// Promos APIs
 app.get('/promos', authMiddleware, (req, res) => {
     try { const userPromos = readPromos(req.userData.userId); res.json(userPromos); } catch (e) { res.json([]); }
 });
@@ -684,17 +666,16 @@ app.get('/api/blog/post/:id', (req, res) => {
     });
 });
 
-// 3. Create Post (Admin Only)
+// 3. Create Post (Admin Only) - MODIFIED FOR DUAL LANGUAGE
 app.post('/api/blog/create', authMiddleware, uploadBlogImage.single('image'), (req, res) => {
-    // Check if user is the specific admin
     checkAdmin(req.userData.userId, (isAdmin) => {
         if (!isAdmin) return res.status(403).json({ message: "Forbidden: Admins Only" });
 
-        const { title, excerpt, content, category } = req.body;
+        const { title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category } = req.body;
         const image = req.file ? req.file.filename : null;
 
-        db.run(`INSERT INTO blog_posts (title, excerpt, content, category, image) VALUES (?, ?, ?, ?, ?)`, 
-            [title, excerpt, content, category, image], 
+        db.run(`INSERT INTO blog_posts (title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+            [title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category, image], 
             function(err) {
                 if (err) return res.status(500).json({ error: err.message });
                 res.json({ success: true, id: this.lastID });
