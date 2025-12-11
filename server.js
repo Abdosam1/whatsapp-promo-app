@@ -39,12 +39,12 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
 
 // === ADMIN SETTINGS ===
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
+const ADMIN_EMAIL = 'abdo140693@gmail.com'; 
 const TRIAL_PERIOD_MINUTES = 1440;
 
 // === SETTINGS ===
-const NUMBER_OF_SYSTEM_BOTS = 1; // بوت واحد للفحص
-const DAILY_LIMIT = 1000; // حد الفحص اليومي لكل مستخدم
+const NUMBER_OF_SYSTEM_BOTS = 1; 
+const DAILY_LIMIT = 1000; 
 
 // Folders
 const promosUploadFolder = path.join(__dirname, "public", "promos");
@@ -107,7 +107,7 @@ db.serialize(() => {
         created_at DATE DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // === BLOG POSTS TABLE (Updated for Dual Language) ===
+    // === BLOG POSTS TABLE (AR & EN) ===
     db.run(`CREATE TABLE IF NOT EXISTS blog_posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         title_ar TEXT, 
@@ -121,7 +121,7 @@ db.serialize(() => {
         created_at DATE DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Helper for adding columns safely (Migrations)
+    // Helper for adding columns safely
     const addColumn = (t, c, type) => { 
         db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); 
     };
@@ -131,11 +131,24 @@ db.serialize(() => {
     addColumn('users', 'activation_code', 'TEXT');
     addColumn('users', 'chatbot_prompt', 'TEXT');
     addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
-    addColumn('clients', 'last_interaction', 'INTEGER DEFAULT 0');
-    
-    // === NEW COLUMNS FOR LIMITS ===
     addColumn('users', 'daily_filter_count', "INTEGER DEFAULT 0");
     addColumn('users', 'last_filter_date', "TEXT");
+
+    // === AUTO CREATE ADMIN (إنشاء الأدمن تلقائياً) ===
+    const adminPass = '123456'; // كلمة المرور الافتراضية
+    bcrypt.hash(adminPass, 12).then(hash => {
+        db.get("SELECT * FROM users WHERE email = ?", [ADMIN_EMAIL], (err, row) => {
+            if (!row) {
+                const id = Date.now().toString();
+                db.run("INSERT INTO users (id, name, email, password, trialEndsAt) VALUES (?, ?, ?, ?, ?)", 
+                    [id, 'Super Admin', ADMIN_EMAIL, hash, new Date(Date.now() + 31536000000).toISOString()],
+                    (err) => {
+                        if (!err) console.log(`\n✅ ADMIN ACCOUNT CREATED: ${ADMIN_EMAIL} | Password: ${adminPass}\n`);
+                    }
+                );
+            }
+        });
+    });
 });
 
 // Multer Configs
@@ -194,18 +207,15 @@ function checkFilterLimit(userId, requestCount) {
             let currentCount = row?.daily_filter_count || 0;
             let lastDate = row?.last_filter_date || '';
 
-            // Reset logic
             if (lastDate !== today) {
                 currentCount = 0;
                 lastDate = today;
             }
 
-            // Check limit
             if (currentCount + requestCount > DAILY_LIMIT) {
                 return resolve({ allowed: false, remaining: Math.max(0, DAILY_LIMIT - currentCount) });
             }
 
-            // Update limit
             const newCount = currentCount + requestCount;
             db.run("UPDATE users SET daily_filter_count = ?, last_filter_date = ? WHERE id = ?", 
                    [newCount, lastDate, userId], (err) => {
@@ -550,6 +560,7 @@ app.post("/api/auth/login", async (req, res) => {
     });
 });
 
+// Contacts APIs
 app.get('/contacts', authMiddleware, (req, res) => {
     db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -602,6 +613,7 @@ app.delete('/api/delete-all-imported', authMiddleware, (req, res) => {
     });
 });
 
+// Promos APIs
 app.get('/promos', authMiddleware, (req, res) => {
     try { const userPromos = readPromos(req.userData.userId); res.json(userPromos); } catch (e) { res.json([]); }
 });
