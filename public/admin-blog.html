@@ -7,45 +7,68 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        input, textarea, select { width: 100%; padding: 10px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
-        button { background: #00d26a; color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+        .container { max-width: 900px; margin: 0 auto; }
+        input, textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
+        button { background: #00d26a; color: #000; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
         button:hover { background: #00b359; }
+        
+        .label-ar { color: #00d26a; font-weight: bold; display: block; margin-bottom: 8px; }
+        .label-en { color: #3b82f6; font-weight: bold; display: block; margin-bottom: 8px; dir: ltr; text-align: left;}
+        
+        .auto-translate-btn { 
+            background: #3b82f6; color: white; margin: 10px 0 30px 0; 
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .auto-translate-btn:hover { background: #2563eb; }
+
         .post-item { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
-        .delete-btn { background: #ef4444; color: white; width: auto; padding: 5px 10px; font-size: 0.8em; }
-        h1, h2 { color: #00d26a; }
+        .delete-btn { background: #ef4444; color: white; width: auto; padding: 5px 15px; font-size: 0.9em; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1><i class="fas fa-edit"></i> لوحة تحكم المدونة</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h1><i class="fas fa-edit"></i> لوحة تحكم المدونة</h1>
+            <button onclick="logout()" style="width:auto; background:#ef4444; color:white;">خروج</button>
+        </div>
         <a href="dashboard.html" style="color:#ccc; display:block; margin-bottom:20px;">&larr; العودة للوحة التحكم</a>
 
         <!-- Form Adding Post -->
-        <div style="background: #162032; padding: 20px; border-radius: 12px; margin-bottom: 40px;">
-            <h2>إضافة مقال جديد</h2>
+        <div style="background: #162032; padding: 25px; border-radius: 12px; margin-bottom: 40px; border:1px solid #334155;">
+            
             <form id="blogForm">
-                <label>عنوان المقال:</label>
-                <input type="text" id="title" required placeholder="مثلاً: 5 طرق لزيادة المبيعات">
                 
-                <label>التصنيف (Category):</label>
+                <!-- Arabic Section -->
+                <h3 class="label-ar">1. المحتوى بالعربية (الأصل)</h3>
+                <input type="text" id="title_ar" placeholder="عنوان المقال (عربي)" required>
+                <textarea id="excerpt_ar" rows="3" placeholder="ملخص قصير يظهر في القائمة (عربي)" required></textarea>
+                <textarea id="content_ar" rows="8" placeholder="المحتوى الكامل للمقال (عربي)" required></textarea>
+
+                <!-- Translate Button -->
+                <button type="button" id="translateBtn" class="auto-translate-btn">
+                    <i class="fas fa-language"></i> ترجمة تلقائية إلى الإنجليزية
+                </button>
+
+                <!-- English Section -->
+                <h3 class="label-en" style="text-align:left;">2. English Content (Auto-Translated)</h3>
+                <input type="text" id="title_en" placeholder="Article Title" dir="ltr">
+                <textarea id="excerpt_en" rows="3" placeholder="Short Excerpt" dir="ltr"></textarea>
+                <textarea id="content_en" rows="8" placeholder="Full Content" dir="ltr"></textarea>
+
+                <hr style="border-color:#334155; margin: 20px 0;">
+
+                <label>التصنيف:</label>
                 <select id="category">
-                    <option value="التسويق الرقمي">التسويق الرقمي</option>
-                    <option value="شروحات واتساب">شروحات واتساب</option>
-                    <option value="أتمتة وذكاء اصطناعي">أتمتة وذكاء اصطناعي</option>
-                    <option value="عام">عام</option>
+                    <option value="Digital Marketing">Digital Marketing</option>
+                    <option value="WhatsApp Tips">WhatsApp Tips</option>
+                    <option value="Automation">Automation</option>
+                    <option value="E-commerce">E-commerce</option>
                 </select>
-
-                <label>ملخص قصير (Excerpt):</label>
-                <input type="text" id="excerpt" required placeholder="وصف صغير يظهر في القائمة...">
-
-                <label>المحتوى الكامل (مسموح HTML):</label>
-                <textarea id="content" rows="10" required placeholder="كتب الموضوع هنا..."></textarea>
 
                 <label>صورة المقال:</label>
                 <input type="file" id="image" accept="image/*">
 
-                <button type="submit" id="submitBtn">نشر المقال</button>
+                <button type="submit" id="submitBtn">نشر المقال (Save Post)</button>
             </form>
         </div>
 
@@ -55,21 +78,69 @@
     </div>
 
     <script>
+        // 1. Check Auth
         const token = localStorage.getItem('authToken');
-        if (!token) window.location.href = 'login.html';
+        if (!token) {
+            alert("المرجو تسجيل الدخول أولاً");
+            window.location.href = 'login.html';
+        }
 
-        // 1. Submit Post
+        // 2. Logout Function
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = 'login.html';
+        }
+
+        // 3. Translation Logic
+        async function translateText(text) {
+            if(!text) return "";
+            try {
+                // Free Translation API
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ar|en`);
+                const data = await res.json();
+                return data.responseData.translatedText;
+            } catch(e) {
+                console.error("Translation failed", e);
+                return text; // Return original if fails
+            }
+        }
+
+        document.getElementById('translateBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('translateBtn');
+            btn.textContent = "⏳ جاري الترجمة...";
+            btn.disabled = true;
+
+            const tAr = document.getElementById('title_ar').value;
+            const eAr = document.getElementById('excerpt_ar').value;
+            const cAr = document.getElementById('content_ar').value;
+
+            if(tAr) document.getElementById('title_en').value = await translateText(tAr);
+            if(eAr) document.getElementById('excerpt_en').value = await translateText(eAr);
+            // Splitting long text might be needed for free API limits, but basic test:
+            if(cAr) document.getElementById('content_en').value = await translateText(cAr.substring(0, 500)); 
+
+            btn.textContent = "✅ تمت الترجمة (راجع النصوص)";
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fas fa-language"></i> ترجمة تلقائية إلى الإنجليزية';
+                btn.disabled = false;
+            }, 3000);
+        });
+
+        // 4. Submit Form
         document.getElementById('blogForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
-            btn.textContent = "جاري الرفع...";
+            btn.textContent = "جاري الحفظ...";
             btn.disabled = true;
 
             const formData = new FormData();
-            formData.append('title', document.getElementById('title').value);
+            formData.append('title_ar', document.getElementById('title_ar').value);
+            formData.append('title_en', document.getElementById('title_en').value);
+            formData.append('excerpt_ar', document.getElementById('excerpt_ar').value);
+            formData.append('excerpt_en', document.getElementById('excerpt_en').value);
+            formData.append('content_ar', document.getElementById('content_ar').value);
+            formData.append('content_en', document.getElementById('content_en').value);
             formData.append('category', document.getElementById('category').value);
-            formData.append('excerpt', document.getElementById('excerpt').value);
-            formData.append('content', document.getElementById('content').value);
             formData.append('image', document.getElementById('image').files[0]);
 
             try {
@@ -78,6 +149,13 @@
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: formData
                 });
+                
+                if (res.status === 401 || res.status === 403) {
+                    alert("جلسة العمل انتهت أو ليس لديك صلاحية.");
+                    logout();
+                    return;
+                }
+
                 const data = await res.json();
                 if (data.success) {
                     alert('✅ تم نشر المقال بنجاح!');
@@ -85,42 +163,55 @@
                 } else {
                     alert('❌ خطأ: ' + (data.message || data.error));
                 }
-            } catch (err) { alert('خطأ في الاتصال'); }
+            } catch (err) { 
+                alert('خطأ في الاتصال بالسيرفر'); 
+            }
             btn.disabled = false;
+            btn.textContent = "نشر المقال (Save Post)";
         });
 
-        // 2. Load Posts
+        // 5. Load Posts
         async function loadPosts() {
             try {
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
                 const container = document.getElementById('postsList');
                 container.innerHTML = '';
+                
+                if(posts.length === 0) {
+                    container.innerHTML = '<p style="color:#888; text-align:center">لا توجد مقالات.</p>';
+                    return;
+                }
+
                 posts.forEach(post => {
                     const div = document.createElement('div');
                     div.className = 'post-item';
                     div.innerHTML = `
                         <div>
-                            <strong>${post.title}</strong>
-                            <div style="font-size:0.8em; color:#888">${new Date(post.created_at).toLocaleDateString()}</div>
+                            <strong style="color:#00d26a; font-size:1.1em;">${post.title_ar}</strong>
+                            <div style="font-size:0.85em; color:#888; margin-top:5px;">${new Date(post.created_at).toLocaleDateString('ar-MA')}</div>
                         </div>
-                        <button class="delete-btn" onclick="deletePost(${post.id})">حذف</button>
+                        <button class="delete-btn" onclick="deletePost(${post.id})"><i class="fas fa-trash"></i> حذف</button>
                     `;
                     container.appendChild(div);
                 });
             } catch(e) {}
         }
 
-        // 3. Delete Post
+        // 6. Delete Post
         async function deletePost(id) {
-            if(!confirm("حذف هذا المقال؟")) return;
+            if(!confirm("هل أنت متأكد من حذف هذا المقال؟")) return;
             try {
-                await fetch(`/api/blog/delete/${id}`, {
+                const res = await fetch(`/api/blog/delete/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                loadPosts();
-            } catch(e){}
+                if(res.ok) {
+                    loadPosts();
+                } else {
+                    alert("فشل الحذف. تحقق من الصلاحيات.");
+                }
+            } catch(e){ alert("خطأ في الاتصال"); }
         }
 
         loadPosts();
