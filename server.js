@@ -1,5 +1,5 @@
 // ================================================================= //
-// ==================== 1. Libraries & Config ===================== //
+// ==================== 1. LIBRARIES & CONFIG ====================== //
 // ================================================================= //
 require('dotenv').config();
 
@@ -13,267 +13,161 @@ const multer = require("multer");
 const csvParser = require("csv-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require('nodemailer');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const sqlite3 = require("sqlite3").verbose();
 const { OpenAI } = require("openai");
-
-const { 
-    makeWASocket, 
-    useMultiFileAuthState, 
-    DisconnectReason, 
-    Browsers,
-    fetchLatestBaileysVersion,
-    delay
-} = require('@whiskeysockets/baileys');
+const { validate } = require('deep-email-validator'); 
 const pino = require('pino');
 const qrcodeTerminal = require('qrcode-terminal');
 
-// ================================================================= //
-// ========================= 2. Variables ======================= //
-// ================================================================= //
+// === BAILEYS SAFE IMPORT (إصلاح مشكلة الذاكرة) ===
+const Baileys = require('@whiskeysockets/baileys');
+const { 
+    default: makeWASocket, 
+    useMultiFileAuthState, 
+    DisconnectReason, 
+    Browsers, 
+    fetchLatestBaileysVersion, 
+    delay,
+    makeInMemoryStore 
+} = Baileys;
+
+// تهيئة الذاكرة بشكل آمن
+let store;
+try {
+    const storeFactory = makeInMemoryStore || Baileys.default?.makeInMemoryStore;
+    if (typeof storeFactory === 'function') {
+        store = storeFactory({ logger: pino({ level: "silent" }) });
+    } else {
+        console.log("⚠️ Store function missing. Syncing might be limited.");
+        store = { bind: () => {}, contacts: {} };
+    }
+} catch (err) { store = { bind: () => {}, contacts: {} }; }
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_VERY_SECRET_KEY';
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_DEV_SECRET';
 
-// === ADMIN SETTINGS ===
-const ADMIN_EMAIL = 'abdo140693@gmail.com'; 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'abdo140693@gmail.com'; 
+const SENDER_EMAIL = process.env.SENDER_EMAIL || ADMIN_EMAIL;
 const TRIAL_PERIOD_MINUTES = 1440;
 
-// === SETTINGS ===
-const NUMBER_OF_SYSTEM_BOTS = 1; 
-const DAILY_LIMIT = 1000; 
-
-// Folders
+// === PATHS ===
 const promosUploadFolder = path.join(__dirname, "public", "promos");
-const dbFile = path.join(__dirname, "main_data.db");
-const uploadsFolder = path.join(__dirname, 'uploads');
-const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
-const userDataFolder = path.join(__dirname, 'user_data');
 const blogUploadFolder = path.join(__dirname, "public", "blog_images");
+const uploadsFolder = path.join(__dirname, 'uploads');
+const dbFile = path.join(__dirname, "main_data.db");
+const blogFile = path.join(__dirname, 'blog_posts.json');
+const sessionsFolder = path.join(__dirname, 'baileys_user_sessions'); 
+const systemSessionFolder = path.join(__dirname, 'baileys_system_session'); // بوت واحد
 
-// Create directories if not exist
-[promosUploadFolder, uploadsFolder, sessionsFolder, userDataFolder, blogUploadFolder].forEach(dir => { 
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); 
+// === CREATE FOLDERS ===
+[promosUploadFolder, blogUploadFolder, uploadsFolder, sessionsFolder, systemSessionFolder].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
+if (!fs.existsSync(blogFile)) fs.writeFileSync(blogFile, '[]');
 
-// State Variables
+const pendingRegistrations = {};
 const whatsappClients = {}; 
 const activeCampaigns = {};
-const systemSocks = new Array(NUMBER_OF_SYSTEM_BOTS).fill(null); 
 const stopFilterFlags = {}; 
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ================================================================= //
-// ================= 3. Database & Setup ================= //
-// ================================================================= //
-const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) { console.error("Fatal Error: DB Connect Failed", err); process.exit(1); }
-  console.log("✅ Database connected.");
+let systemSock = null; // متغير واحد للبوت
+
+// === MULTER CONFIG ===
+const storagePromo = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, promosUploadFolder),
+    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
+const uploadPromoImage = multer({ storage: storagePromo, limits: { fileSize: 5 * 1024 * 1024 } });
 
-db.serialize(() => {
-    // Clients Table
-    db.run(`CREATE TABLE IF NOT EXISTS clients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        name TEXT, 
-        phone TEXT, 
-        last_sent DATE, 
-        ownerId TEXT NOT NULL, 
-        last_interaction INTEGER DEFAULT 0,
-        UNIQUE(phone, ownerId)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS imported_clients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        phone TEXT, 
-        name TEXT,
-        last_sent DATE, 
-        ownerId TEXT NOT NULL, 
-        UNIQUE(phone, ownerId)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
-    
-    // Filtered Numbers Table
-    db.run(`CREATE TABLE IF NOT EXISTS filtered_numbers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        phone TEXT, 
-        status TEXT, 
-        ownerId TEXT, 
-        created_at DATE DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // === BLOG POSTS TABLE (AR & EN) ===
-    db.run(`CREATE TABLE IF NOT EXISTS blog_posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        title_ar TEXT, 
-        title_en TEXT,
-        excerpt_ar TEXT, 
-        excerpt_en TEXT,
-        content_ar TEXT, 
-        content_en TEXT,
-        category TEXT,
-        image TEXT, 
-        created_at DATE DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Helper for adding columns safely
-    const addColumn = (t, c, type) => { 
-        db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, (err) => {}); 
-    };
-
-    addColumn('imported_clients', 'name', 'TEXT'); 
-    addColumn('users', 'subscription_status', "TEXT DEFAULT 'trial'");
-    addColumn('users', 'activation_code', 'TEXT');
-    addColumn('users', 'chatbot_prompt', 'TEXT');
-    addColumn('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
-    addColumn('users', 'daily_filter_count', "INTEGER DEFAULT 0");
-    addColumn('users', 'last_filter_date', "TEXT");
-
-    // === AUTO CREATE ADMIN (إنشاء الأدمن تلقائياً) ===
-    const adminPass = '123456'; // كلمة المرور الافتراضية
-    bcrypt.hash(adminPass, 12).then(hash => {
-        db.get("SELECT * FROM users WHERE email = ?", [ADMIN_EMAIL], (err, row) => {
-            if (!row) {
-                const id = Date.now().toString();
-                db.run("INSERT INTO users (id, name, email, password, trialEndsAt) VALUES (?, ?, ?, ?, ?)", 
-                    [id, 'Super Admin', ADMIN_EMAIL, hash, new Date(Date.now() + 31536000000).toISOString()],
-                    (err) => {
-                        if (!err) console.log(`\n✅ ADMIN ACCOUNT CREATED: ${ADMIN_EMAIL} | Password: ${adminPass}\n`);
-                    }
-                );
-            }
-        });
-    });
+const storageBlog = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, blogUploadFolder),
+    filename: (req, file, cb) => cb(null, 'blog-' + Date.now() + path.extname(file.originalname))
 });
+const uploadBlogImage = multer({ storage: storageBlog, limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Multer Configs
-const uploadPromoImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, promosUploadFolder), filename: (req, file, cb) => cb(null, `promo-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 3*1024*1024 } });
-const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 50*1024*1024 } }); 
-const uploadBlogImage = multer({ storage: multer.diskStorage({ destination: (req, file, cb) => cb(null, blogUploadFolder), filename: (req, file, cb) => cb(null, `post-${Date.now()}${path.extname(file.originalname)}`) }), limits: { fileSize: 5*1024*1024 } });
+const uploadCSV = multer({ dest: uploadsFolder, limits: { fileSize: 50 * 1024 * 1024 } });
 
-app.use(cors()); 
-app.use(express.json()); 
-app.use(passport.initialize()); 
-// Serve static folders
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
+// Static Files
 app.use('/promos', express.static(promosUploadFolder));
 app.use('/blog_images', express.static(blogUploadFolder));
 
-const authMiddleware = (req, res, next) => {
-    try {
-        const token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.userData = decoded;
-        next();
-    } catch (error) { return res.status(401).json({ message: "Auth failed" }); }
-};
+const authMiddleware = require('./middleware/auth');
+const checkSubscription = require('./middleware/checkSubscription');
 
-const checkSubscription = (req, res, next) => { next(); };
+// === DATABASE ===
+const db = new sqlite3.Database(dbFile);
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
+    db.run(`CREATE TABLE IF NOT EXISTS imported_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, last_sent DATE, ownerId TEXT NOT NULL, UNIQUE(phone, ownerId))`);
+    db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, googleId TEXT, name TEXT, email TEXT UNIQUE, password TEXT, trialEndsAt TEXT, subscriptionEndsAt TEXT, activationRequest TEXT)`);
+    db.run(`CREATE TABLE IF NOT EXISTS blog_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, summary TEXT, content TEXT, category TEXT, image TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
-// === HELPER FUNCTIONS ===
-function readPromos(userId) { 
-    const p = path.join(userDataFolder, `user_${userId}`, 'promos.json'); 
-    return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; 
-}
-function processSpintax(text) { 
-    if (!text) return ""; 
-    return text.replace(/\{([^{}]+)\}/g, (match, options) => { 
-        const choices = options.split('|'); 
-        return choices[Math.floor(Math.random() * choices.length)]; 
-    }); 
-}
+    const addCol = (t, c, type) => { db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`, () => {}); };
+    addCol('users', 'subscription_status', "TEXT DEFAULT 'trial'");
+    addCol('users', 'activation_code', 'TEXT');
+    addCol('users', 'chatbot_prompt', 'TEXT');
+    addCol('users', 'is_chatbot_active', "INTEGER DEFAULT 1");
+    addCol('imported_clients', 'name', "TEXT");
+});
+
+const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: SENDER_EMAIL, pass: process.env.GMAIL_APP_PASS } });
+
+// HELPERS
+function readPromos(userId) { const p = path.join(__dirname, 'user_data', `user_${userId}`, 'promos.json'); return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : []; }
+function writePromos(userId, promos) { const d = path.join(__dirname, 'user_data', `user_${userId}`); if(!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true}); fs.writeFileSync(path.join(d, 'promos.json'), JSON.stringify(promos, null, 2)); }
+function generateActivationCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+function processSpintax(text) { if (!text) return ""; return text.replace(/\{([^{}]+)\}/g, (m, o) => o.split('|')[Math.floor(Math.random() * o.split('|').length)]); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function getRandomDelay(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
+function checkAdmin(userId, cb) { db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => cb(row && row.email.toLowerCase() === ADMIN_EMAIL.toLowerCase())); }
 
-// Check Admin Function
-function checkAdmin(userId, cb) { 
-    db.get("SELECT email FROM users WHERE id = ?", [userId], (err, row) => { 
-        cb(row && row.email === ADMIN_EMAIL); 
-    }); 
-}
+// ================================================================= //
+// ================= 5. SYSTEM BOT (SINGLE - FILTER) =============== //
+// ================================================================= //
 
-// === LIMIT CHECKER FUNCTION ===
-function checkFilterLimit(userId, requestCount) {
-    return new Promise((resolve, reject) => {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+async function initSystemBot() {
+    try {
+        console.log('🤖 System Bot: Initializing...');
+        const { state, saveCreds } = await useMultiFileAuthState(systemSessionFolder);
+        const { version } = await fetchLatestBaileysVersion();
 
-        db.get("SELECT daily_filter_count, last_filter_date FROM users WHERE id = ?", [userId], (err, row) => {
-            if (err) return reject(err);
-            
-            let currentCount = row?.daily_filter_count || 0;
-            let lastDate = row?.last_filter_date || '';
-
-            if (lastDate !== today) {
-                currentCount = 0;
-                lastDate = today;
-            }
-
-            if (currentCount + requestCount > DAILY_LIMIT) {
-                return resolve({ allowed: false, remaining: Math.max(0, DAILY_LIMIT - currentCount) });
-            }
-
-            const newCount = currentCount + requestCount;
-            db.run("UPDATE users SET daily_filter_count = ?, last_filter_date = ? WHERE id = ?", 
-                   [newCount, lastDate, userId], (err) => {
-                if (err) return reject(err);
-                resolve({ allowed: true, remaining: DAILY_LIMIT - newCount });
-            });
+        systemSock = makeWASocket({
+            version,
+            auth: state,
+            printQRInTerminal: false,
+            logger: pino({ level: 'silent' }),
+            browser: Browsers.macOS('Desktop'),
         });
-    });
+
+        systemSock.ev.on('creds.update', saveCreds);
+        systemSock.ev.on('connection.update', (update) => {
+            const { connection, qr } = update;
+            if (qr) {
+                console.log(`\n⚠️ [SYSTEM BOT] SCAN QR BELOW:\n`);
+                qrcodeTerminal.generate(qr, { small: true });
+            }
+            if (connection === 'close') {
+                const shouldReconnect = (update.lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+                if (shouldReconnect) setTimeout(initSystemBot, 5000);
+                else { console.log('❌ System Bot Logged Out.'); systemSock = null; }
+            } else if (connection === 'open') {
+                console.log('✅ System Bot READY!');
+            }
+        });
+    } catch (e) { console.error("System Bot Error:", e); }
 }
-
-// ================================================================= //
-// ================= 5. SYSTEM BOTS (QR FIXED) ===================== //
-// ================================================================= //
-
-async function startSingleSystemBot(botIndex) {
-    const folderName = `baileys_system_session_${botIndex}`;
-    const folderPath = path.join(__dirname, folderName);
-    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(folderPath);
-    const { version } = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-        version,
-        auth: state,
-        printQRInTerminal: false, 
-        logger: pino({ level: 'silent' }),
-        browser: Browsers.macOS('Desktop'),
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            console.log(`\nScan this QR for System Bot #${botIndex + 1}:\n`);
-            qrcodeTerminal.generate(qr, { small: true });
-        }
-
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) startSingleSystemBot(botIndex);
-        } else if (connection === 'open') {
-            console.log(`✅ System Bot #${botIndex + 1} Ready`);
-            systemSocks[botIndex] = sock;
-        }
-    });
-    systemSocks[botIndex] = sock;
-}
-
-async function initAllSystemBots() {
-    for (let i = 0; i < NUMBER_OF_SYSTEM_BOTS; i++) {
-        await startSingleSystemBot(i);
-        await sleep(2000); 
-    }
-}
-initAllSystemBots();
+initSystemBot();
 
 // ================================================================= //
 // ================= 6. USER BOT (CLIENTS & SYNC) ================== //
@@ -281,7 +175,6 @@ initAllSystemBots();
 
 async function startWhatsAppSession(userId, socket = null) {
     if (!userId) return;
-
     const sessionDir = path.join(sessionsFolder, `session-${userId}`);
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -292,11 +185,12 @@ async function startWhatsAppSession(userId, socket = null) {
         printQRInTerminal: false, 
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Desktop'),
-        syncFullHistory: true
+        getMessage: async (key) => { return { conversation: 'hello' } }
     });
 
-    whatsappClients[userId] = sock;
+    if (store && store.bind) store.bind(sock.ev);
 
+    whatsappClients[userId] = sock;
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
@@ -313,55 +207,25 @@ async function startWhatsAppSession(userId, socket = null) {
             }
         } else if (connection === 'open') {
             if (socket) socket.emit('status', { message: "Connected!", ready: true });
-            if(socket) setTimeout(() => socket.emit('sync-complete'), 5000);
+            syncContactsToDB(userId, socket);
         }
     });
 
-    const upsertClient = (id, name, timestamp) => {
-        if (!id || id.includes('g.us') || id.includes('status') || id.includes('broadcast')) return;
-        const phone = id.split('@')[0];
-        db.serialize(() => {
-            if (timestamp) {
-                db.run(`INSERT INTO clients (phone, ownerId, last_interaction, name) VALUES (?, ?, ?, ?)
-                        ON CONFLICT(phone, ownerId) DO UPDATE SET last_interaction = excluded.last_interaction`, 
-                        [phone, userId, timestamp, name || null]); 
-            } 
-            if (name) {
-                db.run(`UPDATE clients SET name = ? WHERE phone = ? AND ownerId = ?`, [name, phone, userId]);
-                db.run(`INSERT INTO clients (phone, ownerId, name, last_interaction) 
-                        SELECT ?, ?, ?, 0 WHERE (SELECT Changes() = 0)`, [phone, userId, name]);
-            }
-        });
-    };
-
-    sock.ev.on('messaging-history.set', async (history) => {
-        const { chats, contacts } = history;
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            if (contacts) contacts.forEach(c => upsertClient(c.id, c.name || c.notify, null));
-            if (chats) chats.forEach(c => {
-                const ts = c.conversationTimestamp ? (typeof c.conversationTimestamp === 'object' ? c.conversationTimestamp.low : c.conversationTimestamp) : Date.now();
-                upsertClient(c.id, c.name, ts * 1000);
-            });
-            db.run("COMMIT");
-        });
+    // SYNC
+    sock.ev.on('contacts.upsert', async (contacts) => {
+        syncContactsToDB(userId, socket, contacts);
     });
 
+    // Chatbot
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
             if (!msg.message || msg.key.fromMe) continue;
-            const senderPhone = msg.key.remoteJid;
-            const senderName = msg.pushName;
-            const ts = msg.messageTimestamp ? (typeof msg.messageTimestamp === 'object' ? msg.messageTimestamp.low : msg.messageTimestamp) : Date.now();
-            upsertClient(senderPhone, senderName, ts * 1000);
-
-            // Chatbot
-             db.get("SELECT is_chatbot_active, chatbot_prompt FROM users WHERE id = ?", [userId], async (err, user) => {
+            db.get("SELECT is_chatbot_active, chatbot_prompt FROM users WHERE id = ?", [userId], async (err, user) => {
                 if (err || !user || !user.is_chatbot_active) return;
                 const userMsg = msg.message.conversation || msg.message.extendedTextMessage?.text;
                 if (!userMsg) return;
-                const prompt = activeCampaigns[userId]?.businessPrompt || user.chatbot_prompt || "Helpful Assistant";
+                const prompt = activeCampaigns[userId]?.businessPrompt || user.chatbot_prompt || "Assistant";
                 try {
                     await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
                     const completion = await openai.chat.completions.create({
@@ -373,362 +237,199 @@ async function startWhatsAppSession(userId, socket = null) {
             });
         }
     });
-
-    sock.ev.on('contacts.upsert', async (contacts) => {
-        for (const contact of contacts) upsertClient(contact.id, contact.name || contact.notify, null);
-    });
-
     return sock;
 }
 
+function syncContactsToDB(userId, socket, specificContacts = null) {
+    let contacts = specificContacts || (store && store.contacts ? Object.values(store.contacts) : []);
+    if(!contacts || contacts.length === 0) return;
+
+    const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        contacts.forEach(c => {
+            if(c.id && c.id.endsWith('@s.whatsapp.net')) {
+                const phone = c.id.replace('@s.whatsapp.net', '');
+                const name = c.name || c.notify || c.verifiedName || phone;
+                stmt.run(name, phone, userId);
+            }
+        });
+        stmt.finalize();
+        db.run("COMMIT", () => {
+            if(socket) socket.emit('sync-complete');
+        });
+    });
+}
+
 // ================================================================= //
-// ==================== 7. Socket.IO Logic ======================== //
+// ==================== 7. SOCKET.IO LOGIC ========================= //
 // ================================================================= //
 io.on('connection', (socket) => {
     let activeUserId = null;
 
     socket.on('init-whatsapp', async (token) => {
         try {
-            if(!token) return;
             const d = jwt.verify(token, JWT_SECRET);
             activeUserId = d.userId;
             
             const existing = whatsappClients[activeUserId];
-            if (existing && existing.user) {
-                socket.emit('status', { message: "Connected!", ready: true });
+            const sessionDir = path.join(sessionsFolder, `session-${activeUserId}`);
+            const hasSession = fs.existsSync(path.join(sessionDir, 'creds.json'));
+
+            if (whatsappClients[activeUserId] && hasSession) {
+                socket.emit('status', { message: "WhatsApp متصل!", ready: true });
             } else {
-                if(existing) { try{existing.end();}catch(e){} delete whatsappClients[activeUserId]; }
                 await startWhatsAppSession(activeUserId, socket);
             }
-        } catch (e) { socket.emit('status', { message: "Token Error", ready: false, error: true }); }
+        } catch (e) { socket.emit('status', { message: "Token Error", ready: false }); }
     });
 
     socket.on('logout-whatsapp', async () => {
-        if (!activeUserId) return;
-        try { await whatsappClients[activeUserId].logout(); } catch(e){} 
-        delete whatsappClients[activeUserId];
-        const dir = path.join(sessionsFolder, `session-${activeUserId}`);
-        if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-        
+        if (whatsappClients[activeUserId]) { try { await whatsappClients[activeUserId].logout(); } catch(e){} delete whatsappClients[activeUserId]; }
+        try{fs.rmSync(path.join(sessionsFolder, `session-${activeUserId}`),{recursive:true,force:true});}catch(e){}
         db.run(`DELETE FROM clients WHERE ownerId=?`, [activeUserId]);
         db.run(`DELETE FROM imported_clients WHERE ownerId=?`, [activeUserId]);
-        
         socket.emit('whatsapp-logged-out');
     });
 
-    socket.on('sync-contacts', () => { setTimeout(() => { socket.emit('sync-complete'); }, 3000); });
-
-    // ========================================== //
-    // =========== LOGIC: NUMBER FILTER ========= //
-    // ========================================== //
+    // FILTER LOGIC
     socket.on('check-numbers', async ({ numbers }) => {
-        const activeBots = systemSocks.filter(s => s && s.user);
-        if (activeBots.length === 0) return socket.emit('filter-error', 'System Bots Offline. Check server terminal to scan QR.');
-
-        const allPhones = numbers.split(/\r?\n/).map(l => l.trim().replace(/\D/g, '')).filter(p => p.length >= 6);
-        if (allPhones.length === 0) return socket.emit('filter-error', 'No valid numbers.');
-
-        try {
-            const limitCheck = await checkFilterLimit(activeUserId, allPhones.length);
-            if (!limitCheck.allowed) {
-                return socket.emit('filter-error', `⛔ Daily Limit Exceeded. Remaining: ${limitCheck.remaining} numbers today.`);
-            }
-            socket.emit('log', { message: `ℹ️ Checking ${allPhones.length} numbers. Remaining Daily Quota: ${limitCheck.remaining}`, color: 'blue' });
-        } catch (err) {
-            console.error(err);
-            return socket.emit('filter-error', 'Database Error Checking Limits.');
-        }
-
-        let valid = 0, invalid = 0;
+        if (!systemSock || !systemSock.user) return socket.emit('filter-error', 'System Bot Offline');
+        const list = numbers.split(/\r?\n/).map(l=>l.replace(/\D/g,'')).filter(p=>p.length>=6);
         stopFilterFlags[activeUserId] = false;
+        socket.emit('log', { message: `Checking ${list.length}...`, color: 'blue' });
 
-        for (let i = 0; i < allPhones.length; i++) {
-            if (stopFilterFlags[activeUserId]) {
-                socket.emit('filter-stopped');
-                break;
-            }
-            const phone = allPhones[i];
-            await sleep(getRandomDelay(300, 1000));
-
-            const bot = activeBots[i % activeBots.length];
+        for (let i=0; i<list.length; i++) {
+            if (stopFilterFlags[activeUserId]) { socket.emit('filter-stopped'); break; }
+            const phone = list[i];
+            await sleep(500 + Math.random()*1000);
             try {
-                const id = `${phone}@s.whatsapp.net`;
-                const [result] = await bot.onWhatsApp(id);
-                
-                let status = 'invalid';
-                if (result?.exists) {
-                    status = 'valid';
-                    valid++;
-                } else {
-                    invalid++;
+                // Pic Check
+                const pp = await systemSock.profilePictureUrl(`${phone}@s.whatsapp.net`, 'image').catch(()=>null);
+                if(pp) socket.emit('filter-result', { phone, status: 'valid' });
+                else {
+                    const [res] = await systemSock.onWhatsApp(`${phone}@s.whatsapp.net`);
+                    if(res?.exists) socket.emit('filter-result', { phone, status: 'valid' });
+                    else socket.emit('filter-result', { phone, status: 'invalid' });
                 }
-
-                if (activeUserId) {
-                    db.run(`INSERT INTO filtered_numbers (phone, status, ownerId) VALUES (?, ?, ?)`, 
-                           [phone, status, activeUserId]);
-                }
-                socket.emit('filter-result', { phone, status });
-            } catch (err) {
-                invalid++;
-                socket.emit('filter-result', { phone, status: 'invalid' });
-            }
+            } catch(e) { socket.emit('filter-result', { phone, status: 'invalid' }); }
         }
-        if (!stopFilterFlags[activeUserId]) socket.emit('filter-complete', { valid, invalid });
+        if(!stopFilterFlags[activeUserId]) socket.emit('filter-complete', {valid:0,invalid:0});
     });
+    socket.on('stop-filter', () => { stopFilterFlags[activeUserId] = true; });
 
-    socket.on('stop-filter', () => { if(activeUserId) stopFilterFlags[activeUserId] = true; });
-
-    socket.on('start-campaign-mode', ({ promoId }) => {
-        socket.emit('log', { message: `Campaign Started with Promo #${promoId}`, color: 'purple' });
-    });
-
+    // PROMO
     socket.on('send-promo', async (data) => {
-        const { phone, promoId, fromImported } = data;
         const sock = whatsappClients[activeUserId];
-        if(!activeUserId || !sock) return socket.emit('send-promo-status', {success:false, phone, error:'Not Connected'});
-        
-        const promos = readPromos(activeUserId);
-        const promo = promos.find(p => p.id === promoId);
-        if(!promo) return socket.emit('send-promo-status', {success:false, phone, error:'Promo Not Found'});
-
+        if(!sock) return socket.emit('send-promo-status', {success:false, error:'No WA'});
+        const p = readPromos(activeUserId).find(x=>x.id==data.promoId); // Loose equality
+        if(!p) return;
         try {
-            const jid = `${phone.replace(/\D/g,'')}@s.whatsapp.net`;
-            const txt = processSpintax(promo.text);
-            
-            if(promo.image) {
-                const imgPath = path.join(promosUploadFolder, promo.image);
-                if(fs.existsSync(imgPath)) {
-                    await sock.sendMessage(jid, { image: { url: imgPath }, caption: txt });
-                } else {
-                    await sock.sendMessage(jid, { text: txt });
-                }
+            const id = `${data.phone}@s.whatsapp.net`;
+            const txt = processSpintax(p.text);
+            if(p.image && fs.existsSync(path.join(promosUploadFolder, p.image))) {
+                await sock.sendMessage(id, { image: { url: path.join(promosUploadFolder, p.image) }, caption: txt });
             } else {
-                await sock.sendMessage(jid, { text: txt });
+                await sock.sendMessage(id, { text: txt });
             }
-            
-            const t = fromImported ? 'imported_clients' : 'clients';
-            db.run(`UPDATE ${t} SET last_sent=? WHERE phone=? AND ownerId=?`, [new Date().toISOString(), phone, activeUserId]);
-            socket.emit('send-promo-status', {success:true, phone});
-        } catch(e) { 
-            socket.emit('send-promo-status', {success:false, phone, error:e.message}); 
-        }
+            db.run(`UPDATE ${data.fromImported?'imported_clients':'clients'} SET last_sent=? WHERE phone=? AND ownerId=?`, [new Date().toISOString(), data.phone, activeUserId]);
+            socket.emit('send-promo-status', {success:true, phone:data.phone});
+        } catch(e) { socket.emit('send-promo-status', {success:false, phone:data.phone, error:e.message}); }
     });
+    socket.on('sync-contacts', () => { if(activeUserId) syncContactsToDB(activeUserId, socket); });
 });
 
-// ================================================================= //
-// ==================== 8. ROUTES (API) ========================== //
-// ================================================================= //
+// ==================== ROUTES & API ====================
 
-passport.use(new GoogleStrategy({ clientID: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, callbackURL: "/api/auth/google/callback" }, (a,r,p,d) => {
-    const email = p.emails[0].value;
-    db.get("SELECT * FROM users WHERE email=?", [email], (e,u) => {
-        if(e) return d(e);
-        if(u) return d(null,u);
-        const id=Date.now().toString(); 
-        db.run("INSERT INTO users (id,googleId,name,email,trialEndsAt) VALUES (?,?,?,?,?)", [id,p.id,p.displayName,email,new Date(Date.now()+TRIAL_PERIOD_MINUTES*60000).toISOString()], (err)=>d(err,{id,email}));
+app.post("/api/auth/login", async (req, res) => {
+    db.get("SELECT * FROM users WHERE email=?", [req.body.email.toLowerCase().trim()], async (e, u) => {
+        if(!u || !(await bcrypt.compare(req.body.password, u.password))) return res.status(401).json({message:'Invalid'});
+        res.json({ token: jwt.sign({ userId: u.id }, JWT_SECRET), isAdmin: u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() });
     });
-}));
-
-app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth', session: false }), (req, res) => {
-    const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '8h' });
-    res.redirect(req.user.email === ADMIN_EMAIL ? `/admin-blog.html?token=${token}` : `/dashboard.html?token=${token}`);
 });
 
 app.post("/api/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
-    db.get("SELECT email FROM users WHERE email=?", [email], async (err, user) => {
-        if (user) return res.status(400).json({ message: 'User exists' });
-        const id = Date.now().toString();
-        const hash = await bcrypt.hash(password, 12);
-        db.run("INSERT INTO users (id,email,name,password,trialEndsAt) VALUES (?,?,?,?,?)", 
-            [id,email,name,hash,new Date(Date.now()+TRIAL_PERIOD_MINUTES*60000).toISOString()], 
-            (err) => {
-                if(err) return res.status(500).json({message:"Error"});
-                res.json({ message: 'Registered' });
-            }
-        );
+    try { const v = await validate({ email, validateDisposable:true, validateSMTP:false }); if(!v.valid) return res.status(400).json({message:'Invalid Email'}); } catch(e){}
+    const hashedPassword = await bcrypt.hash(password, 12);
+    db.run("INSERT INTO users (id,name,email,password) VALUES (?,?,?,?)", [Date.now().toString(), name, email.toLowerCase().trim(), hashedPassword], (err) => {
+        if(err) return res.status(400).json({message:'Exists'});
+        res.json({message:'Registered'});
     });
 });
+app.post('/api/auth/logout', authMiddleware, (req,res)=>res.json({}));
 
-app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    db.get("SELECT * FROM users WHERE email=?", [email], async (err, user) => {
-        if (!user || !user.password || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ message: 'Invalid credentials' });
-        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ token, isAdmin: user.email === ADMIN_EMAIL });
-    });
-});
+app.get("/contacts", authMiddleware, (req,res) => db.all("SELECT * FROM clients WHERE ownerId=?",[req.userData.userId],(e,r)=>res.json(r||[])));
+app.get("/imported-contacts", authMiddleware, (req,res) => db.all("SELECT * FROM imported_clients WHERE ownerId=?",[req.userData.userId],(e,r)=>res.json(r||[])));
+app.get("/promos", authMiddleware, (req,res) => res.json(readPromos(req.userData.userId)));
 
-// Contacts APIs
-app.get('/contacts', authMiddleware, (req, res) => {
-    db.all("SELECT * FROM clients WHERE ownerId = ? ORDER BY last_interaction DESC", [req.userData.userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-app.get('/imported-contacts', authMiddleware, (req, res) => {
-    db.all("SELECT * FROM imported_clients WHERE ownerId = ?", [req.userData.userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-app.post('/import-csv', authMiddleware, uploadCSV.single('csv'), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+app.post("/import-csv", authMiddleware, uploadCSV.single('csv'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file" });
     const results = [];
     fs.createReadStream(req.file.path)
         .pipe(csvParser())
-        .on('data', (data) => {
-            const values = Object.values(data);
-            if (values.length > 0) {
-                const phone = values[0].toString().replace(/\D/g, '');
-                const name = values[1] || ''; 
-                if (phone.length > 5) results.push({ phone, name });
-            }
+        .on('data', (d) => {
+            const p = String(d.phone || Object.values(d)[0]).replace(/\D/g, "");
+            if (p.length >= 8) results.push({phone: p, name: d.name || ''});
         })
         .on('end', () => {
             fs.unlinkSync(req.file.path);
+            const stmt = db.prepare("INSERT OR IGNORE INTO imported_clients (phone, name, ownerId) VALUES (?,?,?)");
             db.serialize(() => {
-                db.run("BEGIN TRANSACTION");
-                const stmt = db.prepare("INSERT OR IGNORE INTO imported_clients (phone, name, ownerId) VALUES (?, ?, ?)");
-                let count = 0;
-                results.forEach(row => {
-                    stmt.run(row.phone, row.name, req.userData.userId);
-                    count++;
-                });
-                stmt.finalize();
-                db.run("COMMIT", () => {
-                    res.json({ message: "Import complete", imported: count });
-                });
+                db.run("BEGIN");
+                results.forEach(r => stmt.run(r.phone, r.name, req.userData.userId));
+                db.run("COMMIT", () => res.json({ message: "Done", imported: results.length }));
             });
         });
 });
 
-app.delete('/api/delete-all-imported', authMiddleware, (req, res) => {
-    db.run("DELETE FROM imported_clients WHERE ownerId = ?", [req.userData.userId], (err) => {
-        if(err) return res.status(500).json({message: "Error"});
-        res.json({message: "Deleted all imported contacts"});
+app.post("/addPromo", authMiddleware, uploadPromoImage.single("image"), (req, res) => {
+    try {
+        const ps = readPromos(req.userData.userId);
+        ps.push({ id: Date.now(), text: req.body.text, image: req.file ? req.file.filename : null });
+        writePromos(req.userData.userId, ps);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Error" }); }
+});
+
+app.delete("/deletePromo/:id", authMiddleware, (req, res) => {
+    let ps = readPromos(req.userData.userId);
+    ps = ps.filter(p => p.id !== parseInt(req.params.id));
+    writePromos(req.userData.userId, ps);
+    res.json({ status: "deleted" });
+});
+
+app.delete("/api/delete-all-imported", authMiddleware, (req, res) => { db.run(`DELETE FROM imported_clients WHERE ownerId=?`, [req.userData.userId], ()=>res.json({ success: true })); });
+
+// === BLOG API (ADMIN ONLY) ===
+app.get('/api/blog/posts', (req, res) => {
+    db.all("SELECT * FROM blog_posts ORDER BY id DESC", [], (err, rows) => {
+        if(err) return res.json([]);
+        res.json(rows);
     });
 });
-
-// Promos APIs
-app.get('/promos', authMiddleware, (req, res) => {
-    try { const userPromos = readPromos(req.userData.userId); res.json(userPromos); } catch (e) { res.json([]); }
+app.post('/api/blog/create', authMiddleware, uploadBlogImage.single('image'), (req, res) => {
+    checkAdmin(req.userData.userId, (isAdmin) => {
+        if(!isAdmin) return res.status(403).json({message:"Forbidden"});
+        const img = req.file ? `blog_images/${req.file.filename}` : null;
+        db.run(`INSERT INTO blog_posts (title, summary, content, category, image) VALUES (?,?,?,?,?)`, 
+            [req.body.title_ar, req.body.excerpt_ar, req.body.content_ar, req.body.category, img], 
+            () => res.json({success:true}));
+    });
 });
-
-app.post('/addPromo', authMiddleware, uploadPromoImage.single('image'), (req, res) => {
-    const { text } = req.body;
-    const userId = req.userData.userId;
-    const userDir = path.join(userDataFolder, `user_${userId}`);
-    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
-    
-    const promosFile = path.join(userDir, 'promos.json');
-    let userPromos = fs.existsSync(promosFile) ? JSON.parse(fs.readFileSync(promosFile)) : [];
-
-    const newPromo = { id: Date.now().toString(), text: text || "", image: req.file ? req.file.filename : null };
-    userPromos.push(newPromo);
-    fs.writeFileSync(promosFile, JSON.stringify(userPromos, null, 2));
-    res.json({ success: true });
-});
-
-app.delete('/deletePromo/:id', authMiddleware, (req, res) => {
-    const userId = req.userData.userId;
-    const promosFile = path.join(userDataFolder, `user_${userId}`, 'promos.json');
-    if (!fs.existsSync(promosFile)) return res.json({ success: false });
-
-    let userPromos = JSON.parse(fs.readFileSync(promosFile));
-    userPromos = userPromos.filter(p => p.id !== req.params.id);
-    fs.writeFileSync(promosFile, JSON.stringify(userPromos, null, 2));
-    res.json({ success: true });
-});
-
-// Chatbot APIs
-app.get('/api/chatbot-prompt', authMiddleware, (req,res) => db.get("SELECT chatbot_prompt FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({prompt:r?.chatbot_prompt||''})));
-app.post('/api/chatbot-prompt', authMiddleware, (req,res) => db.run("UPDATE users SET chatbot_prompt=? WHERE id=?", [req.body.prompt, req.userData.userId], ()=>res.json({success:true})));
-app.get('/api/chatbot-status', authMiddleware, (req,res) => db.get("SELECT is_chatbot_active FROM users WHERE id=?", [req.userData.userId], (err,r)=>res.json({isActive:r?.is_chatbot_active===1})));
-app.post('/api/chatbot-status', authMiddleware, (req,res) => db.run("UPDATE users SET is_chatbot_active=? WHERE id=?", [req.body.isActive?1:0, req.userData.userId], ()=>res.json({success:true})));
-app.post('/api/generate-spintax', authMiddleware, async (req,res) => {
-    try {
-        const completion = await openai.chat.completions.create({ model: "gpt-3.5-turbo", messages: [{role:"user", content: `Rewrite this as Spintax {word|synonym}: ${req.body.text}`}] });
-        res.json({spintax: completion.choices[0].message.content});
-    } catch(e){ res.status(500).json({message:"Error"}); }
+app.delete('/api/blog/delete/:id', authMiddleware, (req, res) => {
+    checkAdmin(req.userData.userId, (isAdmin) => {
+        if(!isAdmin) return res.status(403).json({message:"Forbidden"});
+        db.run("DELETE FROM blog_posts WHERE id=?", [req.params.id], ()=>res.json({success:true}));
+    });
 });
 
 app.get('/api/is-admin', authMiddleware, (req,res) => checkAdmin(req.userData.userId, (isAdmin)=>res.json({isAdmin})));
 
-// ========================================== //
-// =========== BLOG SYSTEM API ROUTES ======= //
-// ========================================== //
-
-// 1. Get All Posts (Public)
-app.get('/api/blog/posts', (req, res) => {
-    db.all("SELECT * FROM blog_posts ORDER BY id DESC", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-// 2. Get Single Post (Public)
-app.get('/api/blog/post/:id', (req, res) => {
-    db.get("SELECT * FROM blog_posts WHERE id = ?", [req.params.id], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: "Not found" });
-        res.json(row);
-    });
-});
-
-// 3. Create Post (Admin Only) - MODIFIED FOR DUAL LANGUAGE
-app.post('/api/blog/create', authMiddleware, uploadBlogImage.single('image'), (req, res) => {
-    checkAdmin(req.userData.userId, (isAdmin) => {
-        if (!isAdmin) return res.status(403).json({ message: "Forbidden: Admins Only" });
-
-        const { title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category } = req.body;
-        const image = req.file ? req.file.filename : null;
-
-        db.run(`INSERT INTO blog_posts (title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-            [title_ar, title_en, excerpt_ar, excerpt_en, content_ar, content_en, category, image], 
-            function(err) {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ success: true, id: this.lastID });
-            }
-        );
-    });
-});
-
-// 4. Delete Post (Admin Only)
-app.delete('/api/blog/delete/:id', authMiddleware, (req, res) => {
-    checkAdmin(req.userData.userId, (isAdmin) => {
-        if (!isAdmin) return res.status(403).json({ message: "Forbidden: Admins Only" });
-        db.run("DELETE FROM blog_posts WHERE id = ?", [req.params.id], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
-    });
-});
-
-// Serve Admin Blog Page (Protected)
-app.get('/admin-blog', authMiddleware, (req, res) => {
-    checkAdmin(req.userData.userId, (isAdmin) => {
-        if (!isAdmin) return res.redirect('/dashboard.html');
-        res.sendFile(path.join(__dirname, 'public', 'admin-blog.html'));
-    });
-});
-
-// ================================================================= //
-// ==================== 9. SERVING FILES ========================= //
-// ================================================================= //
-
+// === SERVING ===
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard'); res.sendFile(path.join(__dirname, 'public', 'admin.html')); }); });
+app.get('/admin', authMiddleware, (req, res) => { checkAdmin(req.userData.userId, (isAdmin) => { if(!isAdmin) return res.redirect('/dashboard.html'); res.sendFile(path.join(__dirname, 'public', 'admin-blog.html')); }); });
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
-
-// Unified Auth Route
-app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'auth.html')));
-app.get('/login', (req, res) => res.redirect('/auth')); 
-app.get('/signup', (req, res) => res.redirect('/auth'));
-
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Localhost Server running on port ${PORT}`));
