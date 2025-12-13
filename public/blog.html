@@ -224,86 +224,76 @@
     <script>
         document.getElementById('year').textContent = new Date().getFullYear();
 
-        // --- PRO TRANSLATION LOGIC ---
+        // 1. Language Logic
+        let currentLang = localStorage.getItem('lang') || 'ar';
+
         function setLanguage(lang) {
+            currentLang = lang;
             localStorage.setItem('lang', lang);
-            
-            // 1. Change Direction & Font
-            if (lang === 'en') {
+            updatePageLanguage();
+            loadBlogPosts(); // Reload posts in new language
+        }
+
+        function updatePageLanguage() {
+            // Update HTML dir/lang
+            if (currentLang === 'en') {
                 document.documentElement.lang = 'en';
                 document.documentElement.dir = 'ltr';
-                // Flip arrows
-                document.querySelectorAll('.arrow-icon').forEach(el => {
-                    el.classList.remove('fa-arrow-left');
-                    el.classList.add('fa-arrow-right');
-                });
             } else {
                 document.documentElement.lang = 'ar';
                 document.documentElement.dir = 'rtl';
-                // Flip arrows
-                document.querySelectorAll('.arrow-icon').forEach(el => {
-                    el.classList.remove('fa-arrow-right');
-                    el.classList.add('fa-arrow-left');
-                });
             }
 
-            // 2. Update Active Button
+            // Update Buttons
             document.querySelectorAll('.lang-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.innerText.toLowerCase() === lang) btn.classList.add('active');
+                if(btn.innerText.toLowerCase() === currentLang) btn.classList.add('active');
             });
 
-            // 3. Translate Text
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dictionary[lang] && dictionary[lang][key]) {
-                    el.innerText = dictionary[lang][key];
-                }
-            });
-
-            // 4. Translate Placeholders
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                if (dictionary[lang] && dictionary[lang][key]) {
-                    el.placeholder = dictionary[lang][key];
-                }
-            });
-
-            // 5. Reload Articles (To Switch Content Language)
-            loadBlogPosts();
+            // Update Static Text
+            if(typeof dictionary !== 'undefined' && dictionary[currentLang]) {
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (dictionary[currentLang][key]) el.innerText = dictionary[currentLang][key];
+                });
+                
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-i18n-placeholder');
+                    if (dictionary[currentLang][key]) el.placeholder = dictionary[currentLang][key];
+                });
+            }
         }
 
-        // --- INIT ---
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedLang = localStorage.getItem('lang') || 'ar';
-            setLanguage(savedLang);
-        });
-
-        // --- FETCH POSTS ---
+        // 2. Fetch & Render Posts (Language Aware)
         async function loadBlogPosts() {
+            const container = document.getElementById('articles-list');
             try {
+                // Fetch from API
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
-                const container = document.getElementById('articles-list');
-                const lang = localStorage.getItem('lang') || 'ar'; // Get Current Language
-                
-                // Get error msg from dictionary
-                const noArticlesMsg = dictionary[lang] ? dictionary[lang]['blogNoArticles'] : "No articles.";
-                const readMoreMsg = dictionary[lang] ? dictionary[lang]['blogReadMore'] : "Read More";
+
+                // Get Translated strings safely
+                const noArticlesMsg = (dictionary[currentLang] && dictionary[currentLang]['blogNoArticles']) || "No articles.";
+                const readMoreMsg = (dictionary[currentLang] && dictionary[currentLang]['blogReadMore']) || "Read More";
 
                 container.innerHTML = '';
 
-                if(posts.length === 0) {
-                    container.innerHTML = `<p style="text-align:center">${noArticlesMsg}</p>`; 
+                if (posts.length === 0) {
+                    container.innerHTML = `<p style="text-align:center; color:#888;">${noArticlesMsg}</p>`;
                     return;
                 }
 
                 posts.forEach(post => {
-                    // ✅ THIS IS THE FIX: Select title_ar or title_en based on lang
-                    const title = lang === 'en' ? (post.title_en || post.title_ar) : post.title_ar;
-                    const excerpt = lang === 'en' ? (post.excerpt_en || post.excerpt_ar) : post.excerpt_ar;
-
-                    const imgStyle = post.image ? `background-image:url('/blog_images/${post.image}');` : '';
+                    // Logic to choose language
+                    // If English selected but post has no English title, fallback to Arabic
+                    const title = currentLang === 'en' ? (post.title_en || post.title_ar) : post.title_ar;
+                    const excerpt = currentLang === 'en' ? (post.excerpt_en || post.excerpt_ar) : post.excerpt_ar;
+                    const category = post.category || 'General';
+                    const date = new Date(post.created_at).toLocaleDateString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
+                    
+                    // Image Handling
+                    // Note: In server.js we save image path, here we just use it directly if exists
+                    const imgStyle = post.image ? `background-image:url('/${post.image}');` : '';
                     const fallback = post.image ? '' : '<i class="fas fa-image"></i>';
                     
                     const arrowClass = document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right';
@@ -312,11 +302,11 @@
                         <article class="article-card">
                             <div class="article-img" style="${imgStyle}">${fallback}</div>
                             <div class="article-content">
-                                <span class="article-meta">${post.category || 'General'}</span>
+                                <span class="article-meta">${category} • ${date}</span>
                                 <h2 class="article-title">${title}</h2>
                                 <p class="article-excerpt">${excerpt}</p>
-                                <a href="article-view.html?id=${post.id}" class="read-btn">
-                                    <span>${readMoreMsg}</span> <i class="fas ${arrowClass} arrow-icon"></i>
+                                <a href="article.html?id=${post.id}" class="read-btn">
+                                    <span>${readMoreMsg}</span> <i class="fas ${arrowClass}"></i>
                                 </a>
                             </div>
                         </article>
@@ -324,10 +314,18 @@
                     container.insertAdjacentHTML('beforeend', html);
                 });
 
-            } catch(e) { 
-                console.error(e); 
+            } catch (error) {
+                console.error("Error:", error);
+                container.innerHTML = `<p style="text-align:center; color:#ef4444">Error loading posts.</p>`;
             }
         }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('lang') || 'ar';
+            setLanguage(savedLang);
+        });
+
     </script>
 </body>
 </html>
