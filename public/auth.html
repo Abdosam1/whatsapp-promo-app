@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول - WA Promo</title>
+    <title>Authentication</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -19,7 +19,7 @@
         body {
             background: var(--bg-main);
             display: flex; justify-content: center; align-items: center;
-            min-height: 100vh;
+            min-height: 100vh; overflow: hidden;
         }
 
         .container {
@@ -32,17 +32,21 @@
 
         .form-container {
             position: absolute; top: 0; height: 100%; transition: all 0.6s ease-in-out;
-            display: flex; align-items: center; justify-content: center; flex-direction: column;
-            padding: 0 50px; text-align: center; color: var(--text-main); width: 50%;
         }
 
-        .sign-in-container { left: 0; z-index: 2; }
-        .sign-up-container { left: 0; opacity: 0; z-index: 1; }
+        .sign-in-container { left: 0; width: 50%; z-index: 2; }
+        .sign-up-container { left: 0; width: 50%; opacity: 0; z-index: 1; }
 
         .container.right-panel-active .sign-in-container { transform: translateX(100%); opacity: 0; }
         .container.right-panel-active .sign-up-container { transform: translateX(100%); opacity: 1; z-index: 5; animation: show 0.6s; }
 
         @keyframes show { 0%, 49.99% { opacity: 0; z-index: 1; } 50%, 100% { opacity: 1; z-index: 5; } }
+
+        form {
+            background: var(--bg-panel);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; padding: 0 50px; height: 100%; text-align: center; color: var(--text-main);
+        }
 
         h1 { font-weight: bold; margin: 0 0 20px; }
         span { font-size: 12px; margin-bottom: 15px; color: #aaa; }
@@ -90,7 +94,7 @@
         .overlay-right { right: 0; transform: translateX(0); }
         .container.right-panel-active .overlay-right { transform: translateX(20%); }
 
-        /* Social */
+        /* Google Btn */
         .social-container { margin: 20px 0; }
         .social-container a {
             border: 1px solid #DDDDDD; border-radius: 50%; display: inline-flex;
@@ -98,22 +102,21 @@
             color: white; text-decoration: none; transition: 0.3s;
         }
         .social-container a:hover { background: white; color: black; }
-        
-        .mobile-toggle { display: none; margin-top: 20px; color: var(--primary); cursor: pointer; text-decoration: underline; }
 
         /* Mobile */
         @media (max-width: 768px) {
-            .container { width: 100%; height: 100vh; border-radius: 0; box-shadow: none; }
-            .overlay-container { display: none; } /* Hide animation on mobile */
-            .form-container { width: 100%; position: relative; height: auto; top: 20%; }
-            .sign-in-container { z-index: 5; }
-            .sign-up-container { display: none; }
+            .container { width: 100%; min-height: 800px; border-radius: 0; }
+            .form-container { width: 100%; height: 50%; }
+            .sign-in-container { top: 0; }
+            .sign-up-container { bottom: 0; top: auto; opacity: 1; z-index: 1; }
+            .overlay-container { display: none; } /* Hide animation on mobile for simplicity */
+            .sign-up-container { display: none; } /* Show via JS logic if needed, or stacking */
+            /* Simplifying mobile: just stack or toggle visibility */
+            .form-container.sign-up-container { display: none; height: 100%; top:0; }
+            .form-container.sign-in-container { width: 100%; height: 100%; }
             
-            /* Class to swap on mobile */
-            body.mobile-active .sign-in-container { display: none; }
-            body.mobile-active .sign-up-container { display: flex; opacity: 1; z-index: 5; }
-            
-            .mobile-toggle { display: block; }
+            body.mobile-signup .sign-in-container { display: none; }
+            body.mobile-signup .sign-up-container { display: flex; opacity: 1; z-index: 5; }
         }
     </style>
 </head>
@@ -128,13 +131,15 @@
             <div class="social-container">
                 <a href="/api/auth/google" class="social"><i class="fab fa-google"></i></a>
             </div>
-            <span>أو استخدم بريدك الإلكتروني</span>
+            <span>أو استخدم بريدك الإلكتروني للتسجيل</span>
             <input type="text" id="regName" placeholder="الاسم الكامل" required />
             <input type="email" id="regEmail" placeholder="البريد الإلكتروني" required />
             <input type="password" id="regPassword" placeholder="كلمة المرور" required />
             <button type="submit">تسجيل</button>
             <p id="regError" style="color: #ff4444; font-size: 0.8rem; margin-top: 10px;"></p>
-            <span class="mobile-toggle" onclick="toggleMobile()">لديك حساب؟ تسجيل الدخول</span>
+            
+            <!-- Mobile Switch Link -->
+            <p class="mobile-only" style="margin-top:20px; display:none;" onclick="toggleMobile()">لديك حساب؟ تسجيل دخول</p>
         </form>
     </div>
 
@@ -151,21 +156,23 @@
             <a href="#" style="color: #ccc; font-size: 0.8rem; margin: 10px 0; text-decoration: none;">نسيت كلمة المرور؟</a>
             <button type="submit">دخول</button>
             <p id="loginError" style="color: #ff4444; font-size: 0.8rem; margin-top: 10px;"></p>
-            <span class="mobile-toggle" onclick="toggleMobile()">ليس لديك حساب؟ إنشاء حساب</span>
+
+             <!-- Mobile Switch Link -->
+             <p class="mobile-only" style="margin-top:20px; display:none;" onclick="toggleMobile()">ليس لديك حساب؟ إنشاء حساب</p>
         </form>
     </div>
 
-    <!-- Overlay Panel (Animation) -->
+    <!-- Overlay Panel (The Animation Part) -->
     <div class="overlay-container">
         <div class="overlay">
             <div class="overlay-panel overlay-left">
                 <h1>مرحباً بعودتك!</h1>
-                <p>للبقاء على اتصال معنا، يرجى تسجيل الدخول</p>
+                <p>للبقاء على اتصال معنا، يرجى تسجيل الدخول بمعلوماتك الشخصية</p>
                 <button class="ghost" id="signIn">تسجيل الدخول</button>
             </div>
             <div class="overlay-panel overlay-right">
                 <h1>مرحباً يا صديق!</h1>
-                <p>أدخل تفاصيلك الشخصية وابدأ رحلتك معنا</p>
+                <p>أدخل تفاصيلك الشخصية وابدأ رحلتك معنا في واتساب برو</p>
                 <button class="ghost" id="signUp">إنشاء حساب</button>
             </div>
         </div>
@@ -173,17 +180,35 @@
 </div>
 
 <script>
-    // Animation Logic (Desktop)
+    // Animation Logic
     const signUpButton = document.getElementById('signUp');
     const signInButton = document.getElementById('signIn');
     const container = document.getElementById('container');
 
-    signUpButton.addEventListener('click', () => { container.classList.add("right-panel-active"); });
-    signInButton.addEventListener('click', () => { container.classList.remove("right-panel-active"); });
+    signUpButton.addEventListener('click', () => {
+        container.classList.add("right-panel-active");
+    });
 
-    // Mobile Logic
+    signInButton.addEventListener('click', () => {
+        container.classList.remove("right-panel-active");
+    });
+
+    // Mobile Toggle Logic
+    if (window.innerWidth <= 768) {
+        document.querySelectorAll('.mobile-only').forEach(el => el.style.display = 'block');
+    }
     function toggleMobile() {
-        document.body.classList.toggle('mobile-active');
+        document.body.classList.toggle('mobile-signup');
+        // Handle explicit visibility for mobile
+        const signIn = document.querySelector('.sign-in-container');
+        const signUp = document.querySelector('.sign-up-container');
+        if(document.body.classList.contains('mobile-signup')) {
+            signIn.style.display = 'none';
+            signUp.style.display = 'flex';
+        } else {
+            signIn.style.display = 'flex';
+            signUp.style.display = 'none';
+        }
     }
 
     // --- API Logic ---
@@ -196,7 +221,9 @@
         const btn = e.target.querySelector('button');
         const err = document.getElementById('loginError');
         
-        btn.textContent = 'جاري التحقق...'; btn.disabled = true; err.textContent = '';
+        btn.textContent = 'جاري التحقق...';
+        btn.disabled = true;
+        err.textContent = '';
 
         try {
             const res = await fetch('/api/auth/login', {
@@ -208,21 +235,16 @@
             
             if (res.ok) {
                 localStorage.setItem('authToken', data.token);
-                
-                // === FIX: توجيه الأدمن إلى admin-blog.html ===
-                if (data.isAdmin) {
-                    window.location.href = '/admin-blog.html';
-                } else {
-                    window.location.href = '/dashboard.html';
-                }
-                
+                window.location.href = data.isAdmin ? '/admin.html' : '/dashboard.html';
             } else {
                 err.textContent = data.message || 'خطأ في الدخول';
-                btn.disabled = false; btn.textContent = 'دخول';
+                btn.disabled = false;
+                btn.textContent = 'دخول';
             }
         } catch (error) {
             err.textContent = 'خطأ في الاتصال بالخادم';
-            btn.disabled = false; btn.textContent = 'دخول';
+            btn.disabled = false;
+            btn.textContent = 'دخول';
         }
     });
 
@@ -235,7 +257,9 @@
         const btn = e.target.querySelector('button');
         const err = document.getElementById('regError');
 
-        btn.textContent = 'جاري التسجيل...'; btn.disabled = true; err.textContent = '';
+        btn.textContent = 'جاري التسجيل...';
+        btn.disabled = true;
+        err.textContent = '';
 
         try {
             const res = await fetch('/api/auth/signup', {
@@ -247,13 +271,17 @@
             
             if (res.ok) {
                 alert('تم التسجيل بنجاح! يمكنك تسجيل الدخول الآن.');
-                container.classList.remove("right-panel-active");
-                if(window.innerWidth <= 768) toggleMobile();
+                container.classList.remove("right-panel-active"); // Slide to login
+                if(window.innerWidth <= 768) toggleMobile(); // For mobile
             } else {
                 err.textContent = data.message || 'خطأ في التسجيل';
             }
-        } catch (error) { err.textContent = 'خطأ في الاتصال'; } 
-        finally { btn.disabled = false; btn.textContent = 'تسجيل'; }
+        } catch (error) {
+            err.textContent = 'خطأ في الاتصال';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'تسجيل';
+        }
     });
 </script>
 
