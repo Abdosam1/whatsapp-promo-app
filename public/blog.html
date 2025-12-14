@@ -231,7 +231,7 @@
             currentLang = lang;
             localStorage.setItem('lang', lang);
             updatePageLanguage();
-            loadBlogPosts(); // Reload posts in new language
+            loadBlogPosts(); // Reload posts to update texts if needed
         }
 
         function updatePageLanguage() {
@@ -264,7 +264,7 @@
             }
         }
 
-        // 2. Fetch & Render Posts (Language Aware)
+        // 2. Fetch & Render Posts (FIXED FOR NEW SERVER)
         async function loadBlogPosts() {
             const container = document.getElementById('articles-list');
             try {
@@ -272,32 +272,37 @@
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
 
+                // Debugging: Bach tchouf data li wsllat
+                console.log("Blog Data:", posts);
+
                 // Get Translated strings safely
-                const noArticlesMsg = (dictionary[currentLang] && dictionary[currentLang]['blogNoArticles']) || "No articles.";
-                const readMoreMsg = (dictionary[currentLang] && dictionary[currentLang]['blogReadMore']) || "Read More";
+                const noArticlesMsg = (typeof dictionary !== 'undefined' && dictionary[currentLang] && dictionary[currentLang]['blogNoArticles']) || "لا توجد مقالات حالياً.";
+                const readMoreMsg = (typeof dictionary !== 'undefined' && dictionary[currentLang] && dictionary[currentLang]['blogReadMore']) || "اقرأ المزيد";
 
                 container.innerHTML = '';
 
-                if (posts.length === 0) {
+                if (!posts || posts.length === 0) {
                     container.innerHTML = `<p style="text-align:center; color:#888;">${noArticlesMsg}</p>`;
                     return;
                 }
 
                 posts.forEach(post => {
-                    // Logic to choose language
-                    // If English selected but post has no English title, fallback to Arabic
-                    const title = currentLang === 'en' ? (post.title_en || post.title_ar) : post.title_ar;
-                    const excerpt = currentLang === 'en' ? (post.excerpt_en || post.excerpt_ar) : post.excerpt_ar;
+                    // === TASLI7 L-MOCHKIL (THE FIX) ===
+                    // Server kaysift: {title, summary, category, image...}
+                    // Makaynach title_ar, title_en db.
+                    
+                    const title = post.title || "بدون عنوان";
+                    const excerpt = post.summary || post.excerpt || ""; // Fallback for safety
                     const category = post.category || 'General';
                     const date = new Date(post.created_at).toLocaleDateString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
                     
-                    // Image Handling
-                    // Note: In server.js we save image path, here we just use it directly if exists
+                    // Image Logic
                     const imgStyle = post.image ? `background-image:url('/${post.image}');` : '';
                     const fallback = post.image ? '' : '<i class="fas fa-image"></i>';
                     
                     const arrowClass = document.documentElement.dir === 'rtl' ? 'fa-arrow-left' : 'fa-arrow-right';
 
+                    // Link to article (Make sure you have article-view.html)
                     const html = `
                         <article class="article-card">
                             <div class="article-img" style="${imgStyle}">${fallback}</div>
@@ -305,7 +310,7 @@
                                 <span class="article-meta">${category} • ${date}</span>
                                 <h2 class="article-title">${title}</h2>
                                 <p class="article-excerpt">${excerpt}</p>
-                                <a href="article.html?id=${post.id}" class="read-btn">
+                                <a href="article-view.html?id=${post.id}" class="read-btn">
                                     <span>${readMoreMsg}</span> <i class="fas ${arrowClass}"></i>
                                 </a>
                             </div>
@@ -315,8 +320,8 @@
                 });
 
             } catch (error) {
-                console.error("Error:", error);
-                container.innerHTML = `<p style="text-align:center; color:#ef4444">Error loading posts.</p>`;
+                console.error("Error loading blog:", error);
+                container.innerHTML = `<p style="text-align:center; color:#ef4444">حدث خطأ أثناء تحميل المقالات.</p>`;
             }
         }
 
