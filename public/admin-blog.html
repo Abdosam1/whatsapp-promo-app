@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة المدونة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -9,20 +10,14 @@
         body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; padding: 20px; }
         .container { max-width: 900px; margin: 0 auto; }
         input, textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
-        button { background: #00d26a; color: #000; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
+        button { background: #00d26a; color: #000; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; transition:0.3s;}
         button:hover { background: #00b359; }
         
         .label-ar { color: #00d26a; font-weight: bold; display: block; margin-bottom: 8px; }
-        .label-en { color: #3b82f6; font-weight: bold; display: block; margin-bottom: 8px; dir: ltr; text-align: left;}
-        
-        .auto-translate-btn { 
-            background: #3b82f6; color: white; margin: 10px 0 30px 0; 
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-        }
-        .auto-translate-btn:hover { background: #2563eb; }
 
         .post-item { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
         .delete-btn { background: #ef4444; color: white; width: auto; padding: 5px 15px; font-size: 0.9em; }
+        .delete-btn:hover { background: #d32f2f; }
     </style>
 </head>
 <body>
@@ -38,182 +33,161 @@
             
             <form id="blogForm">
                 
-                <!-- Arabic Section -->
-                <h3 class="label-ar">1. المحتوى بالعربية (الأصل)</h3>
-                <input type="text" id="title_ar" placeholder="عنوان المقال (عربي)" required>
-                <textarea id="excerpt_ar" rows="3" placeholder="ملخص قصير يظهر في القائمة (عربي)" required></textarea>
-                <textarea id="content_ar" rows="8" placeholder="المحتوى الكامل للمقال (عربي)" required></textarea>
-
-                <!-- Translate Button -->
-                <button type="button" id="translateBtn" class="auto-translate-btn">
-                    <i class="fas fa-language"></i> ترجمة تلقائية إلى الإنجليزية
-                </button>
-
-                <!-- English Section -->
-                <h3 class="label-en" style="text-align:left;">2. English Content (Auto-Translated)</h3>
-                <input type="text" id="title_en" placeholder="Article Title" dir="ltr">
-                <textarea id="excerpt_en" rows="3" placeholder="Short Excerpt" dir="ltr"></textarea>
-                <textarea id="content_en" rows="8" placeholder="Full Content" dir="ltr"></textarea>
-
-                <hr style="border-color:#334155; margin: 20px 0;">
+                <h3 class="label-ar">إضافة مقال جديد</h3>
+                
+                <label>عنوان المقال:</label>
+                <input type="text" id="title" placeholder="اكتب العنوان هنا..." required>
+                
+                <label>ملخص قصير (يظهر في القائمة):</label>
+                <textarea id="summary" rows="3" placeholder="وصف قصير للمقال..." required></textarea>
+                
+                <label>المحتوى الكامل للمقال:</label>
+                <textarea id="content" rows="10" placeholder="اكتب المحتوى هنا... (يمكنك استخدام HTML)" required></textarea>
 
                 <label>التصنيف:</label>
                 <select id="category">
-                    <option value="Digital Marketing">Digital Marketing</option>
-                    <option value="WhatsApp Tips">WhatsApp Tips</option>
-                    <option value="Automation">Automation</option>
-                    <option value="E-commerce">E-commerce</option>
+                    <option value="Digital Marketing">التسويق الرقمي</option>
+                    <option value="WhatsApp Tips">شروحات واتساب</option>
+                    <option value="Automation">أتمتة وذكاء اصطناعي</option>
+                    <option value="E-commerce">تجارة إلكترونية</option>
                 </select>
 
                 <label>صورة المقال:</label>
                 <input type="file" id="image" accept="image/*">
 
-                <button type="submit" id="submitBtn">نشر المقال (Save Post)</button>
+                <button type="submit" id="submitBtn">نشر المقال <i class="fas fa-paper-plane"></i></button>
             </form>
         </div>
 
         <!-- List of Posts -->
         <h2>المقالات المنشورة</h2>
-        <div id="postsList">جاري التحميل...</div>
+        <div id="postsList" style="text-align:center; color:#888;">جاري التحميل...</div>
     </div>
 
     <script>
-        // 1. Check Auth
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            alert("المرجو تسجيل الدخول أولاً");
-            window.location.href = 'login.html';
-        }
-
-        // 2. Logout Function
-        function logout() {
-            localStorage.removeItem('authToken');
-            window.location.href = 'login.html';
-        }
-
-        // 3. Translation Logic
-        async function translateText(text) {
-            if(!text) return "";
+        // 1. Check Auth (Basique)
+        // Note: Token is usually managed in cookie or localStorage. Using simple check for now.
+        // If you are using JWT, ensure it's in localStorage
+        const token = localStorage.getItem('token'); 
+        
+        async function checkAdmin() {
             try {
-                // Free Translation API
-                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ar|en`);
+                const res = await fetch('/api/is-admin', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const data = await res.json();
-                return data.responseData.translatedText;
-            } catch(e) {
-                console.error("Translation failed", e);
-                return text; // Return original if fails
-            }
+                if(!data.isAdmin) {
+                   // alert("لست مشرفاً (Not Admin)");
+                   // window.location.href = '/dashboard';
+                }
+            } catch(e) { console.log(e); }
+        }
+        checkAdmin();
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
         }
 
-        document.getElementById('translateBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('translateBtn');
-            btn.textContent = "⏳ جاري الترجمة...";
-            btn.disabled = true;
-
-            const tAr = document.getElementById('title_ar').value;
-            const eAr = document.getElementById('excerpt_ar').value;
-            const cAr = document.getElementById('content_ar').value;
-
-            if(tAr) document.getElementById('title_en').value = await translateText(tAr);
-            if(eAr) document.getElementById('excerpt_en').value = await translateText(eAr);
-            // Splitting long text might be needed for free API limits, but basic test:
-            if(cAr) document.getElementById('content_en').value = await translateText(cAr.substring(0, 500)); 
-
-            btn.textContent = "✅ تمت الترجمة (راجع النصوص)";
-            setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-language"></i> ترجمة تلقائية إلى الإنجليزية';
-                btn.disabled = false;
-            }, 3000);
-        });
-
-        // 4. Submit Form
+        // 2. Submit Form
         document.getElementById('blogForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
-            btn.textContent = "جاري الحفظ...";
+            btn.textContent = "⏳ جاري النشر...";
             btn.disabled = true;
 
             const formData = new FormData();
-            formData.append('title_ar', document.getElementById('title_ar').value);
-            formData.append('title_en', document.getElementById('title_en').value);
-            formData.append('excerpt_ar', document.getElementById('excerpt_ar').value);
-            formData.append('excerpt_en', document.getElementById('excerpt_en').value);
-            formData.append('content_ar', document.getElementById('content_ar').value);
-            formData.append('content_en', document.getElementById('content_en').value);
+            // Important: Names must match what Server expects (title, summary, content)
+            formData.append('title', document.getElementById('title').value);
+            formData.append('summary', document.getElementById('summary').value);
+            formData.append('content', document.getElementById('content').value);
             formData.append('category', document.getElementById('category').value);
-            formData.append('image', document.getElementById('image').files[0]);
+            
+            const imgFile = document.getElementById('image').files[0];
+            if(imgFile) formData.append('image', imgFile);
 
             try {
                 const res = await fetch('/api/blog/create', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { 'Authorization': `Bearer ${token}` }, // Add Token
                     body: formData
                 });
                 
-                if (res.status === 401 || res.status === 403) {
-                    alert("جلسة العمل انتهت أو ليس لديك صلاحية.");
-                    logout();
-                    return;
-                }
-
                 const data = await res.json();
+                
                 if (data.success) {
                     alert('✅ تم نشر المقال بنجاح!');
-                    location.reload();
+                    document.getElementById('blogForm').reset();
+                    loadPosts(); // Refresh list
                 } else {
-                    alert('❌ خطأ: ' + (data.message || data.error));
+                    alert('❌ خطأ: ' + (data.message || data.error || 'Unknown Error'));
                 }
             } catch (err) { 
-                alert('خطأ في الاتصال بالسيرفر'); 
+                console.error(err);
+                alert('❌ خطأ في الاتصال بالسيرفر'); 
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'نشر المقال <i class="fas fa-paper-plane"></i>';
             }
-            btn.disabled = false;
-            btn.textContent = "نشر المقال (Save Post)";
         });
 
-        // 5. Load Posts
+        // 3. Load Posts
         async function loadPosts() {
+            const container = document.getElementById('postsList');
             try {
                 const res = await fetch('/api/blog/posts');
                 const posts = await res.json();
-                const container = document.getElementById('postsList');
+                
                 container.innerHTML = '';
                 
-                if(posts.length === 0) {
-                    container.innerHTML = '<p style="color:#888; text-align:center">لا توجد مقالات.</p>';
+                if(!posts || posts.length === 0) {
+                    container.innerHTML = '<p>لا توجد مقالات منشورة.</p>';
                     return;
                 }
 
                 posts.forEach(post => {
+                    // Match variables (title, not title_ar)
+                    const title = post.title || "بدون عنوان";
+                    const date = new Date(post.created_at).toLocaleDateString('ar-MA');
+
                     const div = document.createElement('div');
                     div.className = 'post-item';
                     div.innerHTML = `
-                        <div>
-                            <strong style="color:#00d26a; font-size:1.1em;">${post.title_ar}</strong>
-                            <div style="font-size:0.85em; color:#888; margin-top:5px;">${new Date(post.created_at).toLocaleDateString('ar-MA')}</div>
+                        <div style="text-align:right;">
+                            <strong style="color:#00d26a; font-size:1.1em; display:block;">${title}</strong>
+                            <small style="color:#888;">${date}</small>
                         </div>
-                        <button class="delete-btn" onclick="deletePost(${post.id})"><i class="fas fa-trash"></i> حذف</button>
+                        <button class="delete-btn" onclick="deletePost(${post.id})">
+                            <i class="fas fa-trash"></i> حذف
+                        </button>
                     `;
                     container.appendChild(div);
                 });
-            } catch(e) {}
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = '<p style="color:red">فشل في تحميل المقالات.</p>';
+            }
         }
 
-        // 6. Delete Post
+        // 4. Delete Post
         async function deletePost(id) {
-            if(!confirm("هل أنت متأكد من حذف هذا المقال؟")) return;
+            if(!confirm("هل أنت متأكد من حذف هذا المقال نهائياً؟")) return;
             try {
                 const res = await fetch(`/api/blog/delete/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if(res.ok) {
+                const data = await res.json();
+                
+                if(data.success) {
                     loadPosts();
                 } else {
-                    alert("فشل الحذف. تحقق من الصلاحيات.");
+                    alert("فشل الحذف. (تأكد أنك Admin)");
                 }
             } catch(e){ alert("خطأ في الاتصال"); }
         }
 
+        // Init Load
         loadPosts();
     </script>
 </body>
