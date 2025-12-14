@@ -229,7 +229,6 @@ async function startWhatsAppSession(userId, socket = null) {
 }
 
 function syncContactsToDB(userId, socket, specificContacts = null) {
-    // Basic Sync without Store (since we removed makeInMemoryStore to fix error)
     if(!specificContacts) return; 
 
     const stmt = db.prepare(`INSERT OR IGNORE INTO clients (name, phone, ownerId) VALUES (?, ?, ?)`);
@@ -363,14 +362,10 @@ app.post("/api/auth/signup", async (req, res) => {
 // === ROUTES PROTECTION (FIXED AUTH REDIRECTS) ===
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 1. Auth Page
 app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'auth.html')));
-
-// 2. Redirects to Auth
 app.get('/login', (req, res) => res.redirect('/auth')); 
 app.get('/signup', (req, res) => res.redirect('/auth'));
 
-// 3. Admin Protected Route
 app.get('/admin', authMiddleware, (req, res) => { 
     checkAdmin(req.userData.userId, (isAdmin) => { 
         if(!isAdmin) return res.redirect('/dashboard.html'); 
@@ -378,13 +373,8 @@ app.get('/admin', authMiddleware, (req, res) => {
     }); 
 });
 
-// 4. Dashboard Protected Route
 app.get('/dashboard', authMiddleware, checkSubscription, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-
-// 5. Activation
 app.get('/activate', authMiddleware, (req, res) => res.sendFile(path.join(__dirname, 'public', 'activate.html')));
-
-// 6. Home
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 
@@ -430,18 +420,50 @@ app.delete("/deletePromo/:id", authMiddleware, (req, res) => {
 
 app.delete("/api/delete-all-imported", authMiddleware, (req, res) => db.run(`DELETE FROM imported_clients WHERE ownerId=?`, [req.userData.userId], ()=>res.json({ success: true })));
 
-// Blog API
+// ========================================== //
+// ============ BLOG API (FIXED) ============ //
+// ========================================== //
 app.get('/api/blog/posts', (req, res) => db.all("SELECT * FROM blog_posts ORDER BY id DESC", [], (e, r) => res.json(r || [])));
 app.get('/api/blog/post/:id', (req, res) => db.get("SELECT * FROM blog_posts WHERE id=?", [req.params.id], (e, r) => res.json(r)));
+
+// [MODIFIED] Create Blog Post Endpoint
 app.post('/api/blog/create', authMiddleware, uploadBlogImage.single('image'), (req, res) => {
     checkAdmin(req.userData.userId, (isAdmin) => {
         if(!isAdmin) return res.status(403).json({message:"Forbidden"});
+        
+        // 1. Debug Logs: Bach tchouf chno wsslek
+        console.log("📝 DATA RECEIVED:", req.body);
+        if (req.file) console.log("🖼️ IMAGE:", req.file.filename);
+
+        // 2. Flexible Variables (Accept both 'title' and 'title_ar')
+        const title = req.body.title || req.body.title_ar;
+        const summary = req.body.summary || req.body.excerpt || req.body.excerpt_ar;
+        const content = req.body.content || req.body.content_ar;
+        const category = req.body.category || 'General';
+
+        // 3. Validation: Ila title khawi, rje3 error
+        if (!title) {
+            console.error("❌ ERROR: Title is missing!");
+            return res.status(400).json({success: false, message: "Title is required"});
+        }
+
         const img = req.file ? `blog_images/${req.file.filename}` : null;
+        
+        // 4. Insert into DB
         db.run(`INSERT INTO blog_posts (title, summary, content, category, image) VALUES (?,?,?,?,?)`, 
-            [req.body.title_ar, req.body.excerpt_ar, req.body.content_ar, req.body.category, img], 
-            () => res.json({success:true}));
+            [title, summary, content, category, img], 
+            function(err) {
+                if(err) {
+                    console.error("❌ DB ERROR:", err.message);
+                    return res.status(500).json({success:false, error: err.message});
+                }
+                console.log("✅ Blog Post Created! ID:", this.lastID);
+                res.json({success:true, id: this.lastID});
+            }
+        );
     });
 });
+
 app.delete('/api/blog/delete/:id', authMiddleware, (req, res) => {
     checkAdmin(req.userData.userId, (isAdmin) => {
         if(!isAdmin) return res.status(403).json({message:"Forbidden"});
