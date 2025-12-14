@@ -2,110 +2,182 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة المدونة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { background: #0f172a; color: white; font-family: 'Cairo', sans-serif; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        input, textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box; }
-        button { background: #00d26a; color: #000; padding: 12px; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; }
+        .container { max-width: 900px; margin: 0 auto; }
+        input, textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
+        button { background: #00d26a; color: #000; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; transition:0.3s;}
         button:hover { background: #00b359; }
-        .post-item { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; border: 1px solid #334155; }
+        .label-ar { color: #00d26a; font-weight: bold; display: block; margin-bottom: 8px; }
+        .post-item { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
+        .delete-btn { background: #ef4444; color: white; width: auto; padding: 5px 15px; font-size: 0.9em; }
+        .delete-btn:hover { background: #d32f2f; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>لوحة تحكم المدونة</h1>
-        <div style="background: #162032; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-            <form id="blogForm">
-                <label>عنوان المقال:</label>
-                <input type="text" id="title" required>
-                
-                <label>ملخص (يظهر في القائمة):</label>
-                <textarea id="summary" rows="3" required></textarea>
-                
-                <label>المحتوى الكامل (HTML مسموح):</label>
-                <textarea id="content" rows="10" required></textarea>
-
-                <label>التصنيف:</label>
-                <select id="category">
-                    <option value="Digital Marketing">التسويق الرقمي</option>
-                    <option value="Automation">أتمتة</option>
-                    <option value="WhatsApp">واتساب</option>
-                </select>
-
-                <label>الصورة:</label>
-                <input type="file" id="image" accept="image/*">
-
-                <button type="submit" id="submitBtn">نشر المقال</button>
-            </form>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h1><i class="fas fa-edit"></i> لوحة تحكم المدونة</h1>
+            <button onclick="logout()" style="width:auto; background:#ef4444; color:white;">خروج</button>
         </div>
-        <h2>المقالات السابقة</h2>
-        <div id="postsList"></div>
+        <a href="dashboard.html" style="color:#ccc; display:block; margin-bottom:20px;">&larr; العودة للوحة التحكم</a>
+
+    <div style="background: #162032; padding: 25px; border-radius: 12px; margin-bottom: 40px; border:1px solid #334155;">
+        
+        <form id="blogForm">
+            
+            <h3 class="label-ar">إضافة مقال جديد</h3>
+            
+            <label>عنوان المقال:</label>
+            <input type="text" id="title" placeholder="اكتب العنوان هنا..." required>
+            
+            <label>ملخص قصير (يظهر في القائمة):</label>
+            <textarea id="summary" rows="3" placeholder="وصف قصير للمقال..." required></textarea>
+            
+            <label>المحتوى الكامل للمقال:</label>
+            <textarea id="content" rows="10" placeholder="اكتب المحتوى هنا... (يمكنك استخدام HTML)" required></textarea>
+
+            <label>التصنيف:</label>
+            <select id="category">
+                <option value="Digital Marketing">التسويق الرقمي</option>
+                <option value="WhatsApp Tips">شروحات واتساب</option>
+                <option value="Automation">أتمتة وذكاء اصطناعي</option>
+                <option value="E-commerce">تجارة إلكترونية</option>
+            </select>
+
+            <label>صورة المقال:</label>
+            <input type="file" id="image" accept="image/*">
+
+            <button type="submit" id="submitBtn">نشر المقال <i class="fas fa-paper-plane"></i></button>
+        </form>
     </div>
 
-    <script>
-        const token = localStorage.getItem('token'); 
-        if(!token) alert("يجب تسجيل الدخول أولاً!");
+    <!-- List of Posts -->
+    <h2>المقالات المنشورة</h2>
+    <div id="postsList" style="text-align:center; color:#888;">جاري التحميل...</div>
+</div>
 
-        // إضافة مقال
-        document.getElementById('blogForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            btn.disabled = true;
-            btn.innerText = "جاري النشر...";
-
-            const formData = new FormData();
-            formData.append('title', document.getElementById('title').value);
-            formData.append('summary', document.getElementById('summary').value);
-            formData.append('content', document.getElementById('content').value);
-            formData.append('category', document.getElementById('category').value);
-            if(document.getElementById('image').files[0]) {
-                formData.append('image', document.getElementById('image').files[0]);
+<script>
+    const token = localStorage.getItem('token'); 
+    
+    async function checkAdmin() {
+        try {
+            const res = await fetch('/api/is-admin', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if(!data.isAdmin) {
+               // handle non-admin
             }
+        } catch(e) { console.log(e); }
+    }
+    checkAdmin();
 
-            try {
-                const res = await fetch('/api/blog/create', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-                const data = await res.json();
-                if(data.success) {
-                    alert('تم النشر بنجاح!');
-                    location.reload();
-                } else {
-                    alert('خطأ: ' + (data.message || data.error));
-                }
-            } catch(e) { console.error(e); alert('خطأ في الاتصال'); }
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+    }
+
+    // 2. Submit Form
+    document.getElementById('blogForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.textContent = "⏳ جاري النشر...";
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('title', document.getElementById('title').value);
+        formData.append('summary', document.getElementById('summary').value);
+        formData.append('content', document.getElementById('content').value);
+        formData.append('category', document.getElementById('category').value);
+        
+        const imgFile = document.getElementById('image').files[0];
+        if(imgFile) formData.append('image', imgFile);
+
+        try {
+            const res = await fetch('/api/blog/create', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }, // Add Token
+                body: formData
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+                alert('✅ تم نشر المقال بنجاح!');
+                document.getElementById('blogForm').reset();
+                loadPosts(); // Refresh list
+            } else {
+                alert('❌ خطأ: ' + (data.message || data.error || 'Unknown Error'));
+            }
+        } catch (err) { 
+            console.error(err);
+            alert('❌ خطأ في الاتصال بالسيرفر'); 
+        } finally {
             btn.disabled = false;
-            btn.innerText = "نشر المقال";
-        });
+            btn.innerHTML = 'نشر المقال <i class="fas fa-paper-plane"></i>';
+        }
+    });
 
-        // عرض المقالات للحذف
-        async function loadPosts() {
+    // 3. Load Posts
+    async function loadPosts() {
+        const container = document.getElementById('postsList');
+        try {
             const res = await fetch('/api/blog/posts');
             const posts = await res.json();
-            const container = document.getElementById('postsList');
+            
             container.innerHTML = '';
-            posts.forEach(p => {
-                container.innerHTML += `
-                    <div class="post-item">
-                        <span>${p.title}</span>
-                        <button onclick="deletePost(${p.id})" style="width:auto; background:red; color:white;">حذف</button>
-                    </div>`;
-            });
-        }
+            
+            if(!posts || posts.length === 0) {
+                container.innerHTML = '<p>لا توجد مقالات منشورة.</p>';
+                return;
+            }
 
-        async function deletePost(id) {
-            if(!confirm('حذف نهائي؟')) return;
-            await fetch(`/api/blog/delete/${id}`, {
+            posts.forEach(post => {
+                // Fixed Variable here
+                const title = post.title || "بدون عنوان";
+                const date = new Date(post.created_at).toLocaleDateString('ar-MA');
+
+                const div = document.createElement('div');
+                div.className = 'post-item';
+                div.innerHTML = `
+                    <div style="text-align:right;">
+                        <strong style="color:#00d26a; font-size:1.1em; display:block;">${title}</strong>
+                        <small style="color:#888;">${date}</small>
+                    </div>
+                    <button class="delete-btn" onclick="deletePost(${post.id})">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        } catch(e) {
+            console.error(e);
+            container.innerHTML = '<p style="color:red">فشل في تحميل المقالات.</p>';
+        }
+    }
+
+    async function deletePost(id) {
+        if(!confirm("هل أنت متأكد من حذف هذا المقال نهائياً؟")) return;
+        try {
+            const res = await fetch(`/api/blog/delete/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            loadPosts();
-        }
-        loadPosts();
-    </script>
+            const data = await res.json();
+            if(data.success) {
+                loadPosts();
+            } else {
+                alert("فشل الحذف. (تأكد أنك Admin)");
+            }
+        } catch(e){ alert("خطأ في الاتصال"); }
+    }
+
+    loadPosts();
+</script>
 </body>
 </html>
